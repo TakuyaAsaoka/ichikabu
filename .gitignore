@@ -1,0 +1,4 @@
+# Claude Code の作業ディレクトリ（worktree を .claude/worktrees/ 配下に作る運用のため）
+.claude/worktrees/
+
+.DS_Store

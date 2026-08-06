@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: イチカブ API
+  version: 0.1.0
+  description: |
+    API契約の唯一の正。server は openapi-typescript、iOS は swift-openapi-generator で
+    この定義から型を生成する（設計書 §8）。
+    エンドポイント設計は未決事項 #4 のため、現時点ではヘルスチェックのみ定義する。
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/health:
+    get:
+      summary: ヘルスチェック
+      operationId: getHealth
+      responses:
+        "200":
+          description: 正常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  schemas:
+    Health:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok

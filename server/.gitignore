@@ -1,0 +1,8 @@
+node_modules/
+.next/
+next-env.d.ts
+tsconfig.tsbuildinfo
+.env*.local
+
+# openapi-typescript の生成物。品質ゲートで毎回 `pnpm gen` するためコミットしない
+src/generated/
