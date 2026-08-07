@@ -40,11 +40,16 @@ Issue #4（iOSプロジェクト作成）で追記する。
 cp .env.example .env.local
 # BETTER_AUTH_SECRET に `openssl rand -base64 32` の出力を入れる
 # SEED_USER_EMAIL / SEED_USER_PASSWORD を埋める
-docker compose up -d
+docker compose up -d --wait
 pnpm install && pnpm db:migrate && pnpm db:seed
 ```
 
-DBのコンテナとデータはWorktree間で共有される（compose のプロジェクト名がどのWorktreeでも `server` になるため）。複数のWorktreeで同時にテストを流すと互いのデータを消し合う点にだけ注意する。
+`--wait` はDBが受け付けられる状態になるまで待つ。初回はデータベースの初期化に数秒かかり、待たずに `db:migrate` すると接続に失敗する。
+
+DBのコンテナとデータはWorktree間で共有される（compose のプロジェクト名がどのWorktreeでも `server` になるため）。次の2点に注意する。
+
+- 複数のWorktreeで同時にテストを流すと互いのデータを消し合う
+- 片方のWorktreeで `db:migrate` すると、共有しているDBのスキーマがもう片方のブランチより先に進む。ブランチを行き来するときは、そのブランチで `db:migrate` を流し直す
 
 ## データベース
 

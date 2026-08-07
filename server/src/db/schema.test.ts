@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
 import { db } from ".";
@@ -108,12 +108,26 @@ describe("event の期間", () => {
     );
     expect(violated).toBe("event_period_check");
   });
+});
 
+describe("event の重要度と市場の値", () => {
   it("重要度に4を入れると失敗する", async () => {
     const violated = await expectViolation(
       db.insert(event).values({ ...eventBase, market: "JP", importance: 4 }),
     );
     expect(violated).toBe("event_importance_check");
+  });
+
+  // TypeScript の型でも防いでいるが、CHECK の役目は生SQLからの混入を止めることなので
+  // DB側で効くことを固定する。型を通さない経路として生SQLで入れる
+  it("決められていない市場は生SQLでも登録できない", async () => {
+    const violated = await expectViolation(
+      db.execute(sql`
+        INSERT INTO "event" (title, short_label, start_date, importance, market)
+        VALUES ('テスト用イベント', 'テスト', '2026-08-05', 2, 'EU')
+      `),
+    );
+    expect(violated).toBe("event_market_check");
   });
 });
 
@@ -185,6 +199,15 @@ describe("stock の一意性と形式", () => {
     );
     expect(violated).toBe("stock_fiscal_month_check");
   });
+
+  it("決められていない市場は生SQLでも登録できない", async () => {
+    const violated = await expectViolation(
+      db.execute(sql`
+        INSERT INTO "stock" (market, ticker, name) VALUES ('EU', 'ASML', 'ASML')
+      `),
+    );
+    expect(violated).toBe("stock_market_check");
+  });
 });
 
 describe("外部キーの削除時の挙動", () => {
@@ -223,6 +246,18 @@ describe("外部キーの削除時の挙動", () => {
     expect(await db.select().from(holding)).toEqual([]);
   });
 
+  it("銘柄を削除するとテーマ所属も消える", async () => {
+    const stockRow = await createStock();
+    const themeRow = await createTheme();
+    await db
+      .insert(themeStock)
+      .values({ themeId: themeRow.id, stockId: stockRow.id });
+
+    await db.delete(stock).where(eq(stock.id, stockRow.id));
+
+    expect(await db.select().from(themeStock)).toEqual([]);
+  });
+
   it("テーマを削除するとテーマ所属も消える", async () => {
     const stockRow = await createStock();
     const themeRow = await createTheme();
@@ -253,6 +288,20 @@ describe("theme の一意性", () => {
       db.insert(theme).values({ name: "ドローン" }),
     );
     expect(violated).toBe("theme_name_unique");
+  });
+});
+
+describe("theme_stock の複合主キー", () => {
+  it("同じテーマと銘柄の組は2件登録できない", async () => {
+    const stockRow = await createStock();
+    const themeRow = await createTheme();
+    const values = { themeId: themeRow.id, stockId: stockRow.id };
+    await db.insert(themeStock).values(values);
+
+    const violated = await expectViolation(
+      db.insert(themeStock).values(values),
+    );
+    expect(violated).toBe("theme_stock_theme_id_stock_id_pk");
   });
 });
 

@@ -33,6 +33,22 @@ describe("seed によるユーザー投入", () => {
     expect(await seedUser(EMAIL, PASSWORD)).toEqual({ created: false });
     expect(await db.select().from(user)).toHaveLength(1);
   });
+
+  it("ユーザーだけ作られた状態で中断していても、実行し直せばサインインできるようになる", async () => {
+    // 1回目がユーザー作成のあとで落ちた状態を作る
+    await db
+      .insert(user)
+      .values({ id: "中断で残ったユーザー", name: EMAIL, email: EMAIL });
+
+    expect(await seedUser(EMAIL, PASSWORD)).toEqual({ created: true });
+    expect(await db.select().from(user)).toHaveLength(1);
+
+    const res = await post("sign-in/email", {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("サインイン", () => {
@@ -68,12 +84,12 @@ describe("サインイン", () => {
     });
   });
 
-  it("誤ったパスワードでは 200 が返らない", async () => {
+  it("誤ったパスワードでは 401 が返る", async () => {
     const res = await post("sign-in/email", {
       email: EMAIL,
       password: "wrong-password",
     });
-    expect(res.status).not.toBe(200);
+    expect(res.status).toBe(401);
   });
 });
 
