@@ -99,7 +99,7 @@
 | テーブル | 主な属性 | 制約 |
 |---|---|---|
 | `user` | 利用者 | **Better Auth が生成するテーブルをそのまま使う**（→ §9）。当面1件を手動投入 |
-| `stock` | `market`(JP/US)・`ticker`(文字列)・`name`・`fiscal_month`(決算月、JPのみ) | PKはサロゲートID。UNIQUE(market, ticker)。`fiscal_month` は1〜12。`ticker` は `^[0-9A-Z.-]+$`（全角混入の防止） |
+| `stock` | `market`(JP/US)・`ticker`(文字列)・`name`・`fiscal_month`(決算月、JPのみ) | PKはサロゲートID。UNIQUE(market, ticker)。`fiscal_month` は1〜12かつJP銘柄のみ（CHECKで強制。US銘柄に入るとJPの休場日カレンダーで計算した権利確定日が出てしまうため。→ §14 #8）。`ticker` は `^[0-9A-Z.-]+$`（全角混入の防止） |
 | `holding` | user × stock | PKは (user_id, stock_id) の複合 |
 | `theme` | 名前 | 名前UNIQUE |
 | `theme_stock` | theme × stock | PKは (theme_id, stock_id) の複合 |
@@ -252,6 +252,7 @@ Better Auth 一本で両クライアントをまかなう。
   - 根拠: `user` は全FKのハブである。別テーブルで作って後から統合すると `holding` 等のFK張り替えとデータ移行が発生するが、今なら判断1つで済む。利用者1人で属性を足す予定もない段階では、テーブルが1枚少ない構成が素直
   - 引き換えに、Better Auth のスキーマ都合（列名・マイグレーション）に本設計のFKが縛られる。これは受け入れる
 - サインアップ無効（`disableSignUp`）。ユーザーは1件を手動投入
+- **Better Auth が生成する4テーブルの日時列はタイムゾーンなし**（自前テーブルの `created_at` はタイムゾーン付き）。生成物のため合わせに行かない。`session.expires_at` の解釈がサーバーのタイムゾーン設定に依存する点だけ、ホスティング先を選ぶとき（Issue #16）に確認する
 - SwiftにSDKは不要。サインインは `POST /api/auth/sign-in/email` を叩くだけ
 - リフレッシュ機構なし。セッションはスライディング延長され、401が返ったら再ログイン画面に落とす（→ §7）
 

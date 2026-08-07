@@ -1,5 +1,5 @@
 {
-  "id": "8dfc0626-897d-4cc2-8a35-aadb90d73850",
+  "id": "72a752a4-db59-488b-9543-c381a47c8bf1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -132,8 +132,8 @@
           "name": "event_market_check",
           "value": "\"event\".\"market\" IN ('JP', 'US', 'GLOBAL')"
         },
-        "event_target_check": {
-          "name": "event_target_check",
+        "event_target_exclusive_check": {
+          "name": "event_target_exclusive_check",
           "value": "num_nonnulls(\"event\".\"market\", \"event\".\"theme_id\", \"event\".\"stock_id\") = 1"
         },
         "event_period_check": {
@@ -275,6 +275,10 @@
         "stock_fiscal_month_check": {
           "name": "stock_fiscal_month_check",
           "value": "\"stock\".\"fiscal_month\" BETWEEN 1 AND 12"
+        },
+        "stock_fiscal_month_market_check": {
+          "name": "stock_fiscal_month_market_check",
+          "value": "\"stock\".\"market\" = 'JP' OR \"stock\".\"fiscal_month\" IS NULL"
         }
       },
       "isRLSEnabled": false

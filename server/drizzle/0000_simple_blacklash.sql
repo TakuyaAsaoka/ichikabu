@@ -14,7 +14,7 @@ CREATE TABLE "event" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "event_importance_check" CHECK ("event"."importance" BETWEEN 1 AND 3),
 	CONSTRAINT "event_market_check" CHECK ("event"."market" IN ('JP', 'US', 'GLOBAL')),
-	CONSTRAINT "event_target_check" CHECK (num_nonnulls("event"."market", "event"."theme_id", "event"."stock_id") = 1),
+	CONSTRAINT "event_target_exclusive_check" CHECK (num_nonnulls("event"."market", "event"."theme_id", "event"."stock_id") = 1),
 	CONSTRAINT "event_period_check" CHECK ("event"."end_date" IS NULL OR "event"."end_date" > "event"."start_date")
 );
 --> statement-breakpoint
@@ -35,7 +35,8 @@ CREATE TABLE "stock" (
 	CONSTRAINT "stock_market_ticker_unique" UNIQUE("market","ticker"),
 	CONSTRAINT "stock_market_check" CHECK ("stock"."market" IN ('JP', 'US')),
 	CONSTRAINT "stock_ticker_check" CHECK ("stock"."ticker" ~ '^[0-9A-Z.-]+$'),
-	CONSTRAINT "stock_fiscal_month_check" CHECK ("stock"."fiscal_month" BETWEEN 1 AND 12)
+	CONSTRAINT "stock_fiscal_month_check" CHECK ("stock"."fiscal_month" BETWEEN 1 AND 12),
+	CONSTRAINT "stock_fiscal_month_market_check" CHECK ("stock"."market" = 'JP' OR "stock"."fiscal_month" IS NULL)
 );
 --> statement-breakpoint
 CREATE TABLE "theme" (

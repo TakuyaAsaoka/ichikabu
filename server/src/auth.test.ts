@@ -48,6 +48,26 @@ describe("サインイン", () => {
     expect(res.status).toBe(200);
   });
 
+  it("iOS向けのトークンが返り、そのトークンでセッションを取得できる", async () => {
+    const signIn = await post("sign-in/email", {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    // Bearer プラグインがサインイン応答に載せるトークン（設計書 §9）
+    const token = signIn.headers.get("set-auth-token");
+    expect(token).toBeTruthy();
+
+    const session = await auth.handler(
+      new Request(`${BASE_URL}/api/auth/get-session`, {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    );
+    expect(session.status).toBe(200);
+    await expect(session.json()).resolves.toMatchObject({
+      user: { email: EMAIL },
+    });
+  });
+
   it("誤ったパスワードでは 200 が返らない", async () => {
     const res = await post("sign-in/email", {
       email: EMAIL,

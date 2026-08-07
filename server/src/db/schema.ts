@@ -44,6 +44,12 @@ export const stock = pgTable(
     // 全角の「７２０３」が半角の「7203」と別銘柄として UNIQUE を素通りするのを防ぐ（設計書 §4.2）
     check("stock_ticker_check", sql`${t.ticker} ~ '^[0-9A-Z.-]+$'`),
     check("stock_fiscal_month_check", sql`${t.fiscalMonth} BETWEEN 1 AND 12`),
+    // 決算月はJP銘柄のみ（設計書 §4.1）。US銘柄に入ると、JPの休場日カレンダーで
+    // 計算した権利確定日がUS銘柄に出てしまう（→ 設計書 §14 #8）
+    check(
+      "stock_fiscal_month_market_check",
+      sql`${t.market} = 'JP' OR ${t.fiscalMonth} IS NULL`,
+    ),
   ],
 );
 
@@ -115,7 +121,7 @@ export const event = pgTable(
     check("event_market_check", sql`${t.market} IN ('JP', 'US', 'GLOBAL')`),
     // 市場イベント・テーマイベント・銘柄イベントの排他。未決事項 #5 の決着（設計書 §4.2）
     check(
-      "event_target_check",
+      "event_target_exclusive_check",
       sql`num_nonnulls(${t.market}, ${t.themeId}, ${t.stockId}) = 1`,
     ),
     // 単日は end_date IS NULL でのみ表す。= を許すと単日の表現が2通りになる（設計書 §4.2）

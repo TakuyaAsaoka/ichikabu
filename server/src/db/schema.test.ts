@@ -30,12 +30,7 @@ async function createTheme(name = "ドローン") {
 async function createUser(id = "user-1") {
   const [row] = await db
     .insert(user)
-    .values({
-      id,
-      name: "運用者",
-      email: `${id}@example.com`,
-      updatedAt: new Date(),
-    })
+    .values({ id, name: "運用者", email: `${id}@example.com` })
     .returning();
   return row;
 }
@@ -76,7 +71,7 @@ describe("event の対象3列（市場・テーマ・銘柄）の排他", () => 
     const violated = await expectViolation(
       db.insert(event).values({ ...eventBase, market: "JP", stockId: id }),
     );
-    expect(violated).toBe("event_target_check");
+    expect(violated).toBe("event_target_exclusive_check");
   });
 
   it("theme_id と stock_id を両方入れると失敗する", async () => {
@@ -87,12 +82,12 @@ describe("event の対象3列（市場・テーマ・銘柄）の排他", () => 
         .insert(event)
         .values({ ...eventBase, themeId: themeRow.id, stockId: stockRow.id }),
     );
-    expect(violated).toBe("event_target_check");
+    expect(violated).toBe("event_target_exclusive_check");
   });
 
   it("3列とも入れないと失敗する", async () => {
     const violated = await expectViolation(db.insert(event).values(eventBase));
-    expect(violated).toBe("event_target_check");
+    expect(violated).toBe("event_target_exclusive_check");
   });
 });
 
@@ -157,6 +152,26 @@ describe("stock の一意性と形式", () => {
         .values({ market: "JP", ticker: "７２０３", name: "全角のティッカー" }),
     );
     expect(violated).toBe("stock_ticker_check");
+  });
+
+  it("US銘柄に決算月を入れると失敗する（決算月はJP銘柄のみ）", async () => {
+    const violated = await expectViolation(
+      db.insert(stock).values({
+        market: "US",
+        ticker: "AAPL",
+        name: "Apple",
+        fiscalMonth: 9,
+      }),
+    );
+    expect(violated).toBe("stock_fiscal_month_market_check");
+  });
+
+  it("US銘柄でも決算月を空にすれば登録できる", async () => {
+    const [row] = await db
+      .insert(stock)
+      .values({ market: "US", ticker: "AAPL", name: "Apple" })
+      .returning();
+    expect(row.fiscalMonth).toBeNull();
   });
 
   it("決算月に13を入れると失敗する", async () => {
@@ -228,6 +243,16 @@ describe("外部キーの削除時の挙動", () => {
       db.delete(theme).where(eq(theme.id, id)),
     );
     expect(violated).toBe("event_theme_id_theme_id_fk");
+  });
+});
+
+describe("theme の一意性", () => {
+  it("同じ名前のテーマは2件登録できない", async () => {
+    await createTheme("ドローン");
+    const violated = await expectViolation(
+      db.insert(theme).values({ name: "ドローン" }),
+    );
+    expect(violated).toBe("theme_name_unique");
   });
 });
 

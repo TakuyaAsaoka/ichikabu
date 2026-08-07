@@ -1,13 +1,11 @@
 import { defineConfig } from "drizzle-kit";
+import { loadEnvLocal } from "./src/env";
 
-// drizzle-kit は Next.js の外で動くため .env.local を自前で読む
-process.loadEnvFile(".env.local");
+loadEnvLocal();
 
 const url = process.env.DATABASE_URL;
 if (!url) {
-  throw new Error(
-    "DATABASE_URL が設定されていない。.env.example を .env.local にコピーすること",
-  );
+  throw new Error("DATABASE_URL が設定されていない。.env.example を参照");
 }
 
 export default defineConfig({
