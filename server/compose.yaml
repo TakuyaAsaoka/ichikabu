@@ -1,0 +1,27 @@
+# 開発用の PostgreSQL。本番のホスティング・DB は Issue #16 で選定する（設計書 §1.1）。
+# 特定のサービスに合わせず、その時点の安定版を使う。使っているのは PostgreSQL の
+# 標準機能（num_nonnulls・GENERATED ALWAYS AS IDENTITY）だけなので、選定後の移行は
+# pg_dump で足りる（Issue #16「開発中に使う DB は、この選定と切り離す」）。
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ichikabu
+    ports:
+      # 既定の 5432 は他プロジェクトのコンテナが使っているため 5434 を割り当てる。
+      # 127.0.0.1 に限定し、LAN からは見えないようにする
+      - "127.0.0.1:5434:5432"
+    volumes:
+      # postgres:18 のデータ配置は /var/lib/postgresql/18/docker であり、
+      # ボリューム宣言は /var/lib/postgresql。ここを取り違えると永続化されない
+      - pgdata:/var/lib/postgresql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

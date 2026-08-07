@@ -20,6 +20,8 @@ GitHub Actions の CI は使わない。**ローカル検証がマージ前の�
 
 ### server（実行ディレクトリ: `server/`）
 
+前提: 開発用DBが起動していること（`docker compose up -d`）。テストが実際のPostgreSQLに対して制約を検証するため。
+
 ```
 pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnpm lint
 ```
@@ -30,8 +32,39 @@ pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnp
 
 Issue #4（iOSプロジェクト作成）で追記する。
 
+## worktree環境準備
+
+`.env.local` は `.gitignore` 対象のためWorktreeに含まれない。Worktree作成後、`server/` で以下を実行する。
+
+```
+cp .env.example .env.local
+# BETTER_AUTH_SECRET に `openssl rand -base64 32` の出力を入れる
+# SEED_USER_EMAIL / SEED_USER_PASSWORD を埋める
+docker compose up -d --wait
+pnpm install && pnpm db:migrate && pnpm db:seed
+```
+
+`--wait` はDBが受け付けられる状態になるまで待つ。初回はデータベースの初期化に数秒かかり、待たずに `db:migrate` すると接続に失敗する。
+
+DBのコンテナとデータはWorktree間で共有される（compose のプロジェクト名がどのWorktreeでも `server` になるため）。次の2点に注意する。
+
+- 複数のWorktreeで同時にテストを流すと互いのデータを消し合う
+- 片方のWorktreeで `db:migrate` すると、共有しているDBのスキーマがもう片方のブランチより先に進む。ブランチを行き来するときは、そのブランチで `db:migrate` を流し直す
+
+## データベース
+
+開発用は Docker の PostgreSQL（`server/compose.yaml`、ポート 5434）。本番のホスティング・DBは Issue #16 で選定する（設計書 §1.1 でプラットフォーム選定は保留）。
+
+| コマンド | 内容 |
+|---|---|
+| `pnpm db:generate` | スキーマの変更からマイグレーションを生成する |
+| `pnpm db:migrate` | マイグレーションを適用する |
+| `pnpm db:seed` | 利用者を1件投入する（何度実行しても増えない） |
+| `pnpm auth:gen` | Better Auth のテーブル定義を再生成する |
+
 ## 規約
 
 - `openapi.yaml` が API契約の唯一の正。サーバー実装からの自動生成はしない
 - `openapi-typescript` の生成物（`server/src/generated/`）は**コミットしない**。品質ゲートで毎回 `pnpm gen` が走るため、コミットしても常に再生成される冗長なファイルになるうえ、契約とのズレを生む余地しかない。iOS側の生成物も同様（設計書 §7）
+- `server/drizzle/` のマイグレーションと `server/src/db/auth-schema.ts`（Better Auth の生成物）は**コミットする**。前者は適用済みかどうかがDB側の状態と対応する履歴そのもので、再生成すると別物になる。後者は drizzle-kit が全テーブルを1本の履歴で管理するために必要で、これが無いと `DROP TABLE "user"` を含むマイグレーションが生成される
 - コードコメント・テストケース名・コミットメッセージは日本語。ファイル名・ディレクトリ名は英語

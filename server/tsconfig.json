@@ -6,6 +6,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // vitest.config.ts は Vite の設定読み込みでそのまま実行されるため、
+    // 拡張子付きで import する必要がある（省くと Vite が警告を出す）
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
