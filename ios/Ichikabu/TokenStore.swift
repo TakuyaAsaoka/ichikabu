@@ -21,7 +21,11 @@ enum TokenStore {
 		SecItemDelete(query as CFDictionary)
 		var attributes = query
 		attributes[kSecValueData as String] = Data(token.utf8)
-		SecItemAdd(attributes as CFDictionary, nil)
+		// バックアップに含めず、この端末のロック解除後にのみ復号できるようにする（セッショントークンを端末の外に出さない）
+		attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+		let status = SecItemAdd(attributes as CFDictionary, nil)
+		// 呼び出し側にできることが無いため throws にはしない。開発中に失敗へ気づけるよう assert に留める
+		assert(status == errSecSuccess, "Keychain への保存に失敗した: \(status)")
 	}
 
 	static func load() -> String? {
