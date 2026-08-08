@@ -24,13 +24,19 @@ beforeEach(resetDatabase);
 
 describe("seed によるユーザー投入", () => {
   it("実行するとユーザーが1件だけ作られる", async () => {
-    expect(await seedUser(EMAIL, PASSWORD)).toEqual({ created: true });
+    expect(await seedUser(EMAIL, PASSWORD)).toEqual({
+      created: true,
+      userId: expect.any(String),
+    });
     expect(await db.select().from(user)).toHaveLength(1);
   });
 
   it("2回実行してもユーザーは増えない", async () => {
-    await seedUser(EMAIL, PASSWORD);
-    expect(await seedUser(EMAIL, PASSWORD)).toEqual({ created: false });
+    const first = await seedUser(EMAIL, PASSWORD);
+    expect(await seedUser(EMAIL, PASSWORD)).toEqual({
+      created: false,
+      userId: first.userId,
+    });
     expect(await db.select().from(user)).toHaveLength(1);
   });
 
@@ -40,7 +46,10 @@ describe("seed によるユーザー投入", () => {
       .insert(user)
       .values({ id: "中断で残ったユーザー", name: EMAIL, email: EMAIL });
 
-    expect(await seedUser(EMAIL, PASSWORD)).toEqual({ created: true });
+    expect(await seedUser(EMAIL, PASSWORD)).toEqual({
+      created: true,
+      userId: "中断で残ったユーザー",
+    });
     expect(await db.select().from(user)).toHaveLength(1);
 
     const res = await post("sign-in/email", {

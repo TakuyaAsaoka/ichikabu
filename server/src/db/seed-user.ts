@@ -14,14 +14,14 @@ const CREDENTIAL = "credential";
 export async function seedUser(
   email: string,
   password: string,
-): Promise<{ created: boolean }> {
+): Promise<{ created: boolean; userId: string }> {
   const ctx = await auth.$context;
 
   const found = await ctx.internalAdapter.findUserByEmail(email, {
     includeAccounts: true,
   });
   if (found?.accounts.some((a) => a.providerId === CREDENTIAL)) {
-    return { created: false };
+    return { created: false, userId: found.user.id };
   }
 
   const user =
@@ -40,5 +40,5 @@ export async function seedUser(
     password: await ctx.password.hash(password),
   });
 
-  return { created: true };
+  return { created: true, userId: user.id };
 }
