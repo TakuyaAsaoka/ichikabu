@@ -40,6 +40,15 @@
 
 一覧に削除・編集は付けない。並べ替え・絞り込み・ページ送りも付けない。銘柄は数十件で、Issue #6 の目的（Issue #7 の前提データを入れる）に読む機能は要らない。Issue 補足の「一覧・編集・削除は最小限でよい」の「最小限」を「登録の確認に使える一覧だけ」と決める。
 
+**保有はサインインしている利用者のものだけを扱う。** `holding` は `user_id` と `stock_id` の複合主キー（全体設計書 §4.2）なので、どちらの列も画面から入力させない。
+
+| 列 | どこから来るか |
+|---|---|
+| `holding.user_id` | `auth.api.getSession` が返すセッションの利用者。画面に入力欄を出さない |
+| `holding.stock_id` | 保有フォームの `<select>` |
+
+保有一覧も同じ利用者の行だけを出す。利用者は当面1人（全体設計書 §12）だが、`user_id` を固定値や「最初の1件」で代用すると、利用者が増えたときに他人の保有が混ざる。セッションから取る形を最初から採る。
+
 ### 入力欄はブラウザの検証を使う
 
 `stock.name` は `notNull` だが空文字 `""` を弾く CHECK が無く、空のまま INSERT が成功してしまう。CHECK 制約を足す代わりに、HTML の属性で空入力を塞ぐ。
@@ -78,6 +87,8 @@ server/
 |---|---|
 | `src/db/register.ts` | DB への INSERT と、制約違反の日本語化（→ §5）。**Vitest のテスト対象はここだけ** |
 | `app/actions.ts` | 認証の確認（→ §6）、FormData の読み取り、`register.ts` の呼び出し、`revalidatePath("/")` |
+
+`register.ts` はセッションを読まない。`createHolding` は `user_id` を引数で受け取る（→ §3）。セッションを読むのは `app/actions.ts` の側だけにして、`register.ts` を Vitest から呼べる形に保つ。
 
 分ける理由: Server Action は `next/headers` を使うため Vitest から呼べない。DB 操作を `src/db/` に出せば、実際の PostgreSQL に対して制約の検証ができる（既存の `src/db/schema.test.ts` と同じやり方）。イベント取得API設計書 §6 は「クエリを別モジュールに切り出さない」と逆の判断をしたが、あちらはハンドラが `request.headers` だけで動き Vitest から直接呼べた。Server Action はそれができないため、テストしたい部分を切り出す。
 
