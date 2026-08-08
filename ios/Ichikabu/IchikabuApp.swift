@@ -8,7 +8,7 @@ struct IchikabuApp: App {
 	var body: some Scene {
 		WindowGroup {
 			if let token {
-				EventListView(token: token, onUnauthorized: signOut)
+				CalendarView(token: token, onUnauthorized: signOut)
 			} else {
 				SignInView(onSignedIn: signIn)
 			}
