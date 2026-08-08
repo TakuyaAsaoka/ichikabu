@@ -39,7 +39,7 @@ xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name
 ビルド時に `openapi.yaml` から Swift の型が再生成されるため、このコマンドが契約整合の検証を兼ねる。
 
 - `-skipPackagePluginValidation`: swift-openapi-generator のビルドプラグインを信頼する。Xcode はプラグインの初回利用時に画面で確認を求めるが、`xcodebuild` にはその画面が無く、付けないと `Validate plug-in "OpenAPIGenerator"` で止まる
-- 端末名: `-destination` に OS を書かないと、インストール済みで最も新しいランタイムから探される。そこに無い端末名（iOS 26.3 における `iPhone 16` 等）を指定すると「端末が見つからない」で止まるため、新しいランタイムに存在する名前を使う
+- 端末名: `-destination` に OS を書かないと、インストール済みで最も新しいランタイムから探される。そこに無い端末名（iOS 26.3 における `iPhone 16` 等）を指定すると「端末が見つからない」で止まるため、新しいランタイムに存在する名前を使う。Xcode を上げると使える名前が変わるので、止まったら `xcodebuild -showdestinations -scheme Ichikabu` で確認して読み替える
 
 ## worktree環境準備
 

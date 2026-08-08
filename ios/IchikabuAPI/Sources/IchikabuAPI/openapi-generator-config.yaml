@@ -1,5 +1,7 @@
 generate:
   - types
+  # client は Issue #5（サインインとイベント取得）で使う。
+  # ここで生成しておくことで、リンクに必要な依存が骨組みの時点で揃う
   - client
 # アプリ本体とテストから生成された型を使うため public にする
 accessModifier: public
