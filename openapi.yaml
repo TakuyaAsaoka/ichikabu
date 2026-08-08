@@ -5,7 +5,6 @@ info:
   description: |
     API契約の唯一の正。server は openapi-typescript、iOS は swift-openapi-generator で
     この定義から型を生成する（設計書 §8）。
-    エンドポイント設計は未決事項 #4 のため、現時点ではヘルスチェックのみ定義する。
 servers:
   - url: http://localhost:3000
 paths:
@@ -20,7 +19,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /api/events:
+    get:
+      summary: イベント一覧
+      operationId: listEvents
+      description: |
+        認証ユーザーの保有に対応するイベントを全件返す。絞り込みパラメータは持たない。
+        月の絞り込みは iOS 側の表示処理の責任（イベント取得API設計書 §2）。
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: イベントの配列。ラッパーなし
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+        "401":
+          description: 認証なし。本文は返さない
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
   schemas:
     Health:
       type: object
@@ -31,3 +54,57 @@ components:
           type: string
           enum:
             - ok
+    Event:
+      type: object
+      required:
+        - id
+        - kind
+        - title
+        - shortLabel
+        - startDate
+        - endDate
+        - time
+        - importance
+        - note
+      properties:
+        id:
+          type: integer
+          description: イベントのID
+        kind:
+          type: string
+          enum:
+            - market
+            - theme
+            - stock
+          description: 種別。market は市場、theme はテーマ、stock は銘柄のイベント
+        title:
+          type: string
+          description: シートに出す見出し
+        shortLabel:
+          type: string
+          description: カレンダーのセルに出す略号
+        startDate:
+          type: string
+          format: date
+          description: 開始日
+        endDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 終了日。null は単日
+        time:
+          type:
+            - string
+            - "null"
+          description: 時刻（JST、HH:MM:SS）
+        importance:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: 重要度。1（低）〜 3（高）
+        note:
+          type:
+            - string
+            - "null"
+          description: シートに出す補足
