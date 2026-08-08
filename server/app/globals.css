@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/*
+ * 管理画面で使う色だけを決める（設計書 §8）。
+ * 利用者=運用者=自分1人（全体設計書 §12）なので、明暗の切り替えも配色の設定も持たない
+ */
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #1a1a1a;
+  --color-muted: #6b7280;
+  --color-border: #d1d5db;
+  --color-error: #b91c1c;
+}
