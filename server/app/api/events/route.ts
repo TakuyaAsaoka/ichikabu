@@ -71,18 +71,20 @@ export async function GET(request: Request): Promise<Response> {
     )
     .orderBy(event.startDate, event.time, event.id);
 
-  const body: Event[] = rows.map((row) => ({
-    id: row.id,
-    kind: deriveKind(row),
-    title: row.title,
-    shortLabel: row.shortLabel,
-    startDate: row.startDate,
-    // 値が無いフィールドは null のまま返す（undefined にしない）。
-    // 契約は全フィールド required で、無い値は null と決めている
-    endDate: row.endDate,
-    time: row.time,
-    importance: row.importance,
-    note: row.note,
-  }));
+  const body = rows.map(
+    (row): Event => ({
+      id: row.id,
+      kind: deriveKind(row),
+      title: row.title,
+      shortLabel: row.shortLabel,
+      startDate: row.startDate,
+      // 値が無いフィールドは null のまま返す（undefined にしない）。
+      // 契約は全フィールド required で、無い値は null と決めている
+      endDate: row.endDate,
+      time: row.time,
+      importance: row.importance,
+      note: row.note,
+    }),
+  );
   return Response.json(body);
 }
