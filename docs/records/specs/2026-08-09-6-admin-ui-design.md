@@ -14,7 +14,7 @@
 | 登録処理 | Server Action → `src/db/register.ts`。事前確認せず INSERT し、制約違反を日本語に訳す（→ §5） |
 | 認証 | Cookie セッション（全体設計書 §9）。`auth.ts` に `nextCookies()` を足す（→ §6） |
 | 見た目 | Tailwind v4。部品ライブラリは持ち込まない（→ §8） |
-| テスト | `src/db/register.test.ts` で実際の PostgreSQL に対して7件（→ §9） |
+| テスト | `src/db/register.test.ts` で実際の PostgreSQL に対して8件（→ §9） |
 
 ## 2. スコープ: theme / theme_stock を外す
 
@@ -80,6 +80,8 @@ server/
     ├── register.ts           ← 新規。createStock / createHolding
     └── register.test.ts      ← 新規
 ```
+
+この一覧に加えて、フォームだけを切り出した `"use client"` のファイルが3つ増える（`app/signin/signin-form.tsx`・`app/stock-form.tsx`・`app/holding-form.tsx`）。`useActionState` は Client Component でしか使えないため。ページ本体は Server Component のまま残す。
 
 責務の分け方:
 
@@ -173,7 +175,7 @@ Tailwind の設定は kabu-legends を参考にするが、以下は持ち込ま
 
 ## 9. テスト
 
-`server/src/db/register.test.ts` で実際の PostgreSQL に対して検証する（`schema.test.ts` と同じやり方）。テストケース名は日本語。
+`server/src/db/register.test.ts` で実際の PostgreSQL に対して検証する（`schema.test.ts` と同じやり方）。テストケース名は日本語。全8件。
 
 | # | テスト | 固定する挙動 |
 |---|---|---|
@@ -182,10 +184,11 @@ Tailwind の設定は kabu-legends を参考にするが、以下は持ち込ま
 | 3 | 英字入りのティッカー `130A` を登録できる | 完了条件「§4.2『ticker は文字列』の検証」そのもの |
 | 4 | 全角のティッカーはエラー文が返る | `stock_ticker_check` の訳文が返る |
 | 5 | US銘柄に決算月を入れるとエラー文が返る | `stock_fiscal_month_market_check` の訳文が返る |
-| 6 | 保有を登録するとDBに行が入る | `createHolding` が `null` を返し、`holding` に行がある |
-| 7 | 同じ銘柄をもう一度保有に登録するとエラー文が返る | `holding_user_id_stock_id_pk` の訳文が返る |
+| 6 | US銘柄は決算月なしで登録できる | 完了条件「US 銘柄で空にできること」。5 と対で、CHECK が US＋NULL を通すことを固定する |
+| 7 | 保有を登録するとDBに行が入る | `createHolding` が `null` を返し、`holding` に行がある |
+| 8 | 同じ銘柄をもう一度保有に登録するとエラー文が返る | `holding_user_id_stock_id_pk` の訳文が返る |
 
-6・7 は §7 D のとおり、先に `seedUser` で利用者を作る。
+7・8 は §7 D のとおり、先に `seedUser` で利用者を作る。
 
 完了条件「未認証で管理UIにアクセスするとサインイン画面に誘導される」は自動テストにしない。`page.tsx` は `next/headers` を使うため Vitest から呼べず（→ §4）、ブラウザ側の自動化を持ち込むほどの分岐でもない。目視確認（→ §10）で確かめる。
 
