@@ -1,7 +1,6 @@
 generate:
   - types
-  # client は Issue #5（サインインとイベント取得）で使う。
-  # ここで生成しておくことで、リンクに必要な依存が骨組みの時点で揃う
-  - client
+# 通信は URLSession で自分で書くため client は生成しない（Issue #5 設計書 §3 判断3）。
+# 経路が増えたら client を1行戻せばよい
 # アプリ本体とテストから生成された型を使うため public にする
 accessModifier: public
