@@ -8,7 +8,7 @@
 ```
 <repo>/
 ├── openapi.yaml   ← API契約の唯一の正（手書き）
-├── ios/           ← Xcode プロジェクト（Swift + SwiftUI）※ Issue #4 で作成
+├── ios/           ← Xcode プロジェクト（Swift + SwiftUI）
 └── server/        ← Next.js（管理UI + API Route Handlers）
 ```
 
@@ -28,9 +28,18 @@ pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnp
 
 `gen` が `openapi.yaml` から型を再生成するため、`typecheck` が契約整合の検証を兼ねる。
 
-### ios
+### ios（実行ディレクトリ: `ios/`）
 
-Issue #4（iOSプロジェクト作成）で追記する。
+前提: Xcode の iOS プラットフォームがインストールされていること（`xcodebuild -downloadPlatform iOS`）。入っていないと `xcodebuild` が iOS シミュレータを1件も見つけられず、コマンド自体が動かない。シミュレータのランタイムが既にあっても、これとは別に必要。
+
+```
+xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation
+```
+
+ビルド時に `openapi.yaml` から Swift の型が再生成されるため、このコマンドが契約整合の検証を兼ねる。
+
+- `-skipPackagePluginValidation`: swift-openapi-generator のビルドプラグインを信頼する。Xcode はプラグインの初回利用時に画面で確認を求めるが、`xcodebuild` にはその画面が無く、付けないと `Validate plug-in "OpenAPIGenerator"` で止まる
+- 端末名: `-destination` に OS を書かないと、インストール済みで最も新しいランタイムから探される。そこに無い端末名（iOS 26.3 における `iPhone 16` 等）を指定すると「端末が見つからない」で止まるため、新しいランタイムに存在する名前を使う
 
 ## worktree環境準備
 

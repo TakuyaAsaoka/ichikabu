@@ -1,0 +1,5 @@
+generate:
+  - types
+  - client
+# アプリ本体とテストから生成された型を使うため public にする
+accessModifier: public

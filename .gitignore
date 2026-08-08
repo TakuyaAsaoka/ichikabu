@@ -2,3 +2,6 @@
 .claude/worktrees/
 
 .DS_Store
+
+# Xcode の利用者ごとの設定（エディタの状態・ブレークポイント等）
+xcuserdata/
