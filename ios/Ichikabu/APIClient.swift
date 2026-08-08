@@ -18,6 +18,18 @@ enum APIError: Error, Equatable {
 struct APIClient {
 	static let baseURL = URL(string: "http://localhost:3000")!
 
+	/// 通信に使うセッション。**Cookie を保管しない**。
+	///
+	/// このアプリは Bearer トークンで認証する（全体設計書 §9）。`URLSession.shared` は
+	/// 応答の Cookie を保存して以降の要求に付けるが、Better Auth は Cookie が付いた要求に
+	/// だけ Origin を検査する。アプリは Origin を送らないため、サインインの応答で
+	/// セッションの Cookie が1つ保存された時点から、以降のサインインが全て 403 になる。
+	static let session: URLSession = {
+		let configuration = URLSessionConfiguration.default
+		configuration.httpCookieStorage = nil
+		return URLSession(configuration: configuration)
+	}()
+
 	/// サインインしてトークンを返す。
 	/// この経路は Better Auth のもので openapi.yaml に載せていない（Issue #5 設計書 §3 判断1）
 	func signIn(email: String, password: String) async throws -> String {
@@ -25,7 +37,7 @@ struct APIClient {
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "content-type")
 		request.httpBody = try JSONEncoder().encode(["email": email, "password": password])
-		let (_, response) = try await URLSession.shared.data(for: request)
+		let (_, response) = try await Self.session.data(for: request)
 		return try Self.token(from: response)
 	}
 
@@ -33,7 +45,7 @@ struct APIClient {
 	func events(token: String) async throws -> [Event] {
 		var request = URLRequest(url: Self.baseURL.appending(path: "/api/events"))
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
-		let (data, response) = try await URLSession.shared.data(for: request)
+		let (data, response) = try await Self.session.data(for: request)
 		return try Self.events(from: data, response: response)
 	}
 

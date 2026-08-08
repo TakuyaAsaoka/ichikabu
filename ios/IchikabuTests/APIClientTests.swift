@@ -13,6 +13,14 @@ struct APIClientTests {
 		HTTPURLResponse(url: Self.url, statusCode: status, httpVersion: nil, headerFields: headers)!
 	}
 
+	@Test("この経路は Cookie を持たない")
+	func doesNotUseCookies() {
+		// Cookie が付いた要求にだけ Better Auth は Origin を検査する。
+		// アプリは Origin を送らないため、Cookie を1つでも持つと
+		// 以降のサインインが 403 で拒まれる
+		#expect(APIClient.session.configuration.httpCookieStorage == nil)
+	}
+
 	@Test("401 は認証切れとして扱う")
 	func unauthorized() {
 		#expect(throws: APIError.unauthorized) {

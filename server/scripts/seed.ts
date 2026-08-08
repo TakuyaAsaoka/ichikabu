@@ -10,12 +10,12 @@ if (!email || !password) {
   );
 }
 
-const { created } = await seedUser(email, password);
+const { created, userId } = await seedUser(email, password);
 console.log(
   created ? `ユーザーを作成した: ${email}` : `ユーザーは既に存在する: ${email}`,
 );
 
-const { created: eventCount } = await seedEvents();
+const { created: eventCount } = await seedEvents(userId);
 console.log(`イベントを ${eventCount} 件作成した`);
 
 // pg の接続プールが開いたままだと終了しないため明示的に落とす
