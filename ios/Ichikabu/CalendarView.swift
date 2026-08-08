@@ -12,8 +12,9 @@ struct CalendarView: View {
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
 
-	/// ページの基準になる日。描き直しのたびに変わらないよう、画面を作った時刻で固定する
-	private let today = Date()
+	/// ページの基準になる日。`@State` にすることで初期化が1回だけになり、
+	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
+	@State private var today = Date()
 
 	/// 起動月の前後12ヶ月（設計書 §2 判断5）
 	private static let monthRange = -12...12
@@ -82,7 +83,7 @@ private struct MonthPage: View {
 							day: day,
 							isInMonth: EventLayout.calendar.isDate(
 								day, equalTo: monthStart, toGranularity: .month),
-							isToday: EventLayout.key(for: day) == EventLayout.key(for: today),
+							isToday: EventLayout.calendar.isDate(day, inSameDayAs: today),
 							events: EventLayout.events(on: EventLayout.key(for: day), from: events)
 						)
 					}

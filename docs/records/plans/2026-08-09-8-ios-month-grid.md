@@ -801,7 +801,7 @@ Xcode で `Ichikabu` を iPhone 17 のシミュレータに実行し、`.env.loc
 | 症状 | 見るところ |
 |---|---|
 | セルが全部空 | `pnpm db:seed` を実行したか。`curl -H "authorization: Bearer <トークン>" http://localhost:3000/api/events` で3件返るか |
-| 月の表題が和暦 | `EventLayout.titleFormatter` の `locale` |
+| 月の表題が和暦 | `EventLayout.title(for:)` |
 | 日付が1日ずれる | シミュレータのタイムゾーン設定。ずれるなら `EventLayout.calendar` の `timeZone` |
 
 - [ ] **手順4: 設計書 §7 を実測に合わせて書き換える**

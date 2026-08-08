@@ -28,7 +28,8 @@ const EVENTS = [
     shortLabel: "7203決算",
     startDate: "2026-08-04",
     importance: 3,
-    sourceUrl: "https://global.toyota/jp/ir/financial-results/index.html",
+    sourceUrl:
+      "https://global.toyota/pages/global_toyota/ir/financial-results/2027_1q_summary_jp.pdf",
   },
   {
     ticker: "9434",
@@ -44,7 +45,7 @@ const EVENTS = [
     shortLabel: "6367決算",
     startDate: "2026-08-04",
     importance: 1,
-    sourceUrl: "https://www.daikin.co.jp/investor/calendar",
+    sourceUrl: "https://www.daikin.co.jp/press/2026/20260804",
   },
 ] as const;
 
