@@ -7,3 +7,6 @@
 
 /// `GET /api/health` のレスポンス
 public typealias Health = Components.Schemas.Health
+
+/// `GET /api/events` が返すイベント
+public typealias Event = Components.Schemas.Event

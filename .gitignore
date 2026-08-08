@@ -1,6 +1,9 @@
 # Claude Code の作業ディレクトリ（worktree を .claude/worktrees/ 配下に作る運用のため）
 .claude/worktrees/
 
+# 実装計画を進めるときの作業メモ（進捗台帳・レビュー用の差分ファイル）
+.superpowers/
+
 .DS_Store
 
 # Xcode の利用者ごとの設定（エディタの状態・ブレークポイント等）
