@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "../src/db";
+import { violatedConstraint } from "../src/db/violation";
 
 /**
  * テストごとに全テーブルを空にする。採番も1に戻す。
@@ -21,17 +22,6 @@ export async function resetDatabase(): Promise<void> {
       END IF;
     END $$;
   `);
-}
-
-/** pg のエラーから違反した制約名を取り出す。Drizzle は元のエラーを cause に包む */
-function violatedConstraint(error: unknown): string | undefined {
-  let current: unknown = error;
-  while (current instanceof Error) {
-    const { constraint } = current as Error & { constraint?: unknown };
-    if (typeof constraint === "string") return constraint;
-    current = current.cause;
-  }
-  return undefined;
 }
 
 /** 制約違反で失敗することを確かめ、違反した制約名を返す */
