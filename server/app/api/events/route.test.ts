@@ -62,6 +62,15 @@ describe("GET /api/events", () => {
     expect(await res.text()).toBe("");
   });
 
+  it("でたらめな Bearer トークンでは 401 を返す", async () => {
+    const res = await GET(
+      new Request("http://localhost:3000/api/events", {
+        headers: { authorization: "Bearer deadbeef" },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
   it("Bearer トークンありでイベントが無ければ 200 で空配列を返す", async () => {
     const holder = await createUser("holder@example.com");
     expect(await fetchEvents(holder.token)).toEqual([]);
@@ -196,5 +205,48 @@ describe("GET /api/events", () => {
       },
     ]);
     expect(await fetchEvents(outsider.token)).toEqual([]);
+  });
+
+  it("イベントは startDate・time・id の昇順で返る", async () => {
+    const holder = await createUser("order-holder@example.com");
+
+    // 同じ日（2026-09-16）に時刻ありと時刻なしを混在させ、日をまたがせる。
+    // 時刻なしは PostgreSQL の既定（昇順で NULL は最後）どおり同じ日の
+    // 時刻ありより後ろに来る想定
+    await db.insert(event).values([
+      {
+        title: "B",
+        shortLabel: "B",
+        startDate: "2026-09-16",
+        time: "09:00:00",
+        importance: 1,
+        market: "GLOBAL",
+      },
+      {
+        title: "A",
+        shortLabel: "A",
+        startDate: "2026-09-16",
+        importance: 1,
+        market: "GLOBAL",
+      },
+      {
+        title: "C",
+        shortLabel: "C",
+        startDate: "2026-09-15",
+        importance: 1,
+        market: "GLOBAL",
+      },
+      {
+        title: "D",
+        shortLabel: "D",
+        startDate: "2026-09-17",
+        time: "08:00:00",
+        importance: 1,
+        market: "GLOBAL",
+      },
+    ]);
+
+    const events = await fetchEvents(holder.token);
+    expect(events.map((e) => e.title)).toEqual(["C", "B", "A", "D"]);
   });
 });

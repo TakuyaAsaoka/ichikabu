@@ -30,7 +30,7 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: イベントの配列。ラッパーなし
+          description: イベントの配列。ラッパーなし。startDate・time・id の昇順に並ぶ
           content:
             application/json:
               schema:
