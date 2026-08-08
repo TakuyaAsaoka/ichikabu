@@ -69,8 +69,9 @@ export async function addStock(
   await requireUserId();
 
   const message = await createStock({
-    // <select> の選択肢は JP と US だけ。それ以外が来たら JP として扱わず弾く
-    market: formData.get("market") === "US" ? "US" : "JP",
+    // <select> の選択肢は JP と US だけだが、値の妥当性はここで絞り込まず
+    // そのまま渡し、DB の stock_market_check 制約に弾かせる（設計書 §5）
+    market: String(formData.get("market") ?? ""),
     ticker: String(formData.get("ticker") ?? ""),
     name: String(formData.get("name") ?? ""),
     fiscalMonth: toFiscalMonth(formData.get("fiscalMonth")),

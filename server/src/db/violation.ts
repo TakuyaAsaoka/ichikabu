@@ -2,8 +2,9 @@
 export function violatedConstraint(error: unknown): string | undefined {
   let current: unknown = error;
   while (current instanceof Error) {
-    const { constraint } = current as Error & { constraint?: unknown };
-    if (typeof constraint === "string") return constraint;
+    if ("constraint" in current && typeof current.constraint === "string") {
+      return current.constraint;
+    }
     current = current.cause;
   }
   return undefined;

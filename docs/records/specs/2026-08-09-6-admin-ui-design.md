@@ -126,6 +126,7 @@ server/
 補足2点:
 
 - **Better Auth の Origin 検査は問題にならない。** Server Action から `auth.api.signInEmail` を直接呼ぶと HTTP を経由しないので `ctx.request` が無く、`node_modules/better-auth/dist/api/middlewares/origin-check.mjs` の `validateOrigin` が先頭で return する。`BETTER_AUTH_URL=http://localhost:3000` は `.env.example` に既にある
+  - ただし直接呼び出しには代償もある。Better Auth のレート制限は `auth.handler`（HTTP層）を通るリクエストにしかかからない仕組みで、`node_modules/better-auth/dist/api/index.mjs` の router の `onRequest` にある。`/api/auth/sign-in/email` への直接POSTには制限がかかるが、この Server Action 経由のサインインには回数制限がかからず、公開後はパスワード総当たりに無防備になる。未デプロイ・利用者1人のうちは実害が無いが、公開前に対処が要る。対処はホスティング選定の Issue #16 の範囲とする
 - **`nextCookies()` を足しても既存テスト（`app/api/events/route.test.ts` 等）は壊れない。** `next-js.mjs` の after フックは「リクエストの外で `cookies()` が呼ばれた」を catch して素通りする
 
 ## 7. 実装時に踏む穴

@@ -18,7 +18,13 @@ export default async function Page() {
   }
 
   const stocks = await db
-    .select()
+    .select({
+      id: stock.id,
+      market: stock.market,
+      ticker: stock.ticker,
+      name: stock.name,
+      fiscalMonth: stock.fiscalMonth,
+    })
     .from(stock)
     .orderBy(stock.market, stock.ticker);
 

@@ -58,7 +58,11 @@ export function StockForm() {
       >
         {pending ? "送信中" : "銘柄を登録"}
       </button>
-      {error && <p className="text-error">{error}</p>}
+      {error && (
+        <p className="text-error" aria-live="polite">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

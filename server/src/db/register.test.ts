@@ -66,6 +66,18 @@ describe("createStock", () => {
     ).toBe("決算月はJP銘柄にだけ入れられる");
   });
 
+  it("市場がJPでもUSでもないとエラー文が返る", async () => {
+    expect(
+      await createStock({
+        market: "XX",
+        ticker: "9999",
+        name: "不正な市場",
+        fiscalMonth: null,
+      }),
+    ).toBe("市場は JP か US");
+    expect(await db.select().from(stock)).toHaveLength(0);
+  });
+
   it("US銘柄は決算月なしで登録できる", async () => {
     expect(
       await createStock({
@@ -103,6 +115,7 @@ describe("createHolding", () => {
     const rows = await db.select().from(holding);
     expect(rows).toHaveLength(1);
     expect(rows[0].stockId).toBe(stockId);
+    expect(rows[0].userId).toBe(userId);
   });
 
   it("同じ銘柄をもう一度保有に登録するとエラー文が返る", async () => {

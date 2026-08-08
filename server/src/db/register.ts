@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { db } from ".";
 import { holding, stock } from "./schema";
 import { violatedConstraint } from "./violation";
@@ -8,6 +9,7 @@ import { violatedConstraint } from "./violation";
  */
 const MESSAGES: Record<string, string> = {
   stock_market_ticker_unique: "その市場のティッカーは登録済み",
+  stock_market_check: "市場は JP か US",
   stock_ticker_check:
     "ティッカーは半角の数字・英大文字・ピリオド・ハイフンだけ使える",
   stock_fiscal_month_market_check: "決算月はJP銘柄にだけ入れられる",
@@ -33,7 +35,8 @@ async function run(operation: Promise<unknown>): Promise<string | null> {
 }
 
 export type StockInput = {
-  market: "JP" | "US";
+  /** DB の stock_market_check 制約が正。ここでは絞り込まない */
+  market: string;
   ticker: string;
   name: string;
   /** 決算月（1〜12）。JP銘柄のみ。US銘柄では null（全体設計書 §4.1） */
@@ -42,7 +45,11 @@ export type StockInput = {
 
 /** 銘柄を登録する。成功で null、制約違反で日本語のエラー文を返す */
 export function createStock(input: StockInput): Promise<string | null> {
-  return run(db.insert(stock).values(input));
+  // market 列は Drizzle 上 "JP" | "US" の型だが、StockInput.market は string。
+  // as で型を偽らず、sql`` で生の値のまま渡し、DB の stock_market_check に判定させる
+  return run(
+    db.insert(stock).values({ ...input, market: sql`${input.market}` }),
+  );
 }
 
 /**

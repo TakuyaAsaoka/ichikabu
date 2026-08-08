@@ -34,7 +34,11 @@ export function SignInForm() {
       >
         {pending ? "送信中" : "サインイン"}
       </button>
-      {error && <p className="text-error">{error}</p>}
+      {error && (
+        <p className="text-error" aria-live="polite">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
