@@ -328,11 +328,12 @@ Better Auth 一本で両クライアントをまかなう。
 ## 11. 品質ゲート
 
 プロジェクトの `CLAUDE.md` に以下の2系統を定義する。GitHub Actions の CI は無効（既存運用どおりローカル検証が唯一のゲート）。
+**実行するコマンドの正は `CLAUDE.md`**。前提条件（開発用DBの起動、Xcode の iOS プラットフォームの導入）もそちらに書く。
 
 | 側 | コマンド | 兼ねている検証 |
 |---|---|---|
-| `server/` | `pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnpm lint` | `gen` が契約から型を再生成するので typecheck が契約整合の検証を兼ねる |
-| `ios/` | `xcodebuild build test -scheme <名> -destination 'platform=iOS Simulator,name=iPhone 16'` | ビルド自体が契約整合の検証を兼ねる |
+| `server/` | `pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnpm lint` | `gen` が契約から型を再生成するので typecheck が契約整合の検証を兼ねる |
+| `ios/` | `xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation` | ビルド自体が契約整合の検証を兼ねる |
 
 Archive・App Store提出はゲートに含めない。十数分かかり、日常のマージ判断に使う道具ではない。
 

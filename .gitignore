@@ -2,3 +2,12 @@
 .claude/worktrees/
 
 .DS_Store
+
+# Xcode の利用者ごとの設定（エディタの状態・ブレークポイント等）
+xcuserdata/
+
+# Xcode・SwiftPM のビルド出力。契約から生成される Swift もここに出るため、
+# 出力先をリポジトリ内に向けている環境でもコミットされないようにする
+.build/
+DerivedData/
+ios/build/
