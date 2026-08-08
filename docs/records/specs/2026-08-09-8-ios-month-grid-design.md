@@ -125,7 +125,9 @@ Issue #5 の素朴な `List` を、全体設計書 §10 の等高の月グリッ
 
 ## 7. 確認手順
 
-### 手順1: seed が何度実行しても増えない（実測済み・実装前の基準値）
+### 手順1: seed が何度実行しても増えない（実測済み）
+
+実装前の基準値（既に3件入った状態での再実行）:
 
 ```
 $ cd server && pnpm db:seed
@@ -133,7 +135,25 @@ $ cd server && pnpm db:seed
 イベントを 0 件作成した
 ```
 
-実装後は、DBを作り直したうえで初回だけ `イベントを 3 件作成した` になり、2回目以降は 0 件に戻ることを確認する（未実施）。
+実装後、DBを作り直したうえで再実測した（実測済み（2026-08-09））:
+
+```
+$ cd server && docker compose down -v && docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && pnpm db:seed
+...
+> ichikabu-server@ db:seed /server
+> tsx --env-file=.env.local scripts/seed.ts
+
+ユーザーを作成した: dev@example.com
+イベントを 3 件作成した
+
+> ichikabu-server@ db:seed /server
+> tsx --env-file=.env.local scripts/seed.ts
+
+ユーザーは既に存在する: dev@example.com
+イベントを 0 件作成した
+```
+
+初回が `3 件`、2回目が `0 件` になり、冪等性を確認した。
 
 ### 手順2: 設計の前提の実測（実測済み）
 
@@ -156,15 +176,44 @@ $ docker exec server-db-1 psql -U postgres -d ichikabu -c \
  (null)
 ```
 
-### 手順3: 品質ゲート（CLAUDE.md の2系統。実装後に再実行する）
+### 手順3: 品質ゲート（CLAUDE.md の2系統。実測済み（2026-08-09））
+
+server 側:
 
 ```
 $ cd server && pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnpm lint
-$ cd ios && xcodebuild build test -scheme Ichikabu \
-    -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation
+...
+✨ openapi-typescript 7.13.0
+🚀 ../openapi.yaml → src/generated/api.d.ts [26.3ms]
+...
+✓ Compiled successfully in 472ms
+  Running TypeScript ...
+  Finished TypeScript in 2.0s ...
+...
+ Test Files  4 passed (4)
+      Tests  42 passed (42)
+...
+> tsc --noEmit
+（出力なし＝エラー0件）
+...
+> biome check
+Checked 24 files in 48ms. No fixes applied.
 ```
 
-iOS 側は現行コードで通ることを実測済み（`** TEST SUCCEEDED **`）。server 側・実装後の両側は未実施。
+エラー・警告とも0件。
+
+iOS 側:
+
+```
+$ cd ios && xcodebuild build test -scheme Ichikabu \
+    -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation
+...
+Test run with 15 tests in 4 suites passed after 0.049 seconds.
+...
+** TEST SUCCEEDED **
+```
+
+ビルド・テストとも成功、Swiftコンパイラの警告は0件。ログに `warning:` が3件出るが、いずれも `appintentsmetadataprocessor`（Xcode 16以降がアプリターゲットに自動で付けるビルドフェーズ）が出す定型メッセージ `Metadata extraction skipped. No AppIntents.framework dependency found.` で、このアプリがApp Intentsフレームワークを使っていないターゲットでは必ず出る仕様（Apple公式フォーラム・開発者コミュニティで確認済み）。コード側の警告ではなく、使っていないフレームワークを追加でリンクする以外に消す方法が無いため、コードは変更していない。
 
 ### 手順4: シミュレータでの目視（未実施。実装後に行う）
 
