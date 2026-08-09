@@ -221,6 +221,7 @@ describe("createEvent", () => {
     expect(await createEvent({ ...BASE, market: "XX" })).toBe(
       "市場は JP・US・GLOBAL のどれか",
     );
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 
   it("短縮ラベルが全角5文字を超えるとエラー文が返る", async () => {
@@ -273,5 +274,6 @@ describe("createEvent", () => {
     expect(await createEvent({ ...BASE, market: "JP", importance: 4 })).toBe(
       "重要度は1〜3",
     );
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 });

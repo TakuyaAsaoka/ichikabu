@@ -13,7 +13,7 @@
 | 対象（市場／テーマ／銘柄）の指定UI | **1つの `<select>` に3グループを平らに並べる**（→ §4） |
 | `createEvent` の入力 | 対象3列をそのまま受け取る。0個・2個も渡せる形にし、DBのCHECKに弾かせる（→ §4） |
 | 空欄の扱い | `end_date`・`time`・`note`・`source_url` は `""` → `null` に読み替える（→ §5） |
-| テスト | `src/db/register.test.ts` に9件追加（→ §7） |
+| テスト | `src/db/register.test.ts` に12件、`app/event-input.test.ts` に7件（→ §8） |
 | スコープ外 | テーマ登録画面（Issue #27）、イベントの編集・削除（→ §9） |
 
 管理UI（銘柄・保有の登録）設計書 §5 の方針をそのまま引き継ぐ。**事前に存在確認せず INSERT し、PostgreSQL が返した制約違反を日本語に訳す。**
@@ -24,6 +24,8 @@
 server/
 ├── app/
 │   ├── event-form.tsx   ← 新規。"use client"
+│   ├── event-input.ts   ← 新規。FormData を createEvent の入力に直す
+│   ├── event-input.test.ts ← 新規
 │   ├── page.tsx         ← 「イベントを登録」と「イベント一覧」を足す
 │   └── actions.ts       ← addEvent を足す
 └── src/db/
@@ -35,9 +37,12 @@ server/
 
 | ファイル | 責務 |
 |---|---|
-| `src/db/register.ts` | INSERT、`short_label` の幅の判定（→ §3）、制約違反の日本語化。**Vitest のテスト対象はここだけ** |
-| `app/actions.ts` | 認証の確認、FormData の読み取り、対象の値の振り分け（→ §4）、空欄の読み替え（→ §5） |
+| `src/db/register.ts` | INSERT、`short_label` の幅の判定（→ §3）、制約違反の日本語化 |
+| `app/event-input.ts` | FormData を `createEvent` の入力に直す。対象の値の振り分け（→ §4）と空欄の読み替え（→ §5） |
+| `app/actions.ts` | 認証の確認と `revalidatePath` |
 | `app/event-form.tsx` | 入力欄と `useActionState` |
+
+**`app/event-input.ts` は `"use server"` を付けない素のモジュールにする。** 管理UI設計書 §4 は「Vitest のテスト対象は `src/db/register.ts` だけ」としていたが、対象の振り分けと空欄の読み替えを `app/actions.ts` に置くと、そこが `next/headers` を使うため Vitest から読み込めず、**完了条件の「`end_date` を空にすると単日として登録される」の「空にする」部分を自動で確かめる手段が無くなる**。純粋な変換だけを別ファイルに出せば普通にテストできる（→ §8）。`app/actions.ts` に残るのは認証の確認と `revalidatePath` だけになる。
 
 ## 3. 未決事項 #10 の決定: `short_label` は `register.ts` で判定する
 
@@ -53,11 +58,11 @@ server/
 
 ```ts
 function labelWidth(s: string): number {
-  return [...s].reduce((w, c) => w + (/[!-~｡-ﾟ]/.test(c) ? 1 : 2), 0);
+  return [...s].reduce((w, c) => w + (/[ -~｡-ﾟ]/.test(c) ? 1 : 2), 0);
 }
 ```
 
-`[!-~]` は ASCII の表示文字、`[｡-ﾟ]` は半角カナ。どちらにも当たらない文字を全角として2で数える。
+`[ -~]` は ASCII の表示文字（半角スペースからチルダまで）、`[｡-ﾟ]` は半角カナ。どちらにも当たらない文字を全角として2で数える。
 
 ### DBのCHECK制約にしない理由
 
@@ -66,7 +71,7 @@ function labelWidth(s: string): number {
 | 数字が動く | 「全角4〜5文字」は iPhone 縦のセル幅（約44pt）から出た表示ルール（§10.2）。Issue #9 でフォントや余白を詰めれば動く。CHECK にすると表示ルールを変えるたびにマイグレーションが要る |
 | 書き込み経路が2つしかない | 管理UI（本設計）と `seed-event.ts` だけ。`seed-event.ts` は固定値を入れるため、規則を破る余地が無い |
 | テストできる点は同じ | `register.ts` に置いても Vitest から実際に呼んで固定できる。CHECK にしないと検証できない、という関係にはない |
-| CHECK 式が読みにくい | 全角換算の幅は `char_length(x) + char_length(regexp_replace(x, '[!-~｡-ﾟ]', '', 'g')) <= 10` と1行では書けるが、式から「全角5文字ぶん」という意図が読み取れない |
+| CHECK 式が読みにくい | 全角換算の幅は `char_length(x) + char_length(regexp_replace(x, '[ -~｡-ﾟ]', '', 'g')) <= 10` と1行では書けるが、式から「全角5文字ぶん」という意図が読み取れない |
 
 **引き換えに失うもの**: 管理UI 以外の書き込み経路が増えたとき、その経路は幅の判定を通らない。増やすときに `createEvent` を通すか、そのときCHECKへ移す。
 
@@ -90,7 +95,7 @@ function labelWidth(s: string): number {
 
 ### 値の受け渡し
 
-`<option value>` を `market:JP` / `theme:12` / `stock:3` の形にし、`app/actions.ts` で分けて3列に振り分ける。
+`<option value>` を `market:JP` / `theme:12` / `stock:3` の形にし、`app/event-input.ts` で分けて3列に振り分ける。
 
 ```ts
 function toTarget(value: string) {
@@ -115,7 +120,7 @@ function toTarget(value: string) {
 
 `end_date`・`time`・`note`・`source_url` は空にできる。HTMLフォームの空欄は FormData で `""` になり、`date`・`time` 列にそのまま INSERT すると**制約違反ではない型変換エラー**で 500 になる。管理UI設計書 §7 A で `fiscal_month` について踏んだ穴と同じもので、今回は4列に増える。
 
-`app/actions.ts` で `""` → `null` に読み替える。
+`app/event-input.ts` で `""` → `null` に読み替える。
 
 | 欄 | 空のときの値 | 意味 |
 |---|---|---|
@@ -163,6 +168,24 @@ function toTarget(value: string) {
 
 **日付・時刻はすべてJST**（全体設計書 §4.1）。FOMC のように日本時間で翌日未明になるものは、登録者がJSTに直して入れる。画面には注記として出す。
 
+### 承知のうえで残す2つ
+
+**1. 送信するたびに入力欄が全部空になる。** React は `<form action={...}>` を送るとき、成功・失敗を問わず未制御の入力欄をリセットする（`node_modules/react-dom/cjs/react-dom-client.development.js` の `startHostTransition` が `requestFormReset` を無条件で呼ぶ）。エラーが出た時点で9項目すべて打ち直しになる。
+
+既存の銘柄フォーム（4項目）でも同じことが起きているが、項目が9に増えて手戻りの大きさが変わる。**今回は直さない。** 直すには失敗時の入力値を `useActionState` の状態に載せ、全項目の `defaultValue` に戻す必要があり、エラー文1つを返すだけの今の戻り値の形（→ §6）を変えることになる。イベントの登録件数が増えて実際に煩わしくなってから、3つのフォームまとめて直す。
+
+**2. 画面を通さない直接POSTでは、一部の入力が500になる。** Server Action は画面を通さずPOSTできる（管理UI設計書 §6）。ブラウザの入力欄が塞いでいる値をそのまま送ると、制約違反ではない型変換エラーになり §6 の対応表に当たらず投げ直される。
+
+| 送る値 | 結果 |
+|---|---|
+| `startDate` が空 | 500（`date` への型変換エラー） |
+| `importance` が数字でない | 500（`smallint` への型変換エラー） |
+| `target` が `theme:abc` | 500（`theme_id` が NaN） |
+| `target` が存在しないID | 500（外部キー違反。→ §6） |
+| `title` が空 | 成功して空の名称の行が入る（`stock.name` と同じ穴。管理UI設計書 §12） |
+
+ブラウザからは `required`・`<select>`・`type="date"` が塞ぐため起きない。**投げ直す方針（→ §6）どおりの挙動なので、そのままにする。** 気になった時点での最短の手当ては、`register.ts` の `run()` で PostgreSQL の型変換エラー（`22P02`・`22007`）を拾って一般的な日本語文を返すこと。`createStock`・`createHolding` にも同時に効く。
+
 ## 8. テスト
 
 `src/db/register.test.ts` に `describe("createEvent")` を足す。テストケース名は日本語。全12件。
@@ -185,6 +208,20 @@ function toTarget(value: string) {
 | 12 | 重要度が1〜3の外だとエラー文が返る | `event_importance_check` の訳文 |
 
 2 と 3 はテストの中で `theme` と `stock` を先に作る。`theme` の登録画面は無い（→ §9）が、テストからは `db.insert` で作れる。
+
+### `app/event-input.test.ts`（7件）
+
+`toEventInput` は DB に触らない純粋な変換なので、`FormData` を組み立てて呼ぶだけで確かめられる。**画面が送る形（空欄は `""`）を再現する**ことがこのテストの目的で、`register.test.ts` の側は `null` を渡した後の話しか見ていない。
+
+| # | テスト | 固定する挙動 |
+|---|---|---|
+| 1 | 空欄の終了日・時刻・補足・出典URLはnullになる | → §5。ここが抜けると `date`・`time` 列で500になる |
+| 2 | 入力された終了日・時刻・補足・出典URLはそのまま入る | 1 と対。読み替えが効きすぎて値まで消していないこと |
+| 3 | 市場を選ぶとmarketだけに値が入る | → §4 |
+| 4 | テーマを選ぶとthemeIdだけに値が入る | 同上 |
+| 5 | 銘柄を選ぶとstockIdだけに値が入る | 同上 |
+| 6 | 対象が未選択だと3列とも null になる | DBの `event_target_exclusive_check` が弾く形になっていること |
+| 7 | 名称・短縮ラベル・開始日・重要度がそのまま入る | 欄の名前の取り違えを検知する |
 
 ## 9. やらないこと
 
@@ -211,13 +248,32 @@ function toTarget(value: string) {
 
 確認できたら、結果をこの節に表で追記する。
 
+### 結果1: HTTP での確認（実施日: 2026-08-09）
+
+**ブラウザは別セッションが占有していたため使えなかった**（管理UI設計書 §10 の結果1 と同じ事情）。起動したサーバーに対する HTTP リクエストで確認できた範囲は次のとおり。
+
+| # | 確認したこと | 結果 |
+|---|---|---|
+| 1 | サインインして `GET /` | 200 |
+| 2 | 対象欄の `<select>` の中身 | `<optgroup label="市場">` に JP・US・GLOBAL、`<optgroup label="テーマ">` は空、`<optgroup label="銘柄">` に登録済み4件。値は `market:JP` / `stock:1` の形で出ている |
+| — | イベントフォームが送る欄の名前 | `title`・`shortLabel`・`target`・`startDate`・`endDate`・`time`・`importance`・`note`・`sourceUrl` の9つ。`app/event-input.ts` が読む名前と一致する |
+
+### 手順3〜9 が HTTP では取れないこと（と、その代わりに置いたもの）
+
+**Server Action は `Next-Action` ヘッダを付けても `curl` からは呼べなかった。** `useActionState` を通した Server Action の本文は、フォームの欄をそのまま並べたものではなく React が定めた形で符号化されている。欄の名前を並べて POST すると本文の復号に失敗し、`Connection closed.` で 500 になる（実際に確認した）。`useActionState` は `permalink` を渡さない限り JavaScript 無しの経路を作らないため、隠し入力から呼ぶ方法も無い。
+
+**そこで、この手順が確かめたかったものを自動テストに移した。** 手順3〜9 のうち画面経由でしか通らなかったのは「フォームの空欄 `""` を `null` に読み替える」と「対象の値を3列に振り分ける」の2つで、どちらも `app/event-input.ts` の純粋な変換になった（→ §2）。`app/event-input.test.ts` が画面と同じ形の `FormData`（空欄は `""`）を組み立てて7件を固定している（→ §8）。エラー文の側は `src/db/register.test.ts` が実際の PostgreSQL に対して12件を固定している。
+
+**残るのは「画面の操作が本当にこの `FormData` を作るか」だけ**で、これは上の表の「送る欄の名前が一致する」で確かめた。実ブラウザでの通しの確認は、運用者が行って結果2として追記する。
+
 ## 11. やる順番
 
 | 順 | やること | 根拠 |
 |---|---|---|
 | 1 | 全体設計書 §14 #10 に決定を追記（→ §3） | Issue が「実装前に確定し、設計書へ追記する」と指定している |
-| 2 | `src/db/register.ts` の `createEvent` | 本体。ここが唯一のテスト対象 |
+| 2 | `src/db/register.ts` の `createEvent` | 本体 |
 | 3 | `src/db/register.test.ts`（→ §8） | 2 が対象 |
-| 4 | `app/actions.ts` の `addEvent` ＋ `app/event-form.tsx` ＋ `page.tsx` | 画面 |
-| 5 | 目視確認（→ §10） | 画面経由でしか通らない経路（空欄の読み替え・対象の振り分け）を確かめる |
-| 6 | 品質ゲート（`CLAUDE.md` の server の節のコマンド全部）が exit 0 | マージ前の唯一のゲート（全体設計書 §11） |
+| 4 | `app/event-input.ts` ＋ `app/event-input.test.ts` | 空欄の読み替えと対象の振り分け（→ §5・§4） |
+| 5 | `app/actions.ts` の `addEvent` ＋ `app/event-form.tsx` ＋ `page.tsx` | 画面 |
+| 6 | 目視確認（→ §10） | 画面が送る欄の名前が `event-input.ts` の読む名前と合っていることを確かめる |
+| 7 | 品質ゲート（`CLAUDE.md` の server の節のコマンド全部）が exit 0 | マージ前の唯一のゲート（全体設計書 §11） |
