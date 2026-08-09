@@ -16,7 +16,8 @@ struct EventLayoutTests {
 		importance: Int = 1
 	) -> Event {
 		Event(
-			id: id,
+			// 契約の id は文字列。テストの中では区別が付けば十分なので数から作る
+			id: String(id),
 			kind: kind,
 			title: "テスト",
 			shortLabel: "テスト",
@@ -73,7 +74,8 @@ struct EventLayoutTests {
 			event(id: 20, startDate: "2026-08-04"),
 			event(id: 30, startDate: "2026-08-04"),
 		]
-		#expect(EventLayout.events(on: "2026-08-04", from: events).map(\.id) == [10, 20, 30])
+		#expect(
+			EventLayout.events(on: "2026-08-04", from: events).map(\.id) == ["10", "20", "30"])
 	}
 
 	@Test("種別ごとに違う色になる")

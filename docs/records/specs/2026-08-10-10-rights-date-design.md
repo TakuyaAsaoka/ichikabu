@@ -147,4 +147,4 @@
 
 - server: `pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnpm lint`
 - ios: `xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`
-- シミュレータで、seed の3銘柄（すべて3月決算）を保有した状態で 2027年3月のページに権利付最終日が出ることを目視する
+- シミュレータで、seed の3銘柄（すべて3月決算）を保有した状態で 2026年3月のページを開き、3月27日のセルに権利日が出ること、セルをタップしたシートに権利確定日と配当落ち日が出ることを目視する

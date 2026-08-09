@@ -32,7 +32,7 @@ struct APIClientTests {
 	func decodeEvents() throws {
 		let json = Data(
 			"""
-			[{"id":1,"kind":"market","title":"FOMC 政策金利発表","shortLabel":"FOMC",\
+			[{"id":"1","kind":"market","title":"FOMC 政策金利発表","shortLabel":"FOMC",\
 			"startDate":"2026-09-16","endDate":"2026-09-17","time":"03:00:00",\
 			"importance":3,"note":null}]
 			""".utf8)
