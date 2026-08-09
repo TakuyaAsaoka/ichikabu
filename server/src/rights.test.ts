@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rightsDates } from "./rights";
+import { CLOSED_DAYS, RIGHTS_YEARS, rightsDates } from "./rights";
 
 describe("権利日の計算", () => {
   it("月末が営業日ならその日が権利確定日になる（2026年3月決算）", () => {
@@ -49,5 +49,16 @@ describe("権利日の計算", () => {
   it("休場日リストに無い年は計算しない", () => {
     // 祝日が未確定の年を推測で埋めると、間違った日付を計算結果として出すことになる
     expect(rightsDates(2030, 3)).toBeNull();
+  });
+
+  it("計算できる年には平日の休場日が15件以上ある", () => {
+    // 計算できる年はリストに載っている年から導いているので、ある年の日付が
+    // 1件でもあればその年は計算対象になる。翌年ぶんの貼り付けが途中で止まると、
+    // その年だけ祝日を無視した日付を静かに返す。件数で止める。
+    // 国民の祝日は年16〜19件あり、土日に当たったぶんを除いても15件を下回らない
+    for (const year of RIGHTS_YEARS) {
+      const days = CLOSED_DAYS.filter((day) => day.startsWith(`${year}-`));
+      expect(days.length, `${year}年の休場日`).toBeGreaterThanOrEqual(15);
+    }
   });
 });

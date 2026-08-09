@@ -221,7 +221,8 @@ describe("GET /api/events", () => {
     await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
 
     // 登録したイベントは1件も無いので、返るのは計算した権利日だけになる。
-    // 休場日リストが載っている年ぶん（2025〜2027）返る
+    // 休場日リストが載っている年ぶん（2025〜2027）返る。
+    // リストに年を足したらこの期待値も足すこと（落ちて気づく）
     const events = await fetchEvents(holder.token);
     expect(events.map((e) => e.startDate)).toEqual([
       "2025-03-27",
@@ -294,5 +295,35 @@ describe("GET /api/events", () => {
 
     const events = await fetchEvents(holder.token);
     expect(events.map((e) => e.title)).toEqual(["C", "B", "A", "D"]);
+  });
+
+  it("同じ日時のイベントは id の文字列としての順で返る", async () => {
+    const holder = await createUser("tiebreak-holder@example.com");
+
+    // 契約の id が整数から文字列になったことで、10件目からは "10" が "9" より前に来る。
+    // 同じ日に3件以上あるとセルに出るのは先頭2件だけなので、この順序は表示に効く
+    await db.insert(event).values(
+      Array.from({ length: 10 }, (_, index) => ({
+        title: `${index + 1}`,
+        shortLabel: `${index + 1}`,
+        startDate: "2026-09-16",
+        importance: 1,
+        market: "GLOBAL" as const,
+      })),
+    );
+
+    const events = await fetchEvents(holder.token);
+    expect(events.map((e) => e.id)).toEqual([
+      "1",
+      "10",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+    ]);
   });
 });
