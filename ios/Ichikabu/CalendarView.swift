@@ -43,16 +43,21 @@ struct CalendarView: View {
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
 		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）
 		.sheet(isPresented: sheetIsShown) {
-			if let selectedDay {
-				DaySheet(
-					date: selectedDay,
-					events: EventLayout.events(on: EventLayout.key(for: selectedDay), from: events)
-				)
-				.presentationDetents([.fraction(0.45), .large])
-				// 0.45 まで下げている間は裏を操作できる。
-				// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
-				.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
+			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
+			// nil になった時点で消えていくシートから指定が外れる
+			Group {
+				if let selectedDay {
+					DaySheet(
+						date: selectedDay,
+						events: EventLayout.events(
+							on: EventLayout.key(for: selectedDay), from: events)
+					)
+				}
 			}
+			.presentationDetents([.fraction(0.45), .large])
+			// 0.45 まで下げている間は裏を操作できる。
+			// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
+			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
 		.task {
 			await load()
@@ -110,15 +115,20 @@ private struct MonthPage: View {
 					ForEach(week, id: \.self) { day in
 						let isInMonth = EventLayout.calendar.isDate(
 							day, equalTo: monthStart, toGranularity: .month)
-						DayCell(
+						let cell = DayCell(
 							day: day,
 							isInMonth: isInMonth,
 							isToday: EventLayout.calendar.isDate(day, inSameDayAs: today),
 							events: EventLayout.events(on: EventLayout.key(for: day), from: events)
 						)
-						// 埋め草（月外の日）はイベントを出していないのでタップも受けない（設計書 §3）
-						.onTapGesture {
-							if isInMonth { onSelect(day) }
+						// 埋め草（月外の日）はイベントを出していないのでタップも受けない（設計書 §3）。
+						// onTapGesture ではなく Button にするのは、押せる要素だと
+						// VoiceOver に伝わるようにするため
+						if isInMonth {
+							Button { onSelect(day) } label: { cell }
+								.buttonStyle(.plain)
+						} else {
+							cell
 						}
 					}
 				}
@@ -156,8 +166,10 @@ private struct DaySheet: View {
 	private func row(for event: Event) -> some View {
 		VStack(alignment: .leading, spacing: 4) {
 			HStack(spacing: 6) {
-				// セル上は「★3か否か」の2値だが、シートでは実数を出す（全体設計書 §10.2）
-				Text(String(repeating: "★", count: event.importance))
+				// セル上は「★3か否か」の2値だが、シートでは実数を出す（全体設計書 §10.2）。
+				// 1〜3 に収めるのは、String(repeating:count:) が負の数で落ちるため。
+				// openapi.yaml は 1〜3 と書いているが、生成コードは範囲を検査しない
+				Text(String(repeating: "★", count: min(max(event.importance, 0), 3)))
 					.font(.caption)
 					.foregroundStyle(.orange)
 				Text(event.shortLabel)
@@ -203,6 +215,9 @@ private struct DayCell: View {
 			Spacer(minLength: 0)
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+		// これが無いとタップが効くのは描かれた文字の上だけになり、
+		// イベントの無い日は日番号の16ptしか押せない
+		.contentShape(Rectangle())
 		.accessibilityElement(children: .combine)
 	}
 

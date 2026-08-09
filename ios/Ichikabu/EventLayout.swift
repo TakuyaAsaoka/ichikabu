@@ -94,7 +94,9 @@ enum EventLayout {
 		return "\(month)月\(day)日（\(weekdayNames[weekday - 1])）"
 	}
 
-	/// 曜日ヘッダとシートの見出しで使う。日曜始まり（`calendar.firstWeekday` と揃える）
+	/// 曜日名。並びは日曜始まり固定。
+	/// `dayTitle` は `.weekday` 成分（暦の設定によらず日曜=1）で引くので常に正しいが、
+	/// 曜日ヘッダは並び順をそのまま使うため `calendar.firstWeekday` が1であることに依存する
 	static let weekdayNames = ["日", "月", "火", "水", "木", "金", "土"]
 
 	/// 種別ごとの色。色に重要度を持たせない（全体設計書 §10.2）。

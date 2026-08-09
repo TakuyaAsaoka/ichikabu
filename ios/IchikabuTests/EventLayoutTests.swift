@@ -142,6 +142,29 @@ struct EventLayoutTests {
 		#expect(summary.importantCount == 2)
 	}
 
+	@Test("12月の月末は翌年にまたがずに数えられる")
+	func summaryHandlesDecember() {
+		// 月末を「翌月の1日の前日」で出しているため、年をまたぐ12月が境界になる
+		let events = [
+			event(id: 1, startDate: "2026-12-31"),
+			event(id: 2, startDate: "2027-01-01"),
+		]
+		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-12-01"), from: events).total == 1)
+	}
+
+	@Test("うるう年の2月は29日まで数えられる")
+	func summaryHandlesLeapFebruary() {
+		let events = [event(id: 1, startDate: "2028-02-29")]
+		#expect(EventLayout.summary(forMonthOf: jstNoon("2028-02-01"), from: events).total == 1)
+	}
+
+	@Test("同じ月の中の期間イベントは1件と数える")
+	func summaryCountsPeriodOnce() {
+		// セルには2日に出るが、出来事としては1件（設計書 §5）
+		let events = [event(id: 1, startDate: "2026-09-16", endDate: "2026-09-17")]
+		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-09-01"), from: events).total == 1)
+	}
+
 	@Test("イベントが無い月は0件になる")
 	func summaryEmptyMonth() {
 		let events = [event(id: 1, startDate: "2026-08-04", importance: 3)]
