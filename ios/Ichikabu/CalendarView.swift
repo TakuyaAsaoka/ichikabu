@@ -17,7 +17,7 @@ struct CalendarView: View {
 	@State private var today = Date()
 
 	/// タップされた日。nil の間はシートを出さない
-	@State private var selectedDay: SelectedDay?
+	@State private var selectedDay: Date?
 
 	/// 起動月の前後12ヶ月（設計書 §2 判断5）
 	private static let monthRange = -12...12
@@ -29,7 +29,7 @@ struct CalendarView: View {
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
 					events: events,
-					onSelect: { selectedDay = SelectedDay(date: $0) }
+					onSelect: { selectedDay = $0 }
 				)
 				.tag(offset)
 			}
@@ -40,16 +40,28 @@ struct CalendarView: View {
 				Text(message).foregroundStyle(.secondary)
 			}
 		}
-		.sheet(item: $selectedDay) { day in
-			DaySheet(date: day.date, events: EventLayout.events(on: day.id, from: events))
+		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
+		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）
+		.sheet(isPresented: sheetIsShown) {
+			if let selectedDay {
+				DaySheet(
+					date: selectedDay,
+					events: EventLayout.events(on: EventLayout.key(for: selectedDay), from: events)
+				)
 				.presentationDetents([.fraction(0.45), .large])
 				// 0.45 まで下げている間は裏を操作できる。
 				// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
 				.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
+			}
 		}
 		.task {
 			await load()
 		}
+	}
+
+	/// 日が選ばれていればシートを出す。閉じられたら選択も消す
+	private var sheetIsShown: Binding<Bool> {
+		Binding(get: { selectedDay != nil }, set: { if !$0 { selectedDay = nil } })
 	}
 
 	private func load() async {
@@ -61,12 +73,6 @@ struct CalendarView: View {
 			message = "イベントを取得できませんでした"
 		}
 	}
-}
-
-/// `.sheet(item:)` に渡すためだけの型。日付キーをそのまま `id` にする（設計書 §3）
-private struct SelectedDay: Identifiable {
-	let date: Date
-	var id: String { EventLayout.key(for: date) }
 }
 
 /// 1か月ぶんのページ。月の表題・月サマリ・曜日ヘッダ・6週×7列のグリッド

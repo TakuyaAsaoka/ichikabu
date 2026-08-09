@@ -299,7 +299,7 @@ Better Auth 一本で両クライアントをまかなう。
 | 部分 | 使うもの |
 |---|---|
 | グリッド | `ForEach(weeks)` ＋ 週ごとの `HStack`（42セルを単一 `LazyVGrid` に流さない。週単位にしておくと後の変更が効く） |
-| シート | `.sheet(item:)` ＋ `.presentationDetents([.fraction(0.45), .large])` |
+| シート | ~~`.sheet(item:)`~~ **`.sheet(isPresented:)`** ＋ `.presentationDetents([.fraction(0.45), .large])`。`item` は日付が変わるたびにシートを出し直し、0.45 で開いていたシートが `.large` に広がってしまう（実機で確認。→ [ボトムシートと月サマリ設計書](2026-08-10-9-ios-sheet-summary-design.md) §3） |
 | シート裏の操作 | `.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))` ← シートを開いたまま別の日付をタップできる |
 | 月の移動 | `TabView(.page)` の横スワイプ |
 
