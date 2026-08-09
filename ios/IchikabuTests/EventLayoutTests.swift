@@ -109,6 +109,47 @@ struct EventLayoutTests {
 		#expect(EventLayout.key(for: EventLayout.month(offset: 12, from: base)) == "2027-08-01")
 	}
 
+	@Test("月サマリはその月に重なるイベントを数える")
+	func summaryCountsOverlapping() {
+		let events = [
+			event(id: 1, startDate: "2026-07-31"),
+			event(id: 2, startDate: "2026-08-01"),
+			event(id: 3, startDate: "2026-08-31"),
+			event(id: 4, startDate: "2026-09-01"),
+		]
+		let summary = EventLayout.summary(forMonthOf: jstNoon("2026-08-01"), from: events)
+		#expect(summary.total == 2)
+	}
+
+	@Test("月をまたぐ期間のイベントは両方の月で1件と数える")
+	func summaryCountsPeriodOncePerMonth() {
+		// セルには 8/31 と 9/1 の2日に出るが、出来事としては1件（設計書 §5）
+		let events = [event(id: 1, startDate: "2026-08-31", endDate: "2026-09-01")]
+		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-08-01"), from: events).total == 1)
+		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-09-01"), from: events).total == 1)
+	}
+
+	@Test("月サマリは★3の件数を別に数える")
+	func summaryCountsImportant() {
+		let events = [
+			event(id: 1, startDate: "2026-08-04", importance: 3),
+			event(id: 2, startDate: "2026-08-04", importance: 2),
+			event(id: 3, startDate: "2026-08-20", importance: 1),
+			event(id: 4, startDate: "2026-08-20", importance: 3),
+		]
+		let summary = EventLayout.summary(forMonthOf: jstNoon("2026-08-01"), from: events)
+		#expect(summary.total == 4)
+		#expect(summary.importantCount == 2)
+	}
+
+	@Test("イベントが無い月は0件になる")
+	func summaryEmptyMonth() {
+		let events = [event(id: 1, startDate: "2026-08-04", importance: 3)]
+		let summary = EventLayout.summary(forMonthOf: jstNoon("2026-09-01"), from: events)
+		#expect(summary.total == 0)
+		#expect(summary.importantCount == 0)
+	}
+
 	@Test("日付キーが端末のタイムゾーンに依存しない")
 	func keyIsJST() {
 		// JST 2026-08-05 00:30 は UTC では 2026-08-04 15:30。

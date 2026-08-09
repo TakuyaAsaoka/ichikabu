@@ -16,6 +16,9 @@ struct CalendarView: View {
 	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
 	@State private var today = Date()
 
+	/// タップされた日。nil の間はシートを出さない
+	@State private var selectedDay: SelectedDay?
+
 	/// 起動月の前後12ヶ月（設計書 §2 判断5）
 	private static let monthRange = -12...12
 
@@ -25,7 +28,8 @@ struct CalendarView: View {
 				MonthPage(
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
-					events: events
+					events: events,
+					onSelect: { selectedDay = SelectedDay(date: $0) }
 				)
 				.tag(offset)
 			}
@@ -35,6 +39,13 @@ struct CalendarView: View {
 			if let message {
 				Text(message).foregroundStyle(.secondary)
 			}
+		}
+		.sheet(item: $selectedDay) { day in
+			DaySheet(date: day.date, events: EventLayout.events(on: day.id, from: events))
+				.presentationDetents([.fraction(0.45), .large])
+				// 0.45 まで下げている間は裏を操作できる。
+				// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
+				.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
 		.task {
 			await load()
@@ -52,21 +63,33 @@ struct CalendarView: View {
 	}
 }
 
-/// 1か月ぶんのページ。月の表題・曜日ヘッダ・6週×7列のグリッド
+/// `.sheet(item:)` に渡すためだけの型。日付キーをそのまま `id` にする（設計書 §3）
+private struct SelectedDay: Identifiable {
+	let date: Date
+	var id: String { EventLayout.key(for: date) }
+}
+
+/// 1か月ぶんのページ。月の表題・月サマリ・曜日ヘッダ・6週×7列のグリッド
 private struct MonthPage: View {
 	let monthStart: Date
 	let today: Date
 	let events: [Event]
-
-	private static let weekdayNames = ["日", "月", "火", "水", "木", "金", "土"]
+	let onSelect: (Date) -> Void
 
 	var body: some View {
+		let summary = EventLayout.summary(forMonthOf: monthStart, from: events)
+
 		VStack(spacing: 4) {
 			Text(EventLayout.title(for: monthStart))
 				.font(.headline)
 
+			// グリッドを読む前に「今月は荒れるか」に答える（全体設計書 §10.2）
+			Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
+				.font(.caption)
+				.foregroundStyle(.secondary)
+
 			HStack(spacing: 0) {
-				ForEach(Self.weekdayNames, id: \.self) { name in
+				ForEach(EventLayout.weekdayNames, id: \.self) { name in
 					Text(name)
 						.font(.caption2)
 						.foregroundStyle(.secondary)
@@ -79,13 +102,18 @@ private struct MonthPage: View {
 				_, week in
 				HStack(spacing: 0) {
 					ForEach(week, id: \.self) { day in
+						let isInMonth = EventLayout.calendar.isDate(
+							day, equalTo: monthStart, toGranularity: .month)
 						DayCell(
 							day: day,
-							isInMonth: EventLayout.calendar.isDate(
-								day, equalTo: monthStart, toGranularity: .month),
+							isInMonth: isInMonth,
 							isToday: EventLayout.calendar.isDate(day, inSameDayAs: today),
 							events: EventLayout.events(on: EventLayout.key(for: day), from: events)
 						)
+						// 埋め草（月外の日）はイベントを出していないのでタップも受けない（設計書 §3）
+						.onTapGesture {
+							if isInMonth { onSelect(day) }
+						}
 					}
 				}
 				.frame(maxHeight: .infinity)
@@ -93,6 +121,52 @@ private struct MonthPage: View {
 		}
 		.padding(.horizontal, 4)
 		.padding(.bottom, 8)
+	}
+}
+
+/// 日付タップで開くシート。その日の全件を出す。
+/// セルで `+N` に省略された分も、セルには出さない正式名称と★の実数もここに出る（全体設計書 §10.2）
+private struct DaySheet: View {
+	let date: Date
+	let events: [Event]
+
+	var body: some View {
+		NavigationStack {
+			List {
+				if events.isEmpty {
+					Text("イベントはありません").foregroundStyle(.secondary)
+				} else {
+					ForEach(events, id: \.id) { event in
+						row(for: event)
+					}
+				}
+			}
+			.listStyle(.plain)
+			.navigationTitle(EventLayout.dayTitle(for: date))
+			.navigationBarTitleDisplayMode(.inline)
+		}
+	}
+
+	private func row(for event: Event) -> some View {
+		VStack(alignment: .leading, spacing: 4) {
+			HStack(spacing: 6) {
+				// セル上は「★3か否か」の2値だが、シートでは実数を出す（全体設計書 §10.2）
+				Text(String(repeating: "★", count: event.importance))
+					.font(.caption)
+					.foregroundStyle(.orange)
+				Text(event.shortLabel)
+					.font(.caption)
+					.foregroundStyle(EventLayout.color(for: event.kind))
+				if let time = event.time {
+					Text(time).font(.caption).foregroundStyle(.secondary)
+				}
+			}
+			Text(event.title)
+			if let note = event.note {
+				Text(note).font(.caption).foregroundStyle(.secondary)
+			}
+		}
+		.padding(.vertical, 2)
 	}
 }
 
