@@ -12,7 +12,7 @@
 | スコープ | `stock` と `holding` の登録だけ。theme / theme_stock は別Issueに切り出す（→ §2） |
 | 画面 | `/`（登録フォーム＋一覧）と `/signin` の2ページ（→ §3） |
 | 登録処理 | Server Action → `src/db/register.ts`。事前確認せず INSERT し、制約違反を日本語に訳す（→ §5） |
-| 認証 | Cookie セッション（全体設計書 §9）。`auth.ts` に `nextCookies()` を足す（→ §6） |
+| 認証 | Cookie セッション（全体設計書 §9）。**サインインはブラウザから HTTP エンドポイントを叩く**（回数制限を効かせるため）。`auth.ts` に `nextCookies()` と `rateLimit` を足す（→ §6） |
 | 見た目 | Tailwind v4。部品ライブラリは持ち込まない（→ §8） |
 | テスト | `src/db/register.test.ts` で実際の PostgreSQL に対して8件（→ §9） |
 
@@ -81,7 +81,9 @@ server/
     └── register.test.ts      ← 新規
 ```
 
-この一覧に加えて、フォームだけを切り出した `"use client"` のファイルが3つ増える（`app/signin/signin-form.tsx`・`app/stock-form.tsx`・`app/holding-form.tsx`）。`useActionState` は Client Component でしか使えないため。ページ本体は Server Component のまま残す。
+この一覧に加えて、フォームだけを切り出した `"use client"` のファイルが3つ増える（`app/signin/signin-form.tsx`・`app/stock-form.tsx`・`app/holding-form.tsx`）。ページ本体は Server Component のまま残す。
+
+切り出す理由はフォームごとに違う。銘柄と保有は `useActionState` が Client Component でしか使えないため。サインインは `fetch` でHTTPエンドポイントを叩くため（→ §6）。
 
 責務の分け方:
 
@@ -118,16 +120,44 @@ server/
 
 | 決定 | 内容 |
 |---|---|
-| `src/auth.ts` の変更 | `plugins` を `[bearer(), nextCookies()]` にする。`nextCookies` は**配列の最後**に置く（`node_modules/better-auth/dist/integrations/next-js.mjs` の `warnIfCookiePluginNotLast` が最後でないと警告を出す） |
+| **サインイン** | **ブラウザから `POST /api/auth/sign-in/email` を叩く**（`app/signin/signin-form.tsx`）。サーバー側の `auth.api.signInEmail` は呼ばない |
 | 画面の保護 | `app/page.tsx` で `auth.api.getSession` を呼び、セッションが無ければ `redirect("/signin")` |
 | Server Action の保護 | `app/actions.ts` の各アクションでも同じ確認をする。Server Action は画面を通さず直接 POST できるため（Next.js 同梱ドキュメント `node_modules/next/dist/docs/01-app/01-getting-started/07-mutating-data.md` の警告） |
-| サインイン | `/signin` の Server Action から `auth.api.signInEmail` を呼ぶ |
+| `src/auth.ts` の変更 | `plugins` を `[bearer(), nextCookies()]` にし、`rateLimit: { enabled: true, storage: "database" }` を足す |
 
-補足2点:
+### なぜサインインだけ HTTP エンドポイントを叩くのか
 
-- **Better Auth の Origin 検査は問題にならない。** Server Action から `auth.api.signInEmail` を直接呼ぶと HTTP を経由しないので `ctx.request` が無く、`node_modules/better-auth/dist/api/middlewares/origin-check.mjs` の `validateOrigin` が先頭で return する。`BETTER_AUTH_URL=http://localhost:3000` は `.env.example` に既にある
-  - ただし直接呼び出しには代償もある。Better Auth のレート制限は `auth.handler`（HTTP層）を通るリクエストにしかかからない仕組みで、`node_modules/better-auth/dist/api/index.mjs` の router の `onRequest` にある。`/api/auth/sign-in/email` への直接POSTには制限がかかるが、この Server Action 経由のサインインには回数制限がかからず、公開後はパスワード総当たりに無防備になる。未デプロイ・利用者1人のうちは実害が無いが、公開前に対処が要る。対処はホスティング選定の Issue #16 の範囲とする
-- **`nextCookies()` を足しても既存テスト（`app/api/events/route.test.ts` 等）は壊れない。** `next-js.mjs` の after フックは「リクエストの外で `cookies()` が呼ばれた」を catch して素通りする
+**Better Auth のレート制限は `auth.handler`（HTTP層）を通るリクエストにしかかからない。** 公式ドキュメントが「`auth.api` で作ったサーバー側リクエストはレート制限の対象外」と明記しており、実装上も `node_modules/better-auth/dist/api/index.mjs` の router の `onRequest` に置かれている。
+
+当初は Server Action から `auth.api.signInEmail` を呼んでいた（Better Auth の Next.js 連携ドキュメントが例示している形）。この形は Origin 検査を通らない利点がある一方、**回数制限も通らない**。公開後はパスワード総当たりを遅くする手段が無くなる。
+
+そこで、認証情報を検証する操作だけ HTTP エンドポイントに寄せた。**セッションを読むだけの `auth.api.getSession` はそのまま使う**（読み取りに回数制限をかけると自分のページ表示が止まる。かつ Better Auth が公式に用意しているサーバー側の入口である）。
+
+副次的に、iOS も同じ `POST /api/auth/sign-in/email` を使う（全体設計書 §9）ため、**両方のクライアントが1つの認証入口を共有する**形になった。
+
+| 操作 | 経路 | レート制限 |
+|---|---|---|
+| サインイン | ブラウザ → `POST /api/auth/sign-in/email` | かかる（組み込み規則で10秒に3回／IP） |
+| セッションの読み取り | `auth.api.getSession` | かからない（かけない） |
+| 銘柄・保有の登録 | Server Action | かからない（認証済みの操作なので不要） |
+
+### レート制限の設定
+
+| 設定 | 値 | 理由 |
+|---|---|---|
+| `enabled` | `true` | 既定は本番のみ有効。開発中も動かさないと、制限が外れていることを検証で捕まえられない（実際に一度取りこぼした） |
+| `storage` | `"database"` | 既定の `memory` は再起動で消え、サーバーが複数台だと台ごとに別勘定になる。公式も「メモリはサーバーレスに不適」としている |
+| サインインの回数 | 設定しない | 組み込みの規則が `/sign-in*` を10秒に3回に絞っている（`node_modules/better-auth/dist/api/rate-limiter/index.mjs` の `getDefaultSpecialRules`）。公式が言う「機密操作を厳しく」は既定で満たされる |
+
+`storage: "database"` は `rate_limit` テーブルを要求する。`pnpm auth:gen` で `src/db/auth-schema.ts` を再生成し、マイグレーション `drizzle/0001_nice_venus.sql` を追加した。
+
+**残る限界**: 制限は IP ごとで、アカウント軸は無い。IPを変えられると素通りする。逆にプロキシの裏に置くと本当のクライアントIPが取れず、利用者全員が1つの枠を共有しうる（`rate-limiter/index.mjs` が警告を出す）。どちらもホスティング先が決まらないと詰められないため、境界での遮断（IP許可リスト等）とあわせて Issue #16 で扱う。
+
+### `nextCookies()` を残す理由
+
+サインインが Server Action を離れたため、当初の役割（Server Action が返した `Set-Cookie` を書き移す）は無くなった。それでも残すのは、**Server Component から `getSession` を呼んだときにセッションの期限延長で Cookie を書こうとして書けない状態（DBだけ進む）を防ぐ**ため。`next-js.mjs` の before フックが RSC を判定して期限延長を飛ばす。
+
+配列の**最後**に置く必要がある（`warnIfCookiePluginNotLast` が最後でないと警告を出す）。
 
 ## 7. 実装時に踏む穴
 
@@ -136,9 +166,21 @@ server/
 | | 内容 | 対処 |
 |---|---|---|
 | A | **空欄の `fiscal_month` をそのまま INSERT すると 500 になる。** HTML フォームの空欄は FormData で `""` になり、smallint への INSERT は型変換エラーで落ちる。これは制約違反ではないので §5 の対応表のどれにも当たらず、投げ直して 500 になる。完了条件「US銘柄で空にできること」に直撃する | `app/actions.ts` で `""` → `null` に読み替える |
-| B | サインインの失敗表示は §5 とは別系統。`auth.api.signInEmail` はパスワード誤りで例外を投げる | catch して「メールアドレスまたはパスワードが違います」を返す |
-| C | `redirect("/")` を B の catch の中に入れると、成功したのにエラー表示になる。`redirect` は例外を投げて制御を移す仕組みのため | `redirect("/")` は catch の外に置く |
+| B | ~~サインインの失敗表示は §5 とは別系統。`auth.api.signInEmail` はパスワード誤りで例外を投げる~~ | **無効化**。サインインが Server Action を離れたため（→ §6）。いまは応答コードで分ける（下記） |
+| C | ~~`redirect("/")` を B の catch の中に入れると、成功したのにエラー表示になる~~ | **無効化**。同上。遷移は `router.push` で行う |
 | D | `holding.user_id` は Better Auth の `user` への外部キー。`test/helpers.ts` の `resetDatabase()` は `user` も消すので、保有のテストは先に利用者を作らないと外部キー違反で落ちる | `app/api/events/route.test.ts` の `createUser` と同じく `seedUser` で利用者を作ってから登録する |
+
+B・C は Server Action で書いていたときに実際に踏んだもので、経路を変えた結果あたらなくなった。**記録として残す**（同じ形に戻す判断をするときに再び効くため）。
+
+### サインインの失敗表示（現行）
+
+応答コードで分ける。想定外のコードを「パスワードが違う」と言い切らないため、数字をそのまま見せる（`app/signin/signin-form.tsx` の `messageFor`）。
+
+| 応答コード | 画面に出す文 |
+|---|---|
+| 401 | メールアドレスまたはパスワードが違います |
+| 429 | 試行が多すぎます。しばらく待ってからやり直してください |
+| その他 | サインインに失敗しました（応答コード N） |
 
 ## 8. 見た目: Tailwind v4
 
@@ -172,7 +214,7 @@ Tailwind の設定は kabu-legends を参考にするが、以下は持ち込ま
 
 ### 共通のフォーム部品を先に作らない
 
-フォームは銘柄・保有・サインインの3つで、サインインだけ挙動が違う（成功でリダイレクト、→ §7 C）。**まず銘柄フォームを1つ書き、2つ目で重複が見えてから括り出す。** 最初から「共通の枠」を設計すると、3つしかないフォームの差分を吸収する引数が先に生まれる。
+フォームは銘柄・保有・サインインの3つで、サインインだけ挙動が違う（`useActionState` を使わず `fetch` で叩き、成功したら遷移する。→ §6）。**まず銘柄フォームを1つ書き、2つ目で重複が見えてから括り出す。** 最初から「共通の枠」を設計すると、3つしかないフォームの差分を吸収する引数が先に生まれる。
 
 ## 9. テスト
 
@@ -219,7 +261,7 @@ Tailwind の設定は kabu-legends を参考にするが、以下は持ち込ま
 | 5 | 3 で得た Cookie を付けて `GET /signin` | 307 で `/` に飛ぶ（サインイン済みの判定が効いている） |
 | 6 | 同 Cookie で `GET /` | 200。「イチカブ 管理」の見出しと「銘柄を登録」「銘柄一覧（3件）」「保有を登録」「保有一覧（3件）」の4ブロックが描画される |
 | 7 | 6 の一覧の中身 | `JP 6367 ダイキン工業 / 3月決算`・`JP 7203 トヨタ自動車`・`JP 9434 ソフトバンク`。DBの `stock` 3行と一致し、市場・ティッカーの順に並ぶ。保有の `<select>` にも同じ3件が出る |
-| 8 | サインインの Server Action に `Next-Action` ヘッダで直接到達 | アクションが実行され、認証に失敗したときは「メールアドレスまたはパスワードが違います」を返す。500 にならない |
+| 8 | ~~サインインの Server Action に `Next-Action` ヘッダで直接到達~~ | ~~アクションが実行され、認証に失敗したときは「メールアドレスまたはパスワードが違います」を返す。500 にならない~~<br>**この確認は無効になった**。後にサインインを HTTP エンドポイントに移したため（→ §6）。移した後の確認は結果3にある |
 
 ### 結果2: 実ブラウザ（実施日: 2026-08-09、Safari のプライベートウィンドウ）
 
@@ -236,13 +278,26 @@ HTTP では確かめられなかった書き込み経路を、運用者が実ブ
 
 これにより、サインインのフォーム送信で `nextCookies()` が Cookie を書くこと、登録後に一覧が増えること（`revalidatePath("/")` の効き）も、あわせて確認できた。
 
+### 結果3: 回数制限（実施日: 2026-08-09、HTTP で確認）
+
+サインインを HTTP エンドポイントに移したあと（→ §6）の確認。
+
+| 確認したこと | 結果 |
+|---|---|
+| 誤ったパスワードで `POST /api/auth/sign-in/email` を5回続ける | `401` `401` `401` **`429`** **`429`**。組み込み規則の「10秒に3回」どおりに止まる |
+| `rate_limit` テーブル | `key = <IP>|/sign-in/email`、`count = 3` の行が入る。メモリではなくDBに載っている |
+| 11秒待って正しいパスワード | `200`。締め出されたままにならない |
+
+**`enabled: true` にしていなければ、この確認は開発環境では取れなかった**（既定は本番のみ有効）。
+
+
 ## 11. やる順番
 
 | 順 | やること | 根拠 |
 |---|---|---|
 | 1 | Issue #6 の本文を書き換える（theme / theme_stock を外す。→ §2） | 完了条件が変わる。古い完了条件のまま実装すると、作らないと決めたテーマ画面が「未完了」として残り続ける |
 | 2 | Tailwind の導入と `biome.json` の変更（→ §8） | 先にやらないと、`.tsx` と `.css` を書くたびに `pnpm lint` が落ち、後の全部が止まる |
-| 3 | `layout.tsx` ＋ `/signin` ＋ サインインの Server Action | 認証が無いと `/` の保護（→ §6）が書けず、以降の動作確認がすべてサインインを前提にする |
+| 3 | `layout.tsx` ＋ `/signin` ＋ サインインのフォーム | 認証が無いと `/` の保護（→ §6）が書けず、以降の動作確認がすべてサインインを前提にする |
 | 4 | `page.tsx` ＋ `actions.ts` ＋ `src/db/register.ts` | 本体 |
 | 5 | `src/db/register.test.ts`（→ §9） | 4 の `register.ts` が対象 |
 | 6 | 見た目を整える | 完了条件のどれにも見た目は出てこない（Issue 補足も「画面の見た目に凝らない。利用者=運用者=自分」）。先に整えると 4・5 の手戻りで捨てる |
@@ -257,5 +312,5 @@ HTTP では確かめられなかった書き込み経路を、運用者が実ブ
 | 一覧の削除・編集・並べ替え・絞り込み・ページ送り | → §3 |
 | 共通フォーム部品の先行設計 | → §8 |
 | `stock.name` の空文字を弾く CHECK 制約の追加 | HTML の `required` で塞ぐ（→ §3）。管理UI以外の書き込み経路は seed だけで、seed は固定値を入れる |
-| write 系 API の `openapi.yaml` への追加 | 管理UIは Next.js 内（Server Action）で完結する。iOS が読む read 系だけを契約に載せる（イベント取得API設計書 §8） |
+| write 系 API の `openapi.yaml` への追加 | 銘柄・保有の登録は Server Action で完結し、サインインは Better Auth が自前で生やすエンドポイントを使う。どちらも自作のパスではないため契約に載せない。iOS が読む read 系だけを載せる（イベント取得API設計書 §8） |
 | サインアウト | 利用者=運用者=自分の1人（全体設計書 §12）。セッションを消したければブラウザの Cookie を消せば足りる |
