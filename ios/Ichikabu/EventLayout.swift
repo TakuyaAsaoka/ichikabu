@@ -66,6 +66,39 @@ enum EventLayout {
 		events.filter { $0.startDate <= key && ($0.endDate ?? $0.startDate) >= key }
 	}
 
+	/// グリッド上部に出す月サマリ。その月に**重なる**イベントを数える。
+	/// 期間イベントはセルには各日出るが、出来事としては1件なので月ごとに1しか数えない（設計書 §5）
+	static func summary(forMonthOf monthStart: Date, from events: [Event]) -> (
+		total: Int, importantCount: Int
+	) {
+		let first = key(for: monthStart)
+		guard
+			let lastDay = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart)
+		else {
+			return (0, 0)
+		}
+		let last = key(for: lastDay)
+		// 日についての条件（events(on:from:)）を月の幅に広げただけの式
+		let inMonth = events.filter { $0.startDate <= last && ($0.endDate ?? $0.startDate) >= first }
+		return (inMonth.count, inMonth.filter { $0.importance == 3 }.count)
+	}
+
+	/// シートの見出し（`8月4日（火）`）
+	static func dayTitle(for date: Date) -> String {
+		let components = calendar.dateComponents([.month, .day, .weekday], from: date)
+		guard let month = components.month, let day = components.day,
+			let weekday = components.weekday
+		else {
+			return ""
+		}
+		return "\(month)月\(day)日（\(weekdayNames[weekday - 1])）"
+	}
+
+	/// 曜日名。並びは日曜始まり固定。
+	/// `dayTitle` は `.weekday` 成分（暦の設定によらず日曜=1）で引くので常に正しいが、
+	/// 曜日ヘッダは並び順をそのまま使うため `calendar.firstWeekday` が1であることに依存する
+	static let weekdayNames = ["日", "月", "火", "水", "木", "金", "土"]
+
 	/// 種別ごとの色。色に重要度を持たせない（全体設計書 §10.2）。
 	/// 琥珀・藍は SwiftUI 標準に無いため、3色とも明示的に定義して彩度・明度を揃える
 	static func color(for kind: Event.kindPayload) -> Color {
