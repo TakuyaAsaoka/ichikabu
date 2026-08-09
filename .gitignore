@@ -14,3 +14,8 @@ xcuserdata/
 .build/
 DerivedData/
 ios/build/
+
+# IchikabuAPI をパッケージ単体で解決したときに出る依存の固定ファイル。
+# アプリのビルドが使うのは Ichikabu.xcodeproj 側の Package.resolved で、
+# 中身（pins）は同じになるため、2箇所で管理してズレるのを防ぐ
+ios/IchikabuAPI/Package.resolved
