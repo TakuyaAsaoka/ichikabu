@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
-import { holding, stock } from "../src/db/schema";
+import { event, holding, stock, theme } from "../src/db/schema";
+import { EventForm } from "./event-form";
 import { HoldingForm } from "./holding-form";
 import { StockForm } from "./stock-form";
 
@@ -39,6 +40,30 @@ export default async function Page() {
     .innerJoin(stock, eq(holding.stockId, stock.id))
     .where(eq(holding.userId, session.user.id))
     .orderBy(stock.market, stock.ticker);
+
+  const themes = await db
+    .select({ id: theme.id, name: theme.name })
+    .from(theme)
+    .orderBy(theme.name);
+
+  // 対象は3列のうち1つだけが埋まる（全体設計書 §5）ため、
+  // テーマと銘柄を外部結合し、埋まっている側だけが値を持つ形で読む
+  const events = await db
+    .select({
+      id: event.id,
+      title: event.title,
+      shortLabel: event.shortLabel,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      importance: event.importance,
+      market: event.market,
+      themeName: theme.name,
+      ticker: stock.ticker,
+    })
+    .from(event)
+    .leftJoin(theme, eq(event.themeId, theme.id))
+    .leftJoin(stock, eq(event.stockId, stock.id))
+    .orderBy(event.startDate);
 
   return (
     <>
@@ -77,6 +102,30 @@ export default async function Page() {
               className="border-b border-border py-1"
             >
               {row.market} {row.ticker} {row.name}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-base font-bold">イベントを登録</h2>
+        <EventForm themes={themes} stocks={stocks} />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-base font-bold">
+          イベント一覧（{events.length}件）
+        </h2>
+        <ul className="flex flex-col gap-1">
+          {events.map((row) => (
+            <li key={row.id} className="border-b border-border py-1">
+              {row.startDate}
+              {row.endDate !== null && `〜${row.endDate}`} ★{row.importance}{" "}
+              {row.shortLabel}
+              <span className="text-muted">
+                {" "}
+                / {row.market ?? row.themeName ?? row.ticker} / {row.title}
+              </span>
             </li>
           ))}
         </ul>

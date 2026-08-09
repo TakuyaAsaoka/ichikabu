@@ -2,8 +2,13 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { createHolding, createStock } from "./register";
-import { holding, stock } from "./schema";
+import {
+  createEvent,
+  createHolding,
+  createStock,
+  type EventInput,
+} from "./register";
+import { event, holding, stock, theme } from "./schema";
 import { seedUser } from "./seed-user";
 
 const TOYOTA = {
@@ -125,5 +130,150 @@ describe("createHolding", () => {
       "その銘柄はすでに保有に登録済み",
     );
     expect(await db.select().from(holding)).toHaveLength(1);
+  });
+});
+
+describe("createEvent", () => {
+  /**
+   * 対象3列がすべて null の土台。各テストが1列だけ埋める。
+   * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の判定には引っかからない
+   */
+  const BASE: EventInput = {
+    title: "日本銀行 金融政策決定会合",
+    shortLabel: "日銀会合",
+    startDate: "2026-09-18",
+    endDate: null,
+    time: null,
+    importance: 3,
+    note: null,
+    sourceUrl: null,
+    market: null,
+    themeId: null,
+    stockId: null,
+  };
+
+  /** 対象を1つだけ持つ行が1件だけ入ったことを確かめる */
+  async function onlyEvent() {
+    const rows = await db.select().from(event);
+    expect(rows).toHaveLength(1);
+    return rows[0];
+  }
+
+  it("市場イベントを登録するとDBに行が入る", async () => {
+    expect(await createEvent({ ...BASE, market: "GLOBAL" })).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.market).toBe("GLOBAL");
+    expect(row.themeId).toBeNull();
+    expect(row.stockId).toBeNull();
+  });
+
+  it("テーマイベントを登録するとDBに行が入る", async () => {
+    // テーマの登録画面はまだ無い（設計書 §9）ため、テストからは直接入れる
+    const [{ id: themeId }] = await db
+      .insert(theme)
+      .values({ name: "半導体" })
+      .returning({ id: theme.id });
+
+    expect(await createEvent({ ...BASE, themeId })).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.themeId).toBe(themeId);
+    expect(row.market).toBeNull();
+    expect(row.stockId).toBeNull();
+  });
+
+  it("銘柄イベントを登録するとDBに行が入る", async () => {
+    await createStock({ ...TOYOTA });
+    const [{ id: stockId }] = await db
+      .select({ id: stock.id })
+      .from(stock)
+      .where(eq(stock.ticker, TOYOTA.ticker));
+
+    expect(await createEvent({ ...BASE, stockId })).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.stockId).toBe(stockId);
+    expect(row.market).toBeNull();
+    expect(row.themeId).toBeNull();
+  });
+
+  it("対象を1つも選ばないとエラー文が返る", async () => {
+    expect(await createEvent({ ...BASE })).toBe(
+      "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
+    );
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("対象を2つ選ぶとエラー文が返る", async () => {
+    const [{ id: themeId }] = await db
+      .insert(theme)
+      .values({ name: "半導体" })
+      .returning({ id: theme.id });
+
+    expect(await createEvent({ ...BASE, market: "JP", themeId })).toBe(
+      "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
+    );
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("市場がJP・US・GLOBALのどれでもないとエラー文が返る", async () => {
+    expect(await createEvent({ ...BASE, market: "XX" })).toBe(
+      "市場は JP・US・GLOBAL のどれか",
+    );
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("短縮ラベルが全角5文字を超えるとエラー文が返る", async () => {
+    // 「決算発表予定」は全角6文字＝幅12（設計書 §3）
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        shortLabel: "決算発表予定",
+      }),
+    ).toBe("短縮ラベルは全角5文字まで");
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("全角5文字ちょうどの短縮ラベルを登録できる", async () => {
+    // 幅10。境界を1文字ぶん間違えるとここが落ちる
+    expect(
+      await createEvent({ ...BASE, market: "JP", shortLabel: "決算発表日" }),
+    ).toBeNull();
+  });
+
+  it("半角と全角が混じった短縮ラベルを登録できる", async () => {
+    // 「7203決算」は6文字だが全角換算では4文字（幅8）。文字数で数えていないことの検証
+    expect(
+      await createEvent({ ...BASE, market: "JP", shortLabel: "7203決算" }),
+    ).toBeNull();
+  });
+
+  it("終了日を空にすると単日として登録される", async () => {
+    expect(
+      await createEvent({ ...BASE, market: "JP", endDate: null }),
+    ).toBeNull();
+
+    expect((await onlyEvent()).endDate).toBeNull();
+  });
+
+  it("終了日が開始日と同じだとエラー文が返る", async () => {
+    // 単日は end_date IS NULL でのみ表す（全体設計書 §4.2）
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        endDate: BASE.startDate,
+      }),
+    ).toBe("終了日は開始日より後にする（単日は空のまま）");
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("重要度が1〜3の外だとエラー文が返る", async () => {
+    expect(await createEvent({ ...BASE, market: "JP", importance: 4 })).toBe(
+      "重要度は1〜3",
+    );
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 });

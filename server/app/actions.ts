@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
-import { createHolding, createStock } from "../src/db/register";
+import { createEvent, createHolding, createStock } from "../src/db/register";
+import { toEventInput } from "./event-input";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
 // 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
@@ -63,6 +64,22 @@ export async function addHolding(
   const userId = await requireUserId();
 
   const message = await createHolding(userId, Number(formData.get("stockId")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  return null;
+}
+
+/** イベントを登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function addEvent(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await createEvent(toEventInput(formData));
   if (message) {
     return message;
   }
