@@ -11,7 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "auth:gen": "better-auth generate --config src/auth.ts --output src/db/auth-schema.ts",
+    "auth:gen": "pnpm dlx @better-auth/cli@1.6 generate --config src/auth.ts --output src/db/auth-schema.ts",
     "build": "next build",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -32,12 +32,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.1.2",
     "@types/pg": "^8.20.4",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "drizzle-kit": "^0.31.10",
     "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.11",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
