@@ -10,6 +10,10 @@ const PASSWORD = "correct-horse-battery-staple";
 
 const BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
+// auth.handler を通すため、この関数はレート制限の対象になる（設計書 §6）。
+// /sign-in/email は組み込み規則で10秒に3回まで。1つのテストで4回以上叩くと、
+// 401 でも 500 でもない 429 が返って原因の分かりにくい失敗になる。
+// テストをまたぐ分は beforeEach の resetDatabase が rate_limit ごと消している
 function post(path: string, body: unknown) {
   return auth.handler(
     new Request(`${BASE_URL}/api/auth/${path}`, {

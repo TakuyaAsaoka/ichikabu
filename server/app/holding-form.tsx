@@ -35,11 +35,9 @@ export function HoldingForm({ choices }: { choices: Choice[] }) {
       >
         {pending ? "送信中" : "保有を登録"}
       </button>
-      {error && (
-        <p className="text-error" aria-live="polite">
-          {error}
-        </p>
-      )}
+      <p className="text-error empty:hidden" aria-live="polite">
+        {error}
+      </p>
     </form>
   );
 }

@@ -11,7 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "auth:gen": "pnpm dlx @better-auth/cli@latest generate --config src/auth.ts --output src/db/auth-schema.ts",
+    "auth:gen": "pnpm dlx @better-auth/cli@1.6 generate --config src/auth.ts --output src/db/auth-schema.ts",
     "build": "next build",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",

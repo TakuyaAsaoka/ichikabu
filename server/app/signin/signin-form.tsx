@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 /** 応答コードから画面に出す文を決める。原因を取り違えないよう、想定外は数字をそのまま見せる */
@@ -19,7 +18,6 @@ function messageFor(status: number): string {
  * 回数制限を通らないため（設計書 §6）。iOS も同じエンドポイントを使う（全体設計書 §9）
  */
 export function SignInForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -30,20 +28,28 @@ export function SignInForm() {
     setPending(true);
     setError(null);
 
-    const response = await fetch("/api/auth/sign-in/email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: form.get("email"),
-        password: form.get("password"),
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch("/api/auth/sign-in/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.get("email"),
+          password: form.get("password"),
+        }),
+      });
+    } catch {
+      // 通信そのものが失敗した場合（切断・サーバー停止中）。
+      // ここで拾わないと「送信中」のまま固まり、やり直せなくなる
+      setPending(false);
+      setError("通信に失敗しました。もう一度試してください");
+      return;
+    }
 
     if (response.ok) {
-      // 取得済みの内容を捨ててから移る。サインインで付いた Cookie を
-      // サーバーに読ませたうえで `/` を描画させるため
-      router.refresh();
-      router.push("/");
+      // ページを読み込み直して移る。取得済みの内容やルーターの状態に左右されず、
+      // サインインで付いた Cookie を確実にサーバーへ渡すため
+      window.location.assign("/");
       return;
     }
 
@@ -78,11 +84,9 @@ export function SignInForm() {
       >
         {pending ? "送信中" : "サインイン"}
       </button>
-      {error && (
-        <p className="text-error" aria-live="polite">
-          {error}
-        </p>
-      )}
+      <p className="text-error empty:hidden" aria-live="polite">
+        {error}
+      </p>
     </form>
   );
 }
