@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
 import { createEvent, createHolding, createStock } from "../src/db/register";
+import { toEventInput } from "./event-input";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
 // 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
@@ -71,30 +72,6 @@ export async function addHolding(
   return null;
 }
 
-/**
- * 空欄を null に読み替える。終了日・時刻・補足・出典URLは空にできるが、
- * FormData の "" を date・time 列にそのまま入れると、制約違反ではない
- * 型変換エラーで 500 になる（イベント登録設計書 §5。決算月と同じ穴）
- */
-function toNullable(value: FormDataEntryValue | null): string | null {
-  const text = String(value ?? "");
-  return text === "" ? null : text;
-}
-
-/**
- * 対象の <select> の値（"market:JP" / "theme:12" / "stock:3"）を event の3列に振り分ける。
- * 未選択は3列とも null になり、DB の event_target_exclusive_check が弾く
- * （イベント登録設計書 §4）
- */
-function toTarget(value: FormDataEntryValue | null) {
-  const [kind, id = ""] = String(value ?? "").split(":");
-  return {
-    market: kind === "market" ? id : null,
-    themeId: kind === "theme" ? Number(id) : null,
-    stockId: kind === "stock" ? Number(id) : null,
-  };
-}
-
 /** イベントを登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
 export async function addEvent(
   _previous: string | null,
@@ -102,17 +79,7 @@ export async function addEvent(
 ): Promise<string | null> {
   await requireUserId();
 
-  const message = await createEvent({
-    title: String(formData.get("title") ?? ""),
-    shortLabel: String(formData.get("shortLabel") ?? ""),
-    startDate: String(formData.get("startDate") ?? ""),
-    endDate: toNullable(formData.get("endDate")),
-    time: toNullable(formData.get("time")),
-    importance: Number(formData.get("importance")),
-    note: toNullable(formData.get("note")),
-    sourceUrl: toNullable(formData.get("sourceUrl")),
-    ...toTarget(formData.get("target")),
-  });
+  const message = await createEvent(toEventInput(formData));
   if (message) {
     return message;
   }
