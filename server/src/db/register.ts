@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from ".";
-import { event, holding, stock } from "./schema";
+import { event, holding, stock, theme, themeStock } from "./schema";
 import { violatedConstraint } from "./violation";
 
 /**
@@ -15,6 +15,8 @@ const MESSAGES: Record<string, string> = {
   stock_fiscal_month_market_check: "決算月はJP銘柄にだけ入れられる",
   stock_fiscal_month_check: "決算月は1〜12",
   holding_user_id_stock_id_pk: "その銘柄はすでに保有に登録済み",
+  theme_name_unique: "そのテーマ名は登録済み",
+  theme_stock_theme_id_stock_id_pk: "その銘柄はすでにこのテーマに登録済み",
   event_target_exclusive_check: "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
   event_period_check: "終了日は開始日より後にする（単日は空のまま）",
   event_importance_check: "重要度は1〜3",
@@ -65,6 +67,19 @@ export function createHolding(
   stockId: number,
 ): Promise<string | null> {
   return run(db.insert(holding).values({ userId, stockId }));
+}
+
+/** テーマを登録する。成功で null、制約違反で日本語のエラー文を返す */
+export function createTheme(name: string): Promise<string | null> {
+  return run(db.insert(theme).values({ name }));
+}
+
+/** テーマ所属を登録する。成功で null、制約違反で日本語のエラー文を返す */
+export function createThemeStock(
+  themeId: number,
+  stockId: number,
+): Promise<string | null> {
+  return run(db.insert(themeStock).values({ themeId, stockId }));
 }
 
 export type EventInput = {
