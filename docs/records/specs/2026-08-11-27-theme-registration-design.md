@@ -1,0 +1,106 @@
+# 管理UI（テーマ・テーマ所属の登録）設計書
+
+- 対応 Issue: [#27 管理UI: テーマとテーマ所属の登録](https://github.com/TakuyaAsaoka/ichikabu/issues/27)
+- 根拠: [全体設計書](2026-08-02-1-ichikabu-design.md)（§4 データモデル・§5 イベントの3種別）、[管理UI設計書](2026-08-09-6-admin-ui-design.md)（§3 画面構成・§4 ファイル構成・§5 登録の失敗の扱い）
+
+## 1. 目的と結論
+
+**テーマ（`theme`）とテーマ所属（`theme_stock`）を画面から登録できるようにする。** Issue #6 から切り出したもので、作るものは #6 で作った銘柄・保有の登録とほぼ同じ形になる。
+
+イベント登録フォームは既に対象欄にテーマの選択肢を `theme` テーブルから引いて出す実装になっている（`app/event-form.tsx:64`）。`theme` に行が入る手段が無いため選択肢が常に空で、テーマイベントを登録できない。この Issue でその穴を塞ぐ。
+
+| 項目 | 決定 |
+|---|---|
+| 登録処理 | 管理UI設計書 §5 と同じ。事前確認せず INSERT し、制約違反を日本語に訳す（→ §3） |
+| 画面 | `/` に フォーム2つ＋テーマ一覧 のセクションを足す。新しいページは作らない（→ §4） |
+| 一覧の形 | テーマ名の下に所属銘柄をぶら下げる。テーマ一覧と所属一覧を分けない（→ §4.2） |
+| テスト | `src/db/register.test.ts` に4件。実際の PostgreSQL に対して（→ §5） |
+
+## 2. 前提の確認
+
+以前この Issue には「§5.1 の出典を増やすまで着手しない」と書かれていた。その前提は誤りで、Issue #38 で全体設計書を直した。
+
+登録できるテーマイベントは、決算のように各社IRで日付を確認できる出来事をテーマに寄せたものである（全体設計書 §5「1つの出来事は必ず1行で登録する」）。テーマ固有の出来事（政策・業界の発表）は日付の出典が無いため登録できないが、この Issue の動作確認には要らない。
+
+## 3. 登録処理
+
+`src/db/register.ts` に `createTheme` と `createThemeStock` を足す。既存の `createStock` / `createHolding` と同じ形で、`run()` に INSERT を渡すだけ。
+
+```typescript
+export function createTheme(name: string): Promise<string | null>
+export function createThemeStock(themeId: number, stockId: number): Promise<string | null>
+```
+
+`MESSAGES` に2行足す。制約名は `server/drizzle/0000_simple_blacklash.sql` の実物。
+
+| 制約名 | 画面に出す文 |
+|---|---|
+| `theme_name_unique` | そのテーマ名は登録済み |
+| `theme_stock_theme_id_stock_id_pk` | その銘柄はすでにこのテーマに登録済み |
+
+`theme.name` は `notNull` だが空文字を弾く CHECK が無い。銘柄名と同じく HTML の `required` で塞ぐ（管理UI設計書 §3「入力欄はブラウザの検証を使う」）。
+
+`app/actions.ts` に `addTheme` / `addThemeStock` を足す。既存の `addStock` / `addHolding` と同じく、`requireUserId()` → `FormData` を読む → `register.ts` を呼ぶ → `revalidatePath("/")`。
+
+## 4. 画面
+
+### 4.1 配置
+
+`/` の縦並びに3セクション足す。
+
+```
+銘柄フォーム → 銘柄一覧 → 保有フォーム → 保有一覧
+  → テーマフォーム → テーマ所属フォーム → テーマ一覧      ← 足す
+  → イベントフォーム → イベント一覧
+```
+
+イベントフォームの対象欄がテーマを使うため、その上流に置く。
+
+### 4.2 一覧はテーマごとに銘柄をぶら下げる
+
+テーマ一覧と所属一覧を別々の平たいリストにはしない。`theme` に `theme_stock` と `stock` を外部結合した1本のクエリで読み、テーマ名の下に所属銘柄を並べる。
+
+```
+テーマ一覧（2件）
+
+半導体
+  JP 6857 アドバンテスト
+  US NVDA NVIDIA
+
+自動運転
+  銘柄なし
+```
+
+外部結合にするのは、所属が0件のテーマも出すため。テーマだけ登録した直後に一覧に出ないと、登録できたかどうかが画面から分からない。
+
+`EventForm` に渡している既存の `themes` クエリ（`id` と `name` だけ）はそのまま残す。一覧用とは形が違い、まとめると渡す側が複雑になる。
+
+### 4.3 フォーム
+
+`useActionState` を使うため、どちらも `"use client"` の別ファイルに切り出す（管理UI設計書 §4 と同じ理由）。
+
+| ファイル | 入力欄 |
+|---|---|
+| `app/theme-form.tsx` | テーマ名の `<input required>` だけ |
+| `app/theme-stock-form.tsx` | テーマの `<select>` × 銘柄の `<select>` |
+
+テーマか銘柄が0件のときは、`HoldingForm` と同じく案内文だけを出してフォームを描かない。選択肢が空の `<select>` を出すと、送信しても外部キー違反で 500 になる。
+
+## 5. テスト
+
+`src/db/register.test.ts` に4件足す。実際の PostgreSQL に対して制約を検証する（管理UI設計書 §9 と同じ方針）。
+
+| テスト名 | 確かめること |
+|---|---|
+| テーマを登録できる | `createTheme` が `null` を返し、行が入る |
+| 同じ名前のテーマは登録できない | `theme_name_unique` の日本語が返る |
+| テーマ所属を登録できる | `createThemeStock` が `null` を返し、行が入る |
+| 同じテーマと銘柄の組は登録できない | `theme_stock_theme_id_stock_id_pk` の日本語が返る |
+
+## 6. やらないこと
+
+| やらないこと | 理由 |
+|---|---|
+| 一覧の削除・編集・並べ替え | 既存の銘柄一覧・保有一覧と同じ方針（管理UI設計書 §3） |
+| 複数銘柄をまとめて所属させる | 1件ずつ登録する。テーマは数件、所属も数十件で、まとめて入れる必要が出ていない |
+| テーマ名の重複を事前に確認する | UNIQUE 制約に判定させる（管理UI設計書 §5） |
