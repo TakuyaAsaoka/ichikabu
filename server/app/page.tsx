@@ -11,7 +11,7 @@ import { ThemeForm } from "./theme-form";
 import { ThemeStockForm } from "./theme-stock-form";
 
 /**
- * 管理画面。銘柄と保有の登録フォームと一覧を縦に並べる（設計書 §3）。
+ * 管理画面。登録フォームと一覧を縦に並べる（設計書 §3）。
  * 削除・編集・並べ替え・絞り込みは付けない
  */
 export default async function Page() {

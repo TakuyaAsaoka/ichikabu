@@ -38,7 +38,20 @@ export function createThemeStock(themeId: number, stockId: number): Promise<stri
 | `theme_name_unique` | そのテーマ名は登録済み |
 | `theme_stock_theme_id_stock_id_pk` | その銘柄はすでにこのテーマに登録済み |
 
-`theme.name` は `notNull` だが空文字を弾く CHECK が無い。銘柄名と同じく HTML の `required` で塞ぐ（管理UI設計書 §3「入力欄はブラウザの検証を使う」）。
+### 3.1 テーマ名の前後の空白は落とす
+
+`theme.name` は `notNull` だが空文字を弾く CHECK が無い。HTML の `required` は空文字しか弾かないため、`"   "`（空白だけ）と `"半導体 "`（末尾に空白）が素通りする。`createTheme` の中で前後の空白を落とし、落とした結果が空なら「テーマ名を入れる」を返す。
+
+銘柄名（`stock.name`）は `required` だけで済ませているのに、テーマ名だけ関数側でも塞ぐ理由は2つある。
+
+| | `stock.name` | `theme.name` |
+|---|---|---|
+| UNIQUE の対象か | いいえ（`market` と `ticker` の組が識別子） | **はい**（`theme_name_unique`） |
+| 空白がずれたときに起きること | 表示が汚れる | `半導体` と `半導体 ` が**別のテーマとして共存**し、イベントの対象欄に見分けの付かない選択肢が2つ並ぶ |
+
+削除・編集の画面は作らない（→ §6）ので、一度入った `半導体 ` は画面から消せない。入り口で塞ぐ。
+
+塞ぐ場所を `app/actions.ts` ではなく `src/db/register.ts` にするのは、`register.ts` が Vitest から呼べる唯一の層で、判定をここに置くとテストで確かめられるため。短縮ラベルの幅を `createEvent` の中で判定しているのと同じ形（管理UI設計書 §5）。
 
 `app/actions.ts` に `addTheme` / `addThemeStock` を足す。既存の `addStock` / `addHolding` と同じく、`requireUserId()` → `FormData` を読む → `register.ts` を呼ぶ → `revalidatePath("/")`。
 
@@ -97,10 +110,14 @@ themeStocks  … theme_stock に stock を内部結合、市場・ティッカ�
 
 | テスト名 | 確かめること |
 |---|---|
-| テーマを登録できる | `createTheme` が `null` を返し、行が入る |
-| 同じ名前のテーマは登録できない | `theme_name_unique` の日本語が返る |
-| テーマ所属を登録できる | `createThemeStock` が `null` を返し、行が入る |
-| 同じテーマと銘柄の組は登録できない | `theme_stock_theme_id_stock_id_pk` の日本語が返る |
+| テーマを登録するとDBに行が入る | `createTheme` が `null` を返し、行が入る |
+| 同じ名前のテーマをもう一度登録するとエラー文が返る | `theme_name_unique` の日本語が返る |
+| 前後に空白のある名前は空白を落として登録される | `半導体 ` が `半導体` と別テーマにならない（→ §3.1） |
+| 空白だけの名前はエラー文が返る | 行が入らない（→ §3.1） |
+| テーマ所属を登録するとDBに行が入る | `createThemeStock` が `null` を返し、行が入る |
+| 同じテーマと銘柄の組をもう一度登録するとエラー文が返る | `theme_stock_theme_id_stock_id_pk` の日本語が返る |
+
+テスト名は既存の `createStock` / `createHolding` のテスト（「銘柄を登録するとDBに行が入る」等）に揃える。
 
 ## 6. やらないこと
 

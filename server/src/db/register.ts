@@ -69,9 +69,19 @@ export function createHolding(
   return run(db.insert(holding).values({ userId, stockId }));
 }
 
-/** テーマを登録する。成功で null、制約違反で日本語のエラー文を返す */
-export function createTheme(name: string): Promise<string | null> {
-  return run(db.insert(theme).values({ name }));
+/**
+ * テーマを登録する。成功で null、失敗で日本語のエラー文を返す。
+ * 前後の空白は落とす。「半導体 」は「半導体」と別の名前として UNIQUE を素通りするが、
+ * 画面には見分けが付かない選択肢が2つ並び、消す画面も無い（設計書 §3）
+ */
+export async function createTheme(name: string): Promise<string | null> {
+  const trimmed = name.trim();
+  // name は notNull だが空文字を弾く CHECK が無い。空白だけの入力は
+  // <input required> を素通りするため、ここで弾く
+  if (trimmed === "") {
+    return "テーマ名を入れる";
+  }
+  return run(db.insert(theme).values({ name: trimmed }));
 }
 
 /** テーマ所属を登録する。成功で null、制約違反で日本語のエラー文を返す */

@@ -150,6 +150,19 @@ describe("createTheme", () => {
     expect(await createTheme("半導体")).toBe("そのテーマ名は登録済み");
     expect(await db.select().from(theme)).toHaveLength(1);
   });
+
+  it("前後に空白のある名前は空白を落として登録される", async () => {
+    // 「半導体 」を別テーマとして通すと、見分けの付かない選択肢が2つ並ぶ
+    await createTheme("半導体");
+
+    expect(await createTheme(" 半導体 ")).toBe("そのテーマ名は登録済み");
+    expect(await db.select().from(theme)).toHaveLength(1);
+  });
+
+  it("空白だけの名前はエラー文が返る", async () => {
+    expect(await createTheme("   ")).toBe("テーマ名を入れる");
+    expect(await db.select().from(theme)).toHaveLength(0);
+  });
 });
 
 describe("createThemeStock", () => {
