@@ -64,6 +64,8 @@ function rightsEvents(
           //「★3が N件」が毎年その月で膨らみ、荒れるかの答えにならなくなる
           importance: 2,
           note: `権利確定日 ${monthDay(dates.recordDate)} ・ 配当落ち日 ${monthDay(dates.exDate)}`,
+          // 休場日リストから計算した日付で、転記元が無い（出典表示設計書 §4）
+          source: null,
         },
       ];
     }),
@@ -162,6 +164,12 @@ export async function GET(request: Request): Promise<Response> {
       time: row.time,
       importance: row.importance,
       note: row.note,
+      // 出典は名前とURLが揃ったときだけ返す。URLだけの行は運用者向けの記録で、
+      // 画面には出さない（出典表示設計書 §3.1）。名前だけの行は CHECK が防いでいる
+      source:
+        row.sourceName !== null && row.sourceUrl !== null
+          ? { name: row.sourceName, url: row.sourceUrl }
+          : null,
     }),
   );
 

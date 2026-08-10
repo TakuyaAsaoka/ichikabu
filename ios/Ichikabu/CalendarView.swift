@@ -183,6 +183,14 @@ private struct DaySheet: View {
 			if let note = event.note {
 				Text(note).font(.caption).foregroundStyle(.secondary)
 			}
+			// 出典の記載を条件とする出典を使うために、利用者に見える形で出す
+			// （全体設計書 §5.1）。source が無い行には何も出さない
+			if let source = event.source, let url = URL(string: source.url) {
+				Link(destination: url) {
+					Text("出典: \(source.name)")
+						.font(.caption)
+				}
+			}
 		}
 		.padding(.vertical, 2)
 	}

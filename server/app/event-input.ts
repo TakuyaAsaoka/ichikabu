@@ -37,6 +37,7 @@ export function toEventInput(formData: FormData): EventInput {
     importance: Number(formData.get("importance")),
     note: toNullable(formData.get("note")),
     sourceUrl: toNullable(formData.get("sourceUrl")),
+    sourceName: toNullable(formData.get("sourceName")),
     ...toTarget(formData.get("target")),
   };
 }

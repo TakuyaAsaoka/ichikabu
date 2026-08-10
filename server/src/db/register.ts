@@ -20,6 +20,7 @@ const MESSAGES: Record<string, string> = {
   event_target_exclusive_check: "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
   event_period_check: "終了日は開始日より後にする（単日は空のまま）",
   event_importance_check: "重要度は1〜3",
+  event_source_name_check: "出典の名前を入れるならURLも入れる",
   event_market_check: "市場は JP・US・GLOBAL のどれか",
 };
 
@@ -104,6 +105,8 @@ export type EventInput = {
   importance: number;
   note: string | null;
   sourceUrl: string | null;
+  /** 画面に出す出典の名前。入れるなら sourceUrl も要る（出典表示設計書 §3.1） */
+  sourceName: string | null;
   // 以下3列が対象。ちょうど1つだけ非NULLであることは DB の
   // event_target_exclusive_check が判定する。ここでは絞り込まない（設計書 §4）
   market: string | null;

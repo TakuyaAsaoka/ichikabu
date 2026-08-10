@@ -1,0 +1,2 @@
+ALTER TABLE "event" ADD COLUMN "source_name" text;--> statement-breakpoint
+ALTER TABLE "event" ADD CONSTRAINT "event_source_name_check" CHECK ("event"."source_name" IS NULL OR "event"."source_url" IS NOT NULL);

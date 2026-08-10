@@ -209,6 +209,7 @@ describe("createEvent", () => {
     importance: 3,
     note: null,
     sourceUrl: null,
+    sourceName: null,
     market: null,
     themeId: null,
     stockId: null,
@@ -325,6 +326,44 @@ describe("createEvent", () => {
       }),
     ).toBe("終了日は開始日より後にする（単日は空のまま）");
     expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("出典の名前とURLを両方入れて登録できる", async () => {
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        sourceName: "内閣府（PDL1.0）",
+        sourceUrl: "https://www.cao.go.jp/",
+      }),
+    ).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.sourceName).toBe("内閣府（PDL1.0）");
+    expect(row.sourceUrl).toBe("https://www.cao.go.jp/");
+  });
+
+  it("出典の名前だけだとエラー文が返る", async () => {
+    // 画面に出した出典から元のページへたどれなくなる（設計書 §3.1）
+    expect(
+      await createEvent({ ...BASE, market: "JP", sourceName: "内閣府" }),
+    ).toBe("出典の名前を入れるならURLも入れる");
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("出典のURLだけで登録できる", async () => {
+    // source_url は運用者が誤登録を追うための記録で、画面に出さない使い方がある
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        sourceUrl: "https://global.toyota/jp/ir/",
+      }),
+    ).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.sourceName).toBeNull();
+    expect(row.sourceUrl).toBe("https://global.toyota/jp/ir/");
   });
 
   it("重要度が1〜3の外だとエラー文が返る", async () => {

@@ -107,8 +107,18 @@ export function EventForm({
         出典URL（この日付をどこで確認したか）
         <input type="url" name="sourceUrl" className={field} />
       </label>
+      <label className="flex flex-col gap-1">
+        出典の表示名（入れるとアプリの画面に出る。空なら出ない）
+        <input
+          type="text"
+          name="sourceName"
+          placeholder="内閣府（PDL1.0）"
+          className={field}
+        />
+      </label>
       <p className="text-muted text-sm">
-        日付・時刻はすべてJSTで入れる。日単位で確定した日付だけを登録する
+        日付・時刻はすべてJSTで入れる。日単位で確定した日付だけを登録する。
+        出典の記載が条件の出典を使うときは、表示名を必ず入れる
       </p>
       <button
         type="submit"
