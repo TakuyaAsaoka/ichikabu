@@ -5,7 +5,7 @@ import { violatedConstraint } from "./violation";
 
 /**
  * 制約違反を画面に出す日本語にする（設計書 §5）。
- * 制約名は server/drizzle/0000_simple_blacklash.sql の実物
+ * 制約名は server/drizzle/ のマイグレーションの実物
  */
 const MESSAGES: Record<string, string> = {
   stock_market_ticker_unique: "その市場のティッカーは登録済み",

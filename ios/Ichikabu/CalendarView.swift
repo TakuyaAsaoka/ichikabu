@@ -185,10 +185,17 @@ private struct DaySheet: View {
 			}
 			// 出典の記載を条件とする出典を使うために、利用者に見える形で出す
 			// （全体設計書 §5.1）。source が無い行には何も出さない
-			if let source = event.source, let url = URL(string: source.url) {
-				Link(destination: url) {
+			if let source = event.source {
+				// URLとして読めないときも名前だけは出す。リンクごと消すと、
+				// 出典を出していないのと同じ状態が静かにできてしまう
+				if let url = URL(string: source.url) {
+					Link(destination: url) {
+						Text("出典: \(source.name)").font(.caption)
+					}
+				} else {
 					Text("出典: \(source.name)")
 						.font(.caption)
+						.foregroundStyle(.secondary)
 				}
 			}
 		}
