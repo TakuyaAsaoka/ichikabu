@@ -26,11 +26,16 @@ paths:
       description: |
         認証ユーザーの保有に対応するイベントを全件返す。絞り込みパラメータは持たない。
         月の絞り込みは iOS 側の表示処理の責任（イベント取得API設計書 §2）。
+
+        登録したイベントに加え、保有銘柄の決算月から計算した権利付最終日を含む
+        （権利確定日・配当落ち日の計算 設計書 §2）。
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: イベントの配列。ラッパーなし。startDate・time・id の昇順に並ぶ
+          description: |
+            イベントの配列。ラッパーなし。startDate の昇順、同じ日は time の昇順
+            （時刻なしは後ろ）、それも同じなら id の文字列としての昇順に並ぶ。
           content:
             application/json:
               schema:
@@ -68,8 +73,11 @@ components:
         - note
       properties:
         id:
-          type: integer
-          description: イベントのID
+          type: string
+          description: |
+            イベントのID。表示側では並べ替えと一覧の識別にだけ使う不透明な文字列で、
+            意味を読み取ってはならない。登録したイベントは行IDを文字列にしたもの（`12`）、
+            計算した権利日は `rights-<銘柄ID>-<年>`（`rights-3-2026`）になる。
         kind:
           type: string
           enum:

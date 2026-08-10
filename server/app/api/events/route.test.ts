@@ -193,7 +193,7 @@ describe("GET /api/events", () => {
     // レスポンスの組み立ても合わせて固定する。値が無いフィールドは null で返る
     expect(await fetchEvents(holder.token)).toEqual([
       {
-        id: 1,
+        id: "1",
         kind: "stock",
         title: "トヨタ自動車 決算発表",
         shortLabel: "トヨタ決算",
@@ -205,6 +205,53 @@ describe("GET /api/events", () => {
       },
     ]);
     expect(await fetchEvents(outsider.token)).toEqual([]);
+  });
+
+  it("決算月のあるJP銘柄を保有していると権利付最終日が計算されて返る", async () => {
+    const holder = await createUser("rights-holder@example.com");
+    const [toyota] = await db
+      .insert(stock)
+      .values({
+        market: "JP",
+        ticker: "7203",
+        name: "トヨタ自動車",
+        fiscalMonth: 3,
+      })
+      .returning();
+    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
+
+    // 登録したイベントは1件も無いので、返るのは計算した権利日だけになる。
+    // 休場日リストが載っている年ぶん（2025〜2027）返る。
+    // リストに年を足したらこの期待値も足すこと（落ちて気づく）
+    const events = await fetchEvents(holder.token);
+    expect(events.map((e) => e.startDate)).toEqual([
+      "2025-03-27",
+      "2026-03-27",
+      "2027-03-29",
+    ]);
+    // 組み立ても固定する。配当落ち日はカレンダーに出さず note に入る（権利日設計書 §6）
+    expect(events[1]).toEqual({
+      id: `rights-${toyota.id}-2026`,
+      kind: "stock",
+      title: "トヨタ自動車 権利付最終日",
+      shortLabel: "7203権利",
+      startDate: "2026-03-27",
+      endDate: null,
+      time: null,
+      importance: 2,
+      note: "権利確定日 3月31日 ・ 配当落ち日 3月30日",
+    });
+  });
+
+  it("決算月のないJP銘柄には権利付最終日が出ない", async () => {
+    const holder = await createUser("no-fiscal-holder@example.com");
+    const [sony] = await db
+      .insert(stock)
+      .values({ market: "JP", ticker: "6758", name: "ソニーグループ" })
+      .returning();
+    await db.insert(holding).values({ userId: holder.id, stockId: sony.id });
+
+    expect(await fetchEvents(holder.token)).toEqual([]);
   });
 
   it("イベントは startDate・time・id の昇順で返る", async () => {
@@ -248,5 +295,35 @@ describe("GET /api/events", () => {
 
     const events = await fetchEvents(holder.token);
     expect(events.map((e) => e.title)).toEqual(["C", "B", "A", "D"]);
+  });
+
+  it("同じ日時のイベントは id の文字列としての順で返る", async () => {
+    const holder = await createUser("tiebreak-holder@example.com");
+
+    // 契約の id が整数から文字列になったことで、10件目からは "10" が "9" より前に来る。
+    // 同じ日に3件以上あるとセルに出るのは先頭2件だけなので、この順序は表示に効く
+    await db.insert(event).values(
+      Array.from({ length: 10 }, (_, index) => ({
+        title: `${index + 1}`,
+        shortLabel: `${index + 1}`,
+        startDate: "2026-09-16",
+        importance: 1,
+        market: "GLOBAL" as const,
+      })),
+    );
+
+    const events = await fetchEvents(holder.token);
+    expect(events.map((e) => e.id)).toEqual([
+      "1",
+      "10",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+    ]);
   });
 });
