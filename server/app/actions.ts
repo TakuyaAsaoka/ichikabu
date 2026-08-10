@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
-import { createEvent, createHolding, createStock } from "../src/db/register";
+import {
+  createEvent,
+  createHolding,
+  createStock,
+  createTheme,
+  createThemeStock,
+} from "../src/db/register";
 import { toEventInput } from "./event-input";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
@@ -64,6 +70,41 @@ export async function addHolding(
   const userId = await requireUserId();
 
   const message = await createHolding(userId, Number(formData.get("stockId")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  return null;
+}
+
+/** テーマを登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function addTheme(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await createTheme(String(formData.get("name") ?? ""));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  return null;
+}
+
+/** テーマ所属を登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function addThemeStock(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await createThemeStock(
+    Number(formData.get("themeId")),
+    Number(formData.get("stockId")),
+  );
   if (message) {
     return message;
   }

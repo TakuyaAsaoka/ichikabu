@@ -6,9 +6,11 @@ import {
   createEvent,
   createHolding,
   createStock,
+  createTheme,
+  createThemeStock,
   type EventInput,
 } from "./register";
-import { event, holding, stock, theme } from "./schema";
+import { event, holding, stock, theme, themeStock } from "./schema";
 import { seedUser } from "./seed-user";
 
 const TOYOTA = {
@@ -133,6 +135,66 @@ describe("createHolding", () => {
   });
 });
 
+describe("createTheme", () => {
+  it("テーマを登録するとDBに行が入る", async () => {
+    expect(await createTheme("半導体")).toBeNull();
+
+    const rows = await db.select().from(theme);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe("半導体");
+  });
+
+  it("同じ名前のテーマをもう一度登録するとエラー文が返る", async () => {
+    await createTheme("半導体");
+
+    expect(await createTheme("半導体")).toBe("そのテーマ名は登録済み");
+    expect(await db.select().from(theme)).toHaveLength(1);
+  });
+
+  it("前後に空白のある名前は空白を落として登録される", async () => {
+    // 「半導体 」を別テーマとして通すと、見分けの付かない選択肢が2つ並ぶ
+    await createTheme("半導体");
+
+    expect(await createTheme(" 半導体 ")).toBe("そのテーマ名は登録済み");
+    expect(await db.select().from(theme)).toHaveLength(1);
+  });
+
+  it("空白だけの名前はエラー文が返る", async () => {
+    expect(await createTheme("   ")).toBe("テーマ名を入れる");
+    expect(await db.select().from(theme)).toHaveLength(0);
+  });
+});
+
+describe("createThemeStock", () => {
+  let themeId: number;
+  let stockId: number;
+
+  beforeEach(async () => {
+    await createTheme("半導体");
+    await createStock({ ...TOYOTA });
+    [{ themeId }] = await db.select({ themeId: theme.id }).from(theme);
+    [{ stockId }] = await db.select({ stockId: stock.id }).from(stock);
+  });
+
+  it("テーマ所属を登録するとDBに行が入る", async () => {
+    expect(await createThemeStock(themeId, stockId)).toBeNull();
+
+    const rows = await db.select().from(themeStock);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].themeId).toBe(themeId);
+    expect(rows[0].stockId).toBe(stockId);
+  });
+
+  it("同じテーマと銘柄の組をもう一度登録するとエラー文が返る", async () => {
+    await createThemeStock(themeId, stockId);
+
+    expect(await createThemeStock(themeId, stockId)).toBe(
+      "その銘柄はすでにこのテーマに登録済み",
+    );
+    expect(await db.select().from(themeStock)).toHaveLength(1);
+  });
+});
+
 describe("createEvent", () => {
   /**
    * 対象3列がすべて null の土台。各テストが1列だけ埋める。
@@ -169,11 +231,8 @@ describe("createEvent", () => {
   });
 
   it("テーマイベントを登録するとDBに行が入る", async () => {
-    // テーマの登録画面はまだ無い（設計書 §9）ため、テストからは直接入れる
-    const [{ id: themeId }] = await db
-      .insert(theme)
-      .values({ name: "半導体" })
-      .returning({ id: theme.id });
+    await createTheme("半導体");
+    const [{ id: themeId }] = await db.select({ id: theme.id }).from(theme);
 
     expect(await createEvent({ ...BASE, themeId })).toBeNull();
 
@@ -206,10 +265,8 @@ describe("createEvent", () => {
   });
 
   it("対象を2つ選ぶとエラー文が返る", async () => {
-    const [{ id: themeId }] = await db
-      .insert(theme)
-      .values({ name: "半導体" })
-      .returning({ id: theme.id });
+    await createTheme("半導体");
+    const [{ id: themeId }] = await db.select({ id: theme.id }).from(theme);
 
     expect(await createEvent({ ...BASE, market: "JP", themeId })).toBe(
       "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
