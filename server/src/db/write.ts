@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from ".";
 import { event, holding, stock, theme, themeStock } from "./schema";
-import { violatedConstraint } from "./violation";
+import { pgError } from "./violation";
 
 /**
  * 制約違反を画面に出す日本語にする（設計書 §5）。
@@ -25,16 +25,33 @@ const MESSAGES: Record<string, string> = {
 };
 
 /**
+ * 列に入らない値を渡したときの pg のエラーコード。
+ * 22003 は範囲外（integer に入らない大きさの数）、22P02 は形式違い（NaN や ""）。
+ *
+ * 画面から来る値はすべて文字列で、Number() を通してから DB に渡している。
+ * Number() は数字でない文字列を NaN に、桁数の多い文字列をそのままの数にするが、
+ * どちらも integer 列には入らない。制約違反ではないため MESSAGES を通らない。
+ * <select> からはこの値が出ないが、Server Action は画面を通さず直接POSTできる
+ */
+const INVALID_VALUE_CODES = ["22003", "22P02"];
+
+/**
  * 登録を実行し、上の表にある制約違反なら日本語のエラー文を返す。
- * 表に無いエラーは投げ直す。握りつぶすと、理由が出ないまま失敗する画面になる
+ * 列に入らない値も日本語のエラー文にする。それ以外のエラーは投げ直す。
+ * 握りつぶすと、理由が出ないまま失敗する画面になる
  */
 async function run(operation: Promise<unknown>): Promise<string | null> {
   try {
     await operation;
   } catch (error) {
-    const message = MESSAGES[violatedConstraint(error) ?? ""];
+    const { code, constraint } = pgError(error);
+    const message = MESSAGES[constraint ?? ""];
     if (message) {
       return message;
+    }
+    if (code && INVALID_VALUE_CODES.includes(code)) {
+      // どの列かは pg のエラーから取れないため、文言は列ごとに分けない
+      return "入力に使えない値がある";
     }
     throw error;
   }

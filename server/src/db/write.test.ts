@@ -515,3 +515,54 @@ describe("deleteEvent", () => {
     expect(await db.select().from(event)).toHaveLength(1);
   });
 });
+
+/**
+ * 画面から来る値はすべて文字列で、Number() が数字でない文字列を NaN に、
+ * 桁数の多い文字列をそのままの数にする。どちらも integer 列には入らない（Issue #46）。
+ * <select> からはこの値が出ないが、Server Action は画面を通さず直接POSTできる
+ */
+const UNUSABLE = [Number("abc"), 9999999999];
+const UNUSABLE_MESSAGE = "入力に使えない値がある";
+
+describe("問い合わせに渡せない値", () => {
+  it("イベントの対象IDに入れるとエラー文が返る", async () => {
+    for (const value of UNUSABLE) {
+      expect(await createEvent({ ...BASE, themeId: value })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+      expect(await createEvent({ ...BASE, stockId: value })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("銘柄の決算月に入れるとエラー文が返る", async () => {
+    for (const value of UNUSABLE) {
+      expect(await createStock({ ...TOYOTA, fiscalMonth: value })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    expect(await db.select().from(stock)).toHaveLength(0);
+  });
+
+  it("保有の銘柄IDに入れるとエラー文が返る", async () => {
+    const { userId } = await seedUser(
+      "dev@example.com",
+      "correct-horse-battery-staple",
+    );
+
+    for (const value of UNUSABLE) {
+      expect(await createHolding(userId, value)).toBe(UNUSABLE_MESSAGE);
+    }
+    expect(await db.select().from(holding)).toHaveLength(0);
+  });
+
+  it("テーマ所属のテーマID・銘柄IDに入れるとエラー文が返る", async () => {
+    for (const value of UNUSABLE) {
+      expect(await createThemeStock(value, 1)).toBe(UNUSABLE_MESSAGE);
+      expect(await createThemeStock(1, value)).toBe(UNUSABLE_MESSAGE);
+    }
+    expect(await db.select().from(themeStock)).toHaveLength(0);
+  });
+});
