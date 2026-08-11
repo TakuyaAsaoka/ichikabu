@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from ".";
 import { event, holding, stock, theme, themeStock } from "./schema";
 import { violatedConstraint } from "./violation";
@@ -126,16 +126,70 @@ function labelWidth(text: string): number {
 }
 
 /**
- * イベントを登録する。成功で null、失敗で日本語のエラー文を返す。
+ * 短縮ラベルの幅を判定し、長すぎれば日本語のエラー文を返す。
  * 短縮ラベルの幅だけは DB に制約が無いためここで判定する（設計書 §3）
  */
+function tooLongLabel(shortLabel: string): string | null {
+  return labelWidth(shortLabel) > SHORT_LABEL_MAX_WIDTH
+    ? "短縮ラベルは全角5文字まで"
+    : null;
+}
+
+/**
+ * イベントの列に入れる値。market は Drizzle 上 "JP" | "US" | "GLOBAL" の型だが、
+ * EventInput.market は string | null。as で型を偽らず、生の値のまま渡して
+ * DB の event_market_check に判定させる
+ */
+function eventValues(input: EventInput) {
+  return { ...input, market: sql`${input.market}` };
+}
+
+/** イベントを登録する。成功で null、失敗で日本語のエラー文を返す */
 export async function createEvent(input: EventInput): Promise<string | null> {
-  if (labelWidth(input.shortLabel) > SHORT_LABEL_MAX_WIDTH) {
-    return "短縮ラベルは全角5文字まで";
-  }
-  // market は Drizzle 上 "JP" | "US" | "GLOBAL" の型だが、EventInput.market は
-  // string | null。as で型を偽らず、生の値のまま DB の event_market_check に判定させる
-  return run(
-    db.insert(event).values({ ...input, market: sql`${input.market}` }),
+  return (
+    tooLongLabel(input.shortLabel) ??
+    run(db.insert(event).values(eventValues(input)))
   );
+}
+
+/** integer 列に入る最大値。これを超える値を渡すと型変換エラーになる */
+const MAX_ID = 2147483647;
+
+/**
+ * event.id として問い合わせに渡してよい値かを判定する。
+ *
+ * 画面やURLから来る id は文字列で、Number() が NaN や integer の範囲外の数を
+ * 返すことがある。それをそのまま integer 列に渡すと、制約違反ではない
+ * 型変換エラーになり、日本語化を通らず 500 になる（設計書 §6）
+ */
+export function isEventId(id: number): boolean {
+  return Number.isInteger(id) && id >= 1 && id <= MAX_ID;
+}
+
+/** 問い合わせに渡せないIDなら日本語のエラー文を返す */
+function invalidId(id: number): string | null {
+  return isEventId(id) ? null : "そのイベントは見つからない";
+}
+
+/**
+ * イベントを更新する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として null を返す
+ */
+export async function updateEvent(
+  id: number,
+  input: EventInput,
+): Promise<string | null> {
+  return (
+    invalidId(id) ??
+    tooLongLabel(input.shortLabel) ??
+    run(db.update(event).set(eventValues(input)).where(eq(event.id, id)))
+  );
+}
+
+/**
+ * イベントを削除する。成功で null、失敗で日本語のエラー文を返す。
+ * event は他のテーブルから参照されないため、外部キー違反は起きない（設計書 §3.2）
+ */
+export async function deleteEvent(id: number): Promise<string | null> {
+  return invalidId(id) ?? run(db.delete(event).where(eq(event.id, id)));
 }

@@ -1,7 +1,5 @@
-"use client";
-
-import { useActionState } from "react";
 import { addThemeStock } from "./actions";
+import { ActionForm, field, fieldLabel } from "./form";
 
 type ThemeChoice = { id: number; name: string };
 type StockChoice = { id: number; market: string; ticker: string; name: string };
@@ -18,8 +16,6 @@ export function ThemeStockForm({
   themes: ThemeChoice[];
   stocks: StockChoice[];
 }) {
-  const [error, formAction, pending] = useActionState(addThemeStock, null);
-
   if (themes.length === 0 || stocks.length === 0) {
     return (
       <p className="text-muted">
@@ -29,10 +25,10 @@ export function ThemeStockForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1">
+    <ActionForm action={addThemeStock} submitLabel="テーマ所属を登録">
+      <label className={fieldLabel}>
         テーマ
-        <select name="themeId" className="rounded border border-border p-2">
+        <select name="themeId" className={field}>
           {themes.map((theme) => (
             <option key={theme.id} value={theme.id}>
               {theme.name}
@@ -40,9 +36,9 @@ export function ThemeStockForm({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1">
+      <label className={fieldLabel}>
         銘柄
-        <select name="stockId" className="rounded border border-border p-2">
+        <select name="stockId" className={field}>
           {stocks.map((stock) => (
             <option key={stock.id} value={stock.id}>
               {stock.market} {stock.ticker} {stock.name}
@@ -50,16 +46,6 @@ export function ThemeStockForm({
           ))}
         </select>
       </label>
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded border border-border p-2 disabled:opacity-50"
-      >
-        {pending ? "送信中" : "テーマ所属を登録"}
-      </button>
-      <p className="text-error empty:hidden" aria-live="polite">
-        {error}
-      </p>
-    </form>
+    </ActionForm>
   );
 }

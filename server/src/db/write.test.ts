@@ -2,16 +2,18 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../../test/helpers";
 import { db } from ".";
+import { event, holding, stock, theme, themeStock } from "./schema";
+import { seedUser } from "./seed-user";
 import {
   createEvent,
   createHolding,
   createStock,
   createTheme,
   createThemeStock,
+  deleteEvent,
   type EventInput,
-} from "./register";
-import { event, holding, stock, theme, themeStock } from "./schema";
-import { seedUser } from "./seed-user";
+  updateEvent,
+} from "./write";
 
 const TOYOTA = {
   market: "JP",
@@ -195,33 +197,33 @@ describe("createThemeStock", () => {
   });
 });
 
+/**
+ * 対象3列がすべて null の土台。各テストが1列だけ埋める。
+ * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の判定には引っかからない
+ */
+const BASE: EventInput = {
+  title: "日本銀行 金融政策決定会合",
+  shortLabel: "日銀会合",
+  startDate: "2026-09-18",
+  endDate: null,
+  time: null,
+  importance: 3,
+  note: null,
+  sourceUrl: null,
+  sourceName: null,
+  market: null,
+  themeId: null,
+  stockId: null,
+};
+
+/** イベントの行が1件だけ入ったことを確かめ、その行を返す */
+async function onlyEvent() {
+  const rows = await db.select().from(event);
+  expect(rows).toHaveLength(1);
+  return rows[0];
+}
+
 describe("createEvent", () => {
-  /**
-   * 対象3列がすべて null の土台。各テストが1列だけ埋める。
-   * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の判定には引っかからない
-   */
-  const BASE: EventInput = {
-    title: "日本銀行 金融政策決定会合",
-    shortLabel: "日銀会合",
-    startDate: "2026-09-18",
-    endDate: null,
-    time: null,
-    importance: 3,
-    note: null,
-    sourceUrl: null,
-    sourceName: null,
-    market: null,
-    themeId: null,
-    stockId: null,
-  };
-
-  /** 対象を1つだけ持つ行が1件だけ入ったことを確かめる */
-  async function onlyEvent() {
-    const rows = await db.select().from(event);
-    expect(rows).toHaveLength(1);
-    return rows[0];
-  }
-
   it("市場イベントを登録するとDBに行が入る", async () => {
     expect(await createEvent({ ...BASE, market: "GLOBAL" })).toBeNull();
 
@@ -371,5 +373,145 @@ describe("createEvent", () => {
       "重要度は1〜3",
     );
     expect(await db.select().from(event)).toHaveLength(0);
+  });
+});
+
+describe("updateEvent", () => {
+  /** 市場イベントを1件登録し、そのIDを返す */
+  async function registerEvent(): Promise<number> {
+    await createEvent({ ...BASE, market: "JP" });
+    return (await onlyEvent()).id;
+  }
+
+  it("更新するとイベントの列が書き換わる", async () => {
+    const id = await registerEvent();
+
+    expect(
+      await updateEvent(id, {
+        ...BASE,
+        market: "US",
+        title: "米連邦公開市場委員会",
+        shortLabel: "FOMC",
+        startDate: "2026-10-27",
+        endDate: "2026-10-28",
+        time: "03:00",
+        importance: 2,
+        note: "日本時間の未明",
+      }),
+    ).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.title).toBe("米連邦公開市場委員会");
+    expect(row.market).toBe("US");
+    expect(row.endDate).toBe("2026-10-28");
+    expect(row.time).toBe("03:00:00");
+    expect(row.note).toBe("日本時間の未明");
+  });
+
+  it("出典の名前だけを入れて更新するとエラー文が返る", async () => {
+    // 登録と同じく event_source_name_check が効く（設計書 §5.2）
+    const id = await registerEvent();
+
+    expect(
+      await updateEvent(id, { ...BASE, market: "JP", sourceName: "内閣府" }),
+    ).toBe("出典の名前を入れるならURLも入れる");
+    expect((await onlyEvent()).sourceName).toBeNull();
+  });
+
+  it("出典の名前とURLを両方入れて更新できる", async () => {
+    // 出典を入れ忘れた行を直せること。これが Issue #43 の目的
+    const id = await registerEvent();
+
+    expect(
+      await updateEvent(id, {
+        ...BASE,
+        market: "JP",
+        sourceName: "内閣府（PDL1.0）",
+        sourceUrl: "https://www.cao.go.jp/",
+      }),
+    ).toBeNull();
+
+    const row = await onlyEvent();
+    expect(row.sourceName).toBe("内閣府（PDL1.0）");
+    expect(row.sourceUrl).toBe("https://www.cao.go.jp/");
+  });
+
+  it("短縮ラベルが全角5文字を超える更新はエラー文が返る", async () => {
+    const id = await registerEvent();
+
+    expect(
+      await updateEvent(id, {
+        ...BASE,
+        market: "JP",
+        shortLabel: "決算発表予定",
+      }),
+    ).toBe("短縮ラベルは全角5文字まで");
+    expect((await onlyEvent()).shortLabel).toBe("日銀会合");
+  });
+
+  it("存在しないIDの更新は何も起きない", async () => {
+    await registerEvent();
+
+    expect(await updateEvent(999999, { ...BASE, market: "US" })).toBeNull();
+    expect((await onlyEvent()).market).toBe("JP");
+  });
+
+  it("数字でないIDの更新はエラー文が返る", async () => {
+    // Number("abc") の NaN を integer 列に渡すと型変換エラーで 500 になる（設計書 §6）
+    await registerEvent();
+
+    expect(await updateEvent(Number("abc"), { ...BASE, market: "US" })).toBe(
+      "そのイベントは見つからない",
+    );
+    expect((await onlyEvent()).market).toBe("JP");
+  });
+
+  it("integer の範囲を超えるIDの更新はエラー文が返る", async () => {
+    // 桁数の多い数はそのまま渡せる形をしているが、integer 列には入らない
+    await registerEvent();
+
+    expect(await updateEvent(9999999999, { ...BASE, market: "US" })).toBe(
+      "そのイベントは見つからない",
+    );
+    expect((await onlyEvent()).market).toBe("JP");
+  });
+});
+
+describe("deleteEvent", () => {
+  it("削除するとイベントが消える", async () => {
+    await createEvent({ ...BASE, market: "JP" });
+    const { id } = await onlyEvent();
+
+    expect(await deleteEvent(id)).toBeNull();
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("存在しないIDの削除は何も起きない", async () => {
+    await createEvent({ ...BASE, market: "JP" });
+
+    expect(await deleteEvent(999999)).toBeNull();
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("数字でないIDの削除はエラー文が返る", async () => {
+    await createEvent({ ...BASE, market: "JP" });
+
+    expect(await deleteEvent(Number("abc"))).toBe("そのイベントは見つからない");
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("integer の範囲を超えるIDの削除はエラー文が返る", async () => {
+    await createEvent({ ...BASE, market: "JP" });
+
+    expect(await deleteEvent(9999999999)).toBe("そのイベントは見つからない");
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("id が無いまま送られた削除はエラー文が返る", async () => {
+    // Server Action は画面を通さず直接POSTできる。Number(null) は 0 になる
+    await createEvent({ ...BASE, market: "JP" });
+
+    expect(await deleteEvent(Number(null))).toBe("そのイベントは見つからない");
+    expect(await db.select().from(event)).toHaveLength(1);
   });
 });

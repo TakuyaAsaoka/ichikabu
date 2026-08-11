@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { event, holding, stock, theme, themeStock } from "../src/db/schema";
+import { addEvent } from "./actions";
 import { EventForm } from "./event-form";
 import { HoldingForm } from "./holding-form";
 import { StockForm } from "./stock-form";
@@ -12,7 +14,8 @@ import { ThemeStockForm } from "./theme-stock-form";
 
 /**
  * 管理画面。登録フォームと一覧を縦に並べる（設計書 §3）。
- * 削除・編集・並べ替え・絞り込みは付けない
+ * イベントだけは各行から編集ページへ行ける（編集・削除 設計書 §3）。
+ * 並べ替え・絞り込みは付けない
  */
 export default async function Page() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -73,6 +76,9 @@ export default async function Page() {
       endDate: event.endDate,
       importance: event.importance,
       market: event.market,
+      // 出典の表示名を入れ忘れた行は、出典の記載を条件とする出典では規約の
+      // 条件を満たさない。一覧でそれが分かるように出す（編集・削除 設計書 §3.1）
+      sourceName: event.sourceName,
       themeName: theme.name,
       ticker: stock.ticker,
     })
@@ -160,7 +166,12 @@ export default async function Page() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">イベントを登録</h2>
-        <EventForm themes={themes} stocks={stocks} />
+        <EventForm
+          themes={themes}
+          stocks={stocks}
+          action={addEvent}
+          submitLabel="イベントを登録"
+        />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -175,8 +186,12 @@ export default async function Page() {
               {row.shortLabel}
               <span className="text-muted">
                 {" "}
-                / {row.market ?? row.themeName ?? row.ticker} / {row.title}
-              </span>
+                / {row.market ?? row.themeName ?? row.ticker} / {row.title} /
+                出典: {row.sourceName ?? "表示名なし"}
+              </span>{" "}
+              <Link href={`/events/${row.id}`} className="underline">
+                編集
+              </Link>
             </li>
           ))}
         </ul>
