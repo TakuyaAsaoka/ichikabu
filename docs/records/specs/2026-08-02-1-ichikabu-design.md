@@ -238,7 +238,7 @@
 
 ```
 <repo>/
-├── openapi.yaml   ← API契約の唯一の正（手書き）
+├── openapi.yaml   ← パスとリクエスト・レスポンスの型の唯一の正（手書き）
 ├── ios/           ← Xcode プロジェクト（Swift + SwiftUI）
 └── server/        ← Next.js（管理UI + API Route Handlers）
 ```
@@ -252,7 +252,7 @@
 | 項目 | 選定 | 理由 |
 |---|---|---|
 | iOSクライアント | Swift + SwiftUI | 開発者が既にSwiftUIでアプリを開発しており学習コストなし。UXが明確に良い。型共有が切れることは承知の上で受容 |
-| API契約 | `openapi.yaml` 手書き。iOS側は Apple公式 `swift-openapi-generator`（SwiftPMビルドプラグイン、生成物はコミットしない）、server側は `openapi-typescript` で型生成 | 契約が単一ソース。両側とも型ズレがコンパイルエラーになる |
+| パスとリクエスト・レスポンスの型 | `openapi.yaml` 手書き。iOS側は Apple公式 `swift-openapi-generator`（SwiftPMビルドプラグイン、生成物はコミットしない）、server側は `openapi-typescript` で型生成 | 契約が単一ソース。両側とも型ズレがコンパイルエラーになる |
 | バックエンド | Next.js 単体（管理UI + Route Handlers 同居） | Hono分離はデプロイ・認証・管理対象が2倍になるのに得るものがない |
 | ORM | Drizzle | `event` の対象3列の排他（`CHECK (num_nonnulls(...) = 1)`）を、スキーマ定義の中にそのまま書けるため。Prisma はスキーマで表現できないと公式が明言している。**この理由は「既存資産で既知だから」より強く、再検討は不要**（→ Issue #16） |
 | DBの種類 | PostgreSQL | §4.2 の対象3列の排他が CHECK 制約に依存する。SQLite系（Turso・D1）は対象外 |
@@ -281,7 +281,7 @@
 
 iOSアプリ内にライセンス表示の画面を1つ置けば足りる（公開直前の作業。→ §14）。
 
-## 8. API契約とズレの検知
+## 8. `openapi.yaml` とのズレの検知
 
 `openapi.yaml` が契約の唯一の正。両側がそこから型を生成するため、ズレは次の表のとおりコンパイルで捕まる。
 
