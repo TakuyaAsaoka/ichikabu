@@ -155,14 +155,14 @@ export function deleteEvent(id: number): Promise<string | null>
 | `id` に問い合わせに渡せない値が来る | 下の表のとおり **500 になる**。`src/db/write.ts` の `isEventId`（整数かつ 1〜2147483647）を1つ持ち、編集ページと `updateEvent` / `deleteEvent` の両方から呼ぶ。ページは `notFound()`、更新・削除は日本語のエラー文を返す。Server Action は画面を通さず直接POSTできるため、画面側の判定とは別に要る |
 | 更新でも `""` を date・time 列に入れると型変換エラーで500になる | `toEventInput` が既に空欄を `null` に読み替えている。登録と同じ経路を通す |
 
-`isEventId` を入れる前に実際に開いて測った結果。整数かどうかだけを見ると、下の2行目が残る。
+実際にURLを開いて測った結果。**整数かどうかだけを見ると2行目が残る**ため、範囲も見る `isEventId` にした。`—` は測っていない組み合わせ。
 
-| URL | 判定前 | 判定後 |
-|---|---|---|
-| `/events/abc` | 500（`invalid input syntax for type integer`） | 404 |
-| `/events/9999999999` | 500（`out of range for type integer`） | 404 |
-| `/events/1.5` | 404 | 404 |
-| `/events/999999` | 404 | 404 |
+| URL | 判定なし | `Number.isInteger` だけ | `isEventId`（今） |
+|---|---|---|---|
+| `/events/abc` | 500（`invalid input syntax for type integer`） | 404 | 404 |
+| `/events/9999999999` | — | 500（`out of range for type integer`） | 404 |
+| `/events/1.5` | — | 404 | 404 |
+| `/events/999999` | 404 | 404 | 404 |
 
 `id` を入れずに Server Action を直接POSTすると `Number(null)` が `0` になる。`isEventId` の下限を 1 にしてあるため、これも同じ経路で弾かれる。
 
@@ -200,5 +200,6 @@ export function deleteEvent(id: number): Promise<string | null>
 | 銘柄・テーマの編集と削除 | 別Issueに起こす。規約の条件がかからないため急がない。削除は外部キーで弾かれる場合がある（銘柄は保有・イベントから、テーマはイベントから `restrict` で参照される）ので、そのIssueで日本語のエラー文を足す |
 | 保有・テーマ所属の削除 | 同じく別Issue。この2つは主キー以外の列が無く「削除だけ」になる（→ §2） |
 | 一覧の並べ替え・絞り込み・ページ送り | 管理UI設計書 §3 のまま。件数が少ない |
+| `event.id` 以外の数値入力の同じ穴を塞ぐ | `event.theme_id` / `event.stock_id` や他テーブルにも、問い合わせに渡せない値で 500 になる同じ穴がある。これは Issue #43 より前からあり、`addEvent` も同じ経路を通っていた。今回は `event.id` だけを塞ぎ、残りは [Issue #46](https://github.com/TakuyaAsaoka/ichikabu/issues/46) に起こした |
 | 更新の履歴を残す | 利用者=運用者=自分の1人（全体設計書 §12）。誰がいつ直したかを追う相手がいない |
 | 更新・削除の `openapi.yaml` への追加 | Server Action で完結し、自作のパスではない（管理UI設計書 §12 と同じ理由） |
