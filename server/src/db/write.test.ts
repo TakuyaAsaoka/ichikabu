@@ -565,4 +565,29 @@ describe("問い合わせに渡せない値", () => {
     }
     expect(await db.select().from(themeStock)).toHaveLength(0);
   });
+
+  it("イベントの更新でもエラー文が返る", async () => {
+    // 更新も登録と同じ経路（run()）を通ることを固定する
+    await createEvent({ ...BASE, market: "JP" });
+    const { id } = await onlyEvent();
+
+    expect(await updateEvent(id, { ...BASE, themeId: Number("abc") })).toBe(
+      UNUSABLE_MESSAGE,
+    );
+    expect((await onlyEvent()).market).toBe("JP");
+  });
+
+  it("日付・時刻に入れるとエラー文が返る", async () => {
+    // 日付は Number() を通らないが、"" や日付でない文字列を date 列に渡すと
+    // 同じく制約違反ではないエラーになる（イベント登録フォーム設計書 §7）
+    for (const startDate of ["", "abc"]) {
+      expect(await createEvent({ ...BASE, market: "JP", startDate })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    expect(await createEvent({ ...BASE, market: "JP", time: "zz" })).toBe(
+      UNUSABLE_MESSAGE,
+    );
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
 });
