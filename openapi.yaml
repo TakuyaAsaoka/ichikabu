@@ -71,6 +71,7 @@ components:
         - time
         - importance
         - note
+        - source
       properties:
         id:
           type: string
@@ -116,3 +117,23 @@ components:
             - string
             - "null"
           description: シートに出す補足
+        source:
+          type:
+            - object
+            - "null"
+          required:
+            - name
+            - url
+          properties:
+            name:
+              type: string
+              description: 画面に出す出典の名前（`内閣府（PDL1.0）` 等）
+            url:
+              type: string
+              format: uri
+              description: 出典のページ
+          description: |
+            この日付をどこで確認したか。出典の記載を条件とする出典を使うために、
+            利用者に見える形で出す（全体設計書 §5.1）。名前とURLは必ず対で、
+            片方だけの状態は無い。null は出典を出さないイベントを表し、
+            計算で作る権利日のイベントは転記元が無いため常に null になる。

@@ -34,7 +34,7 @@ struct APIClientTests {
 			"""
 			[{"id":"1","kind":"market","title":"FOMC 政策金利発表","shortLabel":"FOMC",\
 			"startDate":"2026-09-16","endDate":"2026-09-17","time":"03:00:00",\
-			"importance":3,"note":null}]
+			"importance":3,"note":null,"source":null}]
 			""".utf8)
 		let events = try APIClient.events(from: json, response: response(status: 200))
 		#expect(events.count == 1)
@@ -42,6 +42,21 @@ struct APIClientTests {
 		#expect(events[0].title == "FOMC 政策金利発表")
 		#expect(events[0].endDate == "2026-09-17")
 		#expect(events[0].note == nil)
+		#expect(events[0].source == nil)
+	}
+
+	@Test("出典つきのイベントは名前とURLを読み取れる")
+	func decodeEventWithSource() throws {
+		let json = Data(
+			"""
+			[{"id":"2","kind":"market","title":"消費者物価指数（2026年8月分）",\
+			"shortLabel":"CPI","startDate":"2026-09-18","endDate":null,"time":null,\
+			"importance":2,"note":null,\
+			"source":{"name":"総務省（PDL1.0）","url":"https://www.stat.go.jp/data/cpi/"}}]
+			""".utf8)
+		let events = try APIClient.events(from: json, response: response(status: 200))
+		#expect(events[0].source?.name == "総務省（PDL1.0）")
+		#expect(events[0].source?.url == "https://www.stat.go.jp/data/cpi/")
 	}
 
 	@Test("サインインの応答ヘッダからトークンを取り出す")

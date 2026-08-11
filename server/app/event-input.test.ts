@@ -82,6 +82,32 @@ describe("toEventInput", () => {
     expect(input.stockId).toBeNull();
   });
 
+  it("出典の名前とURLがそのまま入る", () => {
+    const input = toEventInput(
+      formOf({
+        sourceName: "総務省（PDL1.0）",
+        sourceUrl: "https://www.stat.go.jp/data/cpi/",
+      }),
+    );
+
+    expect(input.sourceName).toBe("総務省（PDL1.0）");
+    expect(input.sourceUrl).toBe("https://www.stat.go.jp/data/cpi/");
+  });
+
+  it("空白だけの出典の名前は null になる", () => {
+    // 通すと source_name が非NULLになり CHECK も抜けて、
+    // アプリに中身の見えないリンクが出る
+    const input = toEventInput(formOf({ sourceName: "   " }));
+
+    expect(input.sourceName).toBeNull();
+  });
+
+  it("出典の名前の前後の空白は落ちる", () => {
+    const input = toEventInput(formOf({ sourceName: " 総務省 " }));
+
+    expect(input.sourceName).toBe("総務省");
+  });
+
   it("名称・短縮ラベル・開始日・重要度がそのまま入る", () => {
     const input = toEventInput(formOf({ importance: "3" }));
 

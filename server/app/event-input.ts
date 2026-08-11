@@ -4,12 +4,16 @@ import type { EventInput } from "../src/db/register";
 // 使うため Vitest から読み込めず、ここに置いた変換だけがテストできる（設計書 §5）
 
 /**
- * 空欄を null に読み替える。終了日・時刻・補足・出典URLは空にできるが、
+ * 空欄を null に読み替える。終了日・時刻・補足・出典は空にできるが、
  * FormData の "" を date・time 列にそのまま入れると、制約違反ではない
- * 型変換エラーで 500 になる（設計書 §5。決算月と同じ穴）
+ * 型変換エラーで 500 になる（設計書 §5。決算月と同じ穴）。
+ *
+ * 前後の空白を落としてから空かどうかを見る。空白だけの出典の表示名を通すと、
+ * `source_name` が非NULLになって CHECK も抜け、アプリに中身の見えないリンクが
+ * 出る。出典が見えないのは出典を出していないのと同じで、条件を満たさない
  */
 function toNullable(value: FormDataEntryValue | null): string | null {
-  const text = String(value ?? "");
+  const text = String(value ?? "").trim();
   return text === "" ? null : text;
 }
 
@@ -37,6 +41,7 @@ export function toEventInput(formData: FormData): EventInput {
     importance: Number(formData.get("importance")),
     note: toNullable(formData.get("note")),
     sourceUrl: toNullable(formData.get("sourceUrl")),
+    sourceName: toNullable(formData.get("sourceName")),
     ...toTarget(formData.get("target")),
   };
 }

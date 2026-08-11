@@ -106,6 +106,11 @@ export const event = pgTable(
     note: text(),
     /** この日付をどこで確認したかの記録（設計書 §4.2） */
     sourceUrl: text("source_url"),
+    /**
+     * 画面に出す出典の名前（`内閣府（PDL1.0）` 等）。出典の記載を条件とする
+     * 出典を使うために要る。何を書くかは運用者が決める（出典表示設計書 §3.2）
+     */
+    sourceName: text("source_name"),
     // 以下3列でイベントの種別を表す。ちょうど1つだけが非NULL（設計書 §5）。
     market: text({ enum: EVENT_MARKETS }),
     themeId: integer("theme_id").references(() => theme.id, {
@@ -123,6 +128,13 @@ export const event = pgTable(
     check(
       "event_target_exclusive_check",
       sql`num_nonnulls(${t.market}, ${t.themeId}, ${t.stockId}) = 1`,
+    ),
+    // 出典の名前があるならURLも要る。名前だけだと、画面に出した出典から元のページへ
+    // たどれない。逆（URLだけ）は許す。source_url は運用者が誤登録を追うための記録で、
+    // 画面に出さない使い方があるため（全体設計書 §4.2、出典表示設計書 §3.1）
+    check(
+      "event_source_name_check",
+      sql`${t.sourceName} IS NULL OR ${t.sourceUrl} IS NOT NULL`,
     ),
     // 単日は end_date IS NULL でのみ表す。= を許すと単日の表現が2通りになる（設計書 §4.2）
     check(

@@ -202,9 +202,57 @@ describe("GET /api/events", () => {
         time: "13:25:00",
         importance: 3,
         note: null,
+        source: null,
       },
     ]);
     expect(await fetchEvents(outsider.token)).toEqual([]);
+  });
+
+  it("出典の名前とURLが揃っているイベントは source が返る", async () => {
+    const holder = await createUser("source-holder@example.com");
+    const [toyota] = await db
+      .insert(stock)
+      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
+      .returning();
+    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
+
+    await db.insert(event).values({
+      title: "消費者物価指数（2026年8月分）",
+      shortLabel: "CPI",
+      startDate: "2026-09-18",
+      importance: 2,
+      market: "JP",
+      sourceName: "総務省（PDL1.0）",
+      sourceUrl: "https://www.stat.go.jp/data/cpi/",
+    });
+
+    const [event0] = await fetchEvents(holder.token);
+    expect(event0.source).toEqual({
+      name: "総務省（PDL1.0）",
+      url: "https://www.stat.go.jp/data/cpi/",
+    });
+  });
+
+  it("出典のURLだけのイベントは source が null になる", async () => {
+    // source_url は運用者が誤登録を追うための記録で、画面には出さない（設計書 §3.1）
+    const holder = await createUser("url-only-holder@example.com");
+    const [toyota] = await db
+      .insert(stock)
+      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
+      .returning();
+    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
+
+    await db.insert(event).values({
+      title: "トヨタ自動車 決算発表",
+      shortLabel: "トヨタ決算",
+      startDate: "2026-11-05",
+      importance: 3,
+      stockId: toyota.id,
+      sourceUrl: "https://global.toyota/jp/ir/",
+    });
+
+    const [event0] = await fetchEvents(holder.token);
+    expect(event0.source).toBeNull();
   });
 
   it("決算月のあるJP銘柄を保有していると権利付最終日が計算されて返る", async () => {
@@ -240,6 +288,8 @@ describe("GET /api/events", () => {
       time: null,
       importance: 2,
       note: "権利確定日 3月31日 ・ 配当落ち日 3月30日",
+      // 休場日リストから計算した日付で、転記元が無い（出典表示設計書 §4）
+      source: null,
     });
   });
 
