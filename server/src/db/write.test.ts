@@ -465,6 +465,16 @@ describe("updateEvent", () => {
     );
     expect((await onlyEvent()).market).toBe("JP");
   });
+
+  it("integer の範囲を超えるIDの更新はエラー文が返る", async () => {
+    // 桁数の多い数はそのまま渡せる形をしているが、integer 列には入らない
+    await registerEvent();
+
+    expect(await updateEvent(9999999999, { ...BASE, market: "US" })).toBe(
+      "そのイベントは見つからない",
+    );
+    expect((await onlyEvent()).market).toBe("JP");
+  });
 });
 
 describe("deleteEvent", () => {
@@ -487,6 +497,21 @@ describe("deleteEvent", () => {
     await createEvent({ ...BASE, market: "JP" });
 
     expect(await deleteEvent(Number("abc"))).toBe("そのイベントは見つからない");
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("integer の範囲を超えるIDの削除はエラー文が返る", async () => {
+    await createEvent({ ...BASE, market: "JP" });
+
+    expect(await deleteEvent(9999999999)).toBe("そのイベントは見つからない");
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("id が無いまま送られた削除はエラー文が返る", async () => {
+    // Server Action は画面を通さず直接POSTできる。Number(null) は 0 になる
+    await createEvent({ ...BASE, market: "JP" });
+
+    expect(await deleteEvent(Number(null))).toBe("そのイベントは見つからない");
     expect(await db.select().from(event)).toHaveLength(1);
   });
 });

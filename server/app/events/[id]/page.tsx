@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../src/auth";
 import { db } from "../../../src/db";
 import { event, stock, theme } from "../../../src/db/schema";
+import { isEventId } from "../../../src/db/write";
 import { editEvent, removeEvent } from "../../actions";
 import { EventForm } from "../../event-form";
 import { ActionForm } from "../../form";
@@ -23,11 +24,11 @@ export default async function Page({
     redirect("/signin");
   }
 
-  // 数字でないIDは Number() が NaN になる。NaN のまま integer 列に渡すと
-  // 型変換エラーで 500 になるため、問い合わせる前に弾く（設計書 §6）
+  // 問い合わせに渡せないIDは、integer 列に渡す前に弾く。渡すと型変換エラーで
+  // 500 になる。判定は Server Action と同じものを使う（設計書 §6）
   const { id } = await params;
   const eventId = Number(id);
-  if (!Number.isInteger(eventId)) {
+  if (!isEventId(eventId)) {
     notFound();
   }
 

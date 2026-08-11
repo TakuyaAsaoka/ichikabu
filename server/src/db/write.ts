@@ -152,13 +152,23 @@ export async function createEvent(input: EventInput): Promise<string | null> {
   );
 }
 
+/** integer 列に入る最大値。これを超える値を渡すと型変換エラーになる */
+const MAX_ID = 2147483647;
+
 /**
- * IDが整数でなければ日本語のエラー文を返す。
- * 画面から来る id は文字列で、数字でなければ Number() が NaN になる。
- * NaN を integer 列に渡すと、制約違反ではない型変換エラーで 500 になる（設計書 §6）
+ * event.id として問い合わせに渡してよい値かを判定する。
+ *
+ * 画面やURLから来る id は文字列で、Number() が NaN や integer の範囲外の数を
+ * 返すことがある。それをそのまま integer 列に渡すと、制約違反ではない
+ * 型変換エラーになり、日本語化を通らず 500 になる（設計書 §6）
  */
+export function isEventId(id: number): boolean {
+  return Number.isInteger(id) && id >= 1 && id <= MAX_ID;
+}
+
+/** 問い合わせに渡せないIDなら日本語のエラー文を返す */
 function invalidId(id: number): string | null {
-  return Number.isInteger(id) ? null : "そのイベントは見つからない";
+  return isEventId(id) ? null : "そのイベントは見つからない";
 }
 
 /**

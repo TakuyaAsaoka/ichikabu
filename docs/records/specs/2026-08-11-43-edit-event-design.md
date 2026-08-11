@@ -84,8 +84,10 @@ useActionState(action, null)
 | 名前 | 中身 |
 |---|---|
 | `field` | 入力欄の `className`（`rounded border border-border p-2`）。今は `event-form.tsx` の中にだけある |
-| `Field` | `<label className="flex flex-col gap-1">` とラベル文字列 |
+| `fieldLabel` | ラベルと入力欄を包む `<label>` の `className`（`flex flex-col gap-1`） |
 | `ActionForm` | 上の骨格全部。`action`・`submitLabel`・`confirm`・`children` を受け取る |
+
+**ラベルはコンポーネントに包まず、`className` だけを括る。** 入力欄を `children` で受け取る `Field` コンポーネントにすると、`<label>` の中に入力欄があることを biome が追えず `noLabelWithoutControl` に引っかかる。`<label>` で入力欄を包む形自体は正しいので、抑制コメントで黙らせるのではなく、入れ子を各フォームに書いたまま残す。
 
 `ActionForm` の `confirm` は削除のためにある。文字列を渡すと、送信ボタンを押したときにブラウザの確認ダイアログが出る。
 
@@ -100,8 +102,8 @@ onClick={confirm ? (e) => { if (!window.confirm(confirm)) e.preventDefault(); } 
 ### 4.2 `EventForm` を登録と編集で使う
 
 ```tsx
-<EventForm themes={themes} stocks={stocks} action={addEvent}    submitLabel="イベントを登録" />
-<EventForm themes={themes} stocks={stocks} action={updateEvent} submitLabel="イベントを更新" event={row} />
+<EventForm themes={themes} stocks={stocks} action={addEvent}  submitLabel="イベントを登録" />
+<EventForm themes={themes} stocks={stocks} action={editEvent} submitLabel="イベントを更新" event={row} />
 ```
 
 `event` を渡したときだけ、各入力欄に `defaultValue` が入り、`<input type="hidden" name="id">` が付く。
@@ -132,7 +134,7 @@ export function deleteEvent(id: number): Promise<string | null>
 
 ### 5.3 `app/actions.ts`
 
-`updateEvent` と `deleteEvent` を足す。どちらも `requireUserId()` を通す。
+`editEvent` と `removeEvent` を足す。どちらも `requireUserId()` を通す。名前が `updateEvent` / `deleteEvent` と違うのは、同じファイルで DB 側の関数を読んでいて名前がぶつかるため。登録側も `addEvent`（Server Action）と `createEvent`（DB）で同じ分け方をしている。
 
 | 操作 | 入力 | 成功したとき |
 |---|---|---|
@@ -150,8 +152,19 @@ export function deleteEvent(id: number): Promise<string | null>
 | `time` 列は `"14:00:00"` の形で返るが、`<input type="time">` は秒を扱わない | 初期値に渡すときに先頭5文字（`HH:MM`）だけ取る |
 | `/events/[id]` の `params` は Promise | `const { id } = await params`（Next.js 同梱ドキュメント `01-app/03-api-reference/03-file-conventions/dynamic-routes.md`） |
 | 存在しないIDのURLを直接開かれる | `notFound()` を呼ぶ |
-| `id` に数字でない文字列が来る | `Number()` が `NaN` になり、そのまま integer 列に渡すと制約違反ではない型変換エラーで **500 になる**（`/events/abc` を開いて実測した）。編集ページは問い合わせる前に `Number.isInteger` で弾いて `notFound()` に落とす。`updateEvent` / `deleteEvent` も同じ判定を持ち、日本語のエラー文を返す。Server Action は画面を通さず直接POSTできるため、画面側の判定とは別に要る |
+| `id` に問い合わせに渡せない値が来る | 下の表のとおり **500 になる**。`src/db/write.ts` の `isEventId`（整数かつ 1〜2147483647）を1つ持ち、編集ページと `updateEvent` / `deleteEvent` の両方から呼ぶ。ページは `notFound()`、更新・削除は日本語のエラー文を返す。Server Action は画面を通さず直接POSTできるため、画面側の判定とは別に要る |
 | 更新でも `""` を date・time 列に入れると型変換エラーで500になる | `toEventInput` が既に空欄を `null` に読み替えている。登録と同じ経路を通す |
+
+`isEventId` を入れる前に実際に開いて測った結果。整数かどうかだけを見ると、下の2行目が残る。
+
+| URL | 判定前 | 判定後 |
+|---|---|---|
+| `/events/abc` | 500（`invalid input syntax for type integer`） | 404 |
+| `/events/9999999999` | 500（`out of range for type integer`） | 404 |
+| `/events/1.5` | 404 | 404 |
+| `/events/999999` | 404 | 404 |
+
+`id` を入れずに Server Action を直接POSTすると `Number(null)` が `0` になる。`isEventId` の下限を 1 にしてあるため、これも同じ経路で弾かれる。
 
 ## 7. テスト
 
@@ -165,6 +178,8 @@ export function deleteEvent(id: number): Promise<string | null>
 | 削除でイベントが消える | `deleteEvent` |
 | 存在しないIDの更新・削除は何も起きない | 0件更新で例外にならない |
 | 数字でないIDの更新・削除はエラー文が返る | `NaN` を integer 列に渡さない（→ §6） |
+| integer の範囲を超えるIDの更新・削除はエラー文が返る | 桁数の多い数を integer 列に渡さない（→ §6） |
+| `id` が無いまま送られた削除はエラー文が返る | `Number(null)` の `0` を弾く（→ §6） |
 
 `app/event-input.test.ts` は変えない。`toEventInput` は登録と編集で同じものを使う。
 
