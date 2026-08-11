@@ -6,9 +6,9 @@ import { event, holding, stock } from "./schema";
  * 開発中の表示確認に使うデータ（Issue #8 設計書 §3）。
  *
  * 入れられるのは、全体設計書 §5.1 の表で「使う」になっている出典で日付を
- * 確認できるものだけになる。今は各社のIRページ（銘柄イベント）と FRB
- * （FOMC の市場イベント）の2つ。テーマイベントは、テーマ固有の出来事の
- * 出典がまだ無いため入れられない。
+ * 確認できるものだけになる。今は各社のIRページ（銘柄イベント）と、FRB・BLS
+ * （市場イベント）の3つ。テーマイベントは、テーマ固有の出来事の出典が
+ * まだ無いため入れられない。
  */
 const STOCKS = [
   { market: "JP", ticker: "7203", name: "トヨタ自動車", fiscalMonth: 3 },
@@ -51,6 +51,35 @@ const EVENTS = [
 ] as const;
 
 /**
+ * 市場イベントの1行。対象は `market` の1列だけで表す（設計書 §5）。
+ * `note` は塊ごとに同じ文言でよければ下の共通値のほうに書く
+ */
+type MarketEventRow = {
+  title: string;
+  startDate: string;
+  time: string;
+  note?: string;
+};
+
+/**
+ * 同じ略号・重要度・出典を持つ市場イベントの塊を作る。
+ * 対象はすべて `GLOBAL`。日本株にも効く出来事だからで、`US` にすると
+ * 米国株の保有者にしか出ない（設計書 §4.2）
+ */
+function marketEvents(
+  common: {
+    shortLabel: string;
+    importance: number;
+    sourceName: string;
+    sourceUrl: string;
+    note?: string;
+  },
+  rows: MarketEventRow[],
+) {
+  return rows.map((row) => ({ ...common, ...row, market: "GLOBAL" as const }));
+}
+
+/**
  * FOMC の政策金利発表。出典は FRB で、条件は出所の記載だけ（全体設計書 §5.1）。
  *
  * 声明は会合2日目の米東部時間 14:00 に出る。日付・時刻はJSTで入れるため
@@ -63,82 +92,168 @@ const EVENTS = [
  *
  * 掲載は2027年12月まで（FRB のカレンダー）。それ以降は読み直して足す。
  */
-const MARKET_EVENTS = [
+const FOMC_EVENTS = marketEvents(
   {
-    title: "FOMC 政策金利発表（2026年9月）",
-    startDate: "2026-09-17",
-    time: "03:00",
-    note: "会合は現地時間9月15〜16日。日本時間の発表時刻",
+    shortLabel: "FOMC",
+    importance: 3,
+    sourceName: "Federal Reserve Board",
+    sourceUrl:
+      "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
   },
+  [
+    {
+      title: "FOMC 政策金利発表（2026年9月）",
+      startDate: "2026-09-17",
+      time: "03:00",
+      note: "会合は現地時間9月15〜16日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2026年10月）",
+      startDate: "2026-10-29",
+      time: "03:00",
+      note: "会合は現地時間10月27〜28日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2026年12月）",
+      startDate: "2026-12-10",
+      time: "04:00",
+      note: "会合は現地時間12月8〜9日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年1月）",
+      startDate: "2027-01-28",
+      time: "04:00",
+      note: "会合は現地時間1月26〜27日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年3月）",
+      startDate: "2027-03-18",
+      time: "03:00",
+      note: "会合は現地時間3月16〜17日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年4月）",
+      startDate: "2027-04-29",
+      time: "03:00",
+      note: "会合は現地時間4月27〜28日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年6月）",
+      startDate: "2027-06-10",
+      time: "03:00",
+      note: "会合は現地時間6月8〜9日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年7月）",
+      startDate: "2027-07-29",
+      time: "03:00",
+      note: "会合は現地時間7月27〜28日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年9月）",
+      startDate: "2027-09-16",
+      time: "03:00",
+      note: "会合は現地時間9月14〜15日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年10月）",
+      startDate: "2027-10-28",
+      time: "03:00",
+      note: "会合は現地時間10月26〜27日。日本時間の発表時刻",
+    },
+    {
+      title: "FOMC 政策金利発表（2027年12月）",
+      startDate: "2027-12-09",
+      time: "04:00",
+      note: "会合は現地時間12月7〜8日。日本時間の発表時刻",
+    },
+  ],
+);
+
+/**
+ * 米国の経済指標。出典は BLS（米労働統計局）で、条件は出所の記載だけ
+ * （全体設計書 §5.1）。
+ *
+ * どちらも公表は米東部時間 8:30 で、日本時間では同じ日の夜になる
+ * （夏時間は 21:30、冬時間は 22:30）。FOMC と違って日付は変わらない。
+ *
+ * 掲載は2026年12月分まで（BLS の公表予定）。FOMC より短いので、先に
+ * 足りなくなる。`bls.gov` はプログラムからのアクセスに 403 を返すため、
+ * 読み直すときはブラウザで開く。
+ *
+ * 重要度は FOMC の3に対して2にした。★3だけを強調する表示（設計書 §10.2）で、
+ * 月に3件も★3が並ぶと強調の意味が薄れるため
+ */
+const CPI_EVENTS = marketEvents(
   {
-    title: "FOMC 政策金利発表（2026年10月）",
-    startDate: "2026-10-29",
-    time: "03:00",
-    note: "会合は現地時間10月27〜28日。日本時間の発表時刻",
+    shortLabel: "米CPI",
+    importance: 2,
+    sourceName: "U.S. Bureau of Labor Statistics",
+    sourceUrl: "https://www.bls.gov/schedule/news_release/cpi.htm",
+    note: "米東部時間 8:30 の公表を日本時間に直した時刻",
   },
+  [
+    {
+      title: "米消費者物価指数（2026年7月分）",
+      startDate: "2026-08-12",
+      time: "21:30",
+    },
+    {
+      title: "米消費者物価指数（2026年8月分）",
+      startDate: "2026-09-11",
+      time: "21:30",
+    },
+    {
+      title: "米消費者物価指数（2026年9月分）",
+      startDate: "2026-10-14",
+      time: "21:30",
+    },
+    {
+      title: "米消費者物価指数（2026年10月分）",
+      startDate: "2026-11-10",
+      time: "22:30",
+    },
+    {
+      title: "米消費者物価指数（2026年11月分）",
+      startDate: "2026-12-10",
+      time: "22:30",
+    },
+  ],
+);
+
+const EMPLOYMENT_EVENTS = marketEvents(
   {
-    title: "FOMC 政策金利発表（2026年12月）",
-    startDate: "2026-12-10",
-    time: "04:00",
-    note: "会合は現地時間12月8〜9日。日本時間の発表時刻",
+    shortLabel: "米雇用統計",
+    importance: 2,
+    sourceName: "U.S. Bureau of Labor Statistics",
+    sourceUrl: "https://www.bls.gov/schedule/news_release/empsit.htm",
+    note: "米東部時間 8:30 の公表を日本時間に直した時刻",
   },
-  {
-    title: "FOMC 政策金利発表（2027年1月）",
-    startDate: "2027-01-28",
-    time: "04:00",
-    note: "会合は現地時間1月26〜27日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年3月）",
-    startDate: "2027-03-18",
-    time: "03:00",
-    note: "会合は現地時間3月16〜17日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年4月）",
-    startDate: "2027-04-29",
-    time: "03:00",
-    note: "会合は現地時間4月27〜28日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年6月）",
-    startDate: "2027-06-10",
-    time: "03:00",
-    note: "会合は現地時間6月8〜9日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年7月）",
-    startDate: "2027-07-29",
-    time: "03:00",
-    note: "会合は現地時間7月27〜28日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年9月）",
-    startDate: "2027-09-16",
-    time: "03:00",
-    note: "会合は現地時間9月14〜15日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年10月）",
-    startDate: "2027-10-28",
-    time: "03:00",
-    note: "会合は現地時間10月26〜27日。日本時間の発表時刻",
-  },
-  {
-    title: "FOMC 政策金利発表（2027年12月）",
-    startDate: "2027-12-09",
-    time: "04:00",
-    note: "会合は現地時間12月7〜8日。日本時間の発表時刻",
-  },
-].map((e) => ({
-  ...e,
-  shortLabel: "FOMC",
-  importance: 3,
-  // 日本株にも効くため US ではなく GLOBAL（設計書 §4.2）
-  market: "GLOBAL" as const,
-  sourceName: "Federal Reserve Board",
-  sourceUrl: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
-}));
+  [
+    {
+      title: "米雇用統計（2026年8月分）",
+      startDate: "2026-09-04",
+      time: "21:30",
+    },
+    {
+      title: "米雇用統計（2026年9月分）",
+      startDate: "2026-10-02",
+      time: "21:30",
+    },
+    {
+      title: "米雇用統計（2026年10月分）",
+      startDate: "2026-11-06",
+      time: "22:30",
+    },
+    {
+      title: "米雇用統計（2026年11月分）",
+      startDate: "2026-12-04",
+      time: "22:30",
+    },
+  ],
+);
+
+const MARKET_EVENTS = [...FOMC_EVENTS, ...CPI_EVENTS, ...EMPLOYMENT_EVENTS];
 
 /**
  * 銘柄・保有・イベントを投入する。何度実行しても増えない。
