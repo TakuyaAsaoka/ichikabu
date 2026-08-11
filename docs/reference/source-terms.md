@@ -109,7 +109,21 @@
 | 例外1 | 以前から著作権のある写真・イラスト。日付の転記には関わらない |
 | 例外2 | **エンブレムは登録商標。使わない**（企業ロゴを使わないのと同じ扱い → §5.1） |
 | 日程の掲載場所 | CPI は https://www.bls.gov/schedule/news_release/cpi.htm 、雇用統計は https://www.bls.gov/schedule/news_release/empsit.htm |
-| 機械で読める形 | **ICS を配信している**（https://www.bls.gov/schedule/news_release/bls.ics ）。ただし 403 のため取得できるかは未確認（→ Issue #44） |
+| 機械で読める形 | **ICS を配信している**（https://www.bls.gov/schedule/news_release/bls.ics ）。ただし**プログラムからの取得は BLS が禁止している**（→ 下の「プログラムからの取得」） |
+
+### プログラムからの取得
+
+| 項目 | 内容 |
+|---|---|
+| 確認日 | 2026-08-11 |
+| 確認したこと | ICS（https://www.bls.gov/schedule/news_release/bls.ics ）を `curl` で取得できるか |
+| 結果 | **HTTP 403。** `curl` の既定の User-Agent でも、ブラウザと同じ User-Agent でも同じ。返ってきたのはエラー画面ではなく、下の方針文が書かれたページ |
+
+> Automated retrieval programs (commonly called "robots" or "bots") can cause delays and interfere with other customers' timely access to information. Therefore, bot activity that doesn't conform to BLS usage policy is prohibited.
+
+（自動で取りに行くプログラム（いわゆる「ロボット」「ボット」）は遅延を起こし、他の利用者が必要なときに情報を得るのを妨げうる。よって BLS の利用方針に沿わないボットの動きは禁止する）
+
+**禁止されているのは取得方法だけで、中身の利用は上表のとおり自由である。** 人がブラウザで開いて写し、出所を書いて載せるのは条件を満たす。現に CPI・雇用統計の日程はその形で入れている（Issue #55）。
 
 ---
 
