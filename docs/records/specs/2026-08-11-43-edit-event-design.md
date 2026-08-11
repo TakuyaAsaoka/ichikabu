@@ -150,7 +150,7 @@ export function deleteEvent(id: number): Promise<string | null>
 | `time` 列は `"14:00:00"` の形で返るが、`<input type="time">` は秒を扱わない | 初期値に渡すときに先頭5文字（`HH:MM`）だけ取る |
 | `/events/[id]` の `params` は Promise | `const { id } = await params`（Next.js 同梱ドキュメント `01-app/03-api-reference/03-file-conventions/dynamic-routes.md`） |
 | 存在しないIDのURLを直接開かれる | `notFound()` を呼ぶ |
-| `id` に数字でない文字列が来る | `Number()` が `NaN` になり、該当行が無いので `notFound()` に落ちる。更新・削除は0件更新で静かに成功する（→ §7 でテストする） |
+| `id` に数字でない文字列が来る | `Number()` が `NaN` になり、そのまま integer 列に渡すと制約違反ではない型変換エラーで **500 になる**（`/events/abc` を開いて実測した）。編集ページは問い合わせる前に `Number.isInteger` で弾いて `notFound()` に落とす。`updateEvent` / `deleteEvent` も同じ判定を持ち、日本語のエラー文を返す。Server Action は画面を通さず直接POSTできるため、画面側の判定とは別に要る |
 | 更新でも `""` を date・time 列に入れると型変換エラーで500になる | `toEventInput` が既に空欄を `null` に読み替えている。登録と同じ経路を通す |
 
 ## 7. テスト
@@ -164,6 +164,7 @@ export function deleteEvent(id: number): Promise<string | null>
 | 短縮ラベルが長すぎる更新は日本語のエラー文を返す | 更新でも幅の判定が効く |
 | 削除でイベントが消える | `deleteEvent` |
 | 存在しないIDの更新・削除は何も起きない | 0件更新で例外にならない |
+| 数字でないIDの更新・削除はエラー文が返る | `NaN` を integer 列に渡さない（→ §6） |
 
 `app/event-input.test.ts` は変えない。`toEventInput` は登録と編集で同じものを使う。
 

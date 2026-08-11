@@ -1,4 +1,4 @@
-import type { EventInput } from "../src/db/register";
+import type { EventInput } from "../src/db/write";
 
 // "use server" を付けない素のモジュールにしてある。app/actions.ts は next/headers を
 // 使うため Vitest から読み込めず、ここに置いた変換だけがテストできる（設計書 §5）

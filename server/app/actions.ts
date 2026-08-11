@@ -10,7 +10,9 @@ import {
   createStock,
   createTheme,
   createThemeStock,
-} from "../src/db/register";
+  deleteEvent,
+  updateEvent,
+} from "../src/db/write";
 import { toEventInput } from "./event-input";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
@@ -127,4 +129,43 @@ export async function addEvent(
 
   revalidatePath("/");
   return null;
+}
+
+// 更新・削除は成功したら一覧に戻す（設計書 §5.3）。編集ページに留まらせると
+// 「更新した」を出すための状態を別に持つことになる。
+// redirect() は例外を投げて動くため、revalidatePath() を先に呼ぶ
+
+/** イベントを更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function editEvent(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await updateEvent(
+    Number(formData.get("id")),
+    toEventInput(formData),
+  );
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+/** イベントを削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function removeEvent(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await deleteEvent(Number(formData.get("id")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
 }

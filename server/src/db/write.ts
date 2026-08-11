@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from ".";
 import { event, holding, stock, theme, themeStock } from "./schema";
 import { violatedConstraint } from "./violation";
@@ -126,16 +126,60 @@ function labelWidth(text: string): number {
 }
 
 /**
- * イベントを登録する。成功で null、失敗で日本語のエラー文を返す。
+ * 短縮ラベルの幅を判定し、長すぎれば日本語のエラー文を返す。
  * 短縮ラベルの幅だけは DB に制約が無いためここで判定する（設計書 §3）
  */
+function tooLongLabel(shortLabel: string): string | null {
+  return labelWidth(shortLabel) > SHORT_LABEL_MAX_WIDTH
+    ? "短縮ラベルは全角5文字まで"
+    : null;
+}
+
+/**
+ * イベントの列に入れる値。market は Drizzle 上 "JP" | "US" | "GLOBAL" の型だが、
+ * EventInput.market は string | null。as で型を偽らず、生の値のまま渡して
+ * DB の event_market_check に判定させる
+ */
+function eventValues(input: EventInput) {
+  return { ...input, market: sql`${input.market}` };
+}
+
+/** イベントを登録する。成功で null、失敗で日本語のエラー文を返す */
 export async function createEvent(input: EventInput): Promise<string | null> {
-  if (labelWidth(input.shortLabel) > SHORT_LABEL_MAX_WIDTH) {
-    return "短縮ラベルは全角5文字まで";
-  }
-  // market は Drizzle 上 "JP" | "US" | "GLOBAL" の型だが、EventInput.market は
-  // string | null。as で型を偽らず、生の値のまま DB の event_market_check に判定させる
-  return run(
-    db.insert(event).values({ ...input, market: sql`${input.market}` }),
+  return (
+    tooLongLabel(input.shortLabel) ??
+    run(db.insert(event).values(eventValues(input)))
   );
+}
+
+/**
+ * IDが整数でなければ日本語のエラー文を返す。
+ * 画面から来る id は文字列で、数字でなければ Number() が NaN になる。
+ * NaN を integer 列に渡すと、制約違反ではない型変換エラーで 500 になる（設計書 §6）
+ */
+function invalidId(id: number): string | null {
+  return Number.isInteger(id) ? null : "そのイベントは見つからない";
+}
+
+/**
+ * イベントを更新する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として null を返す
+ */
+export async function updateEvent(
+  id: number,
+  input: EventInput,
+): Promise<string | null> {
+  return (
+    invalidId(id) ??
+    tooLongLabel(input.shortLabel) ??
+    run(db.update(event).set(eventValues(input)).where(eq(event.id, id)))
+  );
+}
+
+/**
+ * イベントを削除する。成功で null、失敗で日本語のエラー文を返す。
+ * event は他のテーブルから参照されないため、外部キー違反は起きない（設計書 §3.2）
+ */
+export async function deleteEvent(id: number): Promise<string | null> {
+  return invalidId(id) ?? run(db.delete(event).where(eq(event.id, id)));
 }
