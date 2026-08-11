@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetDatabase } from "../../test/helpers";
+import { expectViolation, resetDatabase } from "../../test/helpers";
 import { db } from ".";
 import { event, holding, stock, theme, themeStock } from "./schema";
 import { seedUser } from "./seed-user";
@@ -637,13 +637,25 @@ describe("存在しないID", () => {
     expect(await db.select().from(themeStock)).toHaveLength(0);
   });
 
+  it("イベントの更新でもエラー文が返る", async () => {
+    // 更新も登録と同じ経路（run()）を通ることを固定する
+    await createEvent({ ...BASE, market: "JP" });
+    const { id } = await onlyEvent();
+
+    expect(await updateEvent(id, { ...BASE, themeId: 999999 })).toBe(
+      "そのテーマは無い",
+    );
+    expect((await onlyEvent()).market).toBe("JP");
+  });
+
   it("保有の利用者IDに入れると投げ直される", async () => {
     // 利用者IDはセッションから来るため画面からは届かない。日本語にすると
     // 「その銘柄は無い」のような嘘の文になるため、表に入れず投げ直す（Issue #49）
     await createStock({ ...TOYOTA });
     const [{ stockId }] = await db.select({ stockId: stock.id }).from(stock);
 
-    await expect(createHolding("no-such-user", stockId)).rejects.toThrow();
+    const name = await expectViolation(createHolding("no-such-user", stockId));
+    expect(name).toBe("holding_user_id_user_id_fk");
     expect(await db.select().from(holding)).toHaveLength(0);
   });
 });

@@ -150,15 +150,16 @@ function toTarget(value: string) {
 >
 > Issue #46 で `theme:abc` のような値が日本語文（「入力に使えない値がある」）になった結果、運用者から見て同じ「そのテーマは無い」なのに、IDの形によって画面の出方が変わるようになった。上の決定を変えて、外部キー違反も表に入れる。
 >
+> この節が扱うイベントの分は次の2つ。テーマ所属の `theme_stock_theme_id_theme_id_fk` は「そのテーマは無い」、銘柄・保有の分は管理UI設計書 §5 の追記にある。
+>
 > | 制約名 | 画面に出す文 |
 > |---|---|
 > | `event_theme_id_theme_id_fk` | そのテーマは無い |
 > | `event_stock_id_stock_id_fk` | その銘柄は無い |
-> | `holding_stock_id_stock_id_fk` | その銘柄は無い |
-> | `theme_stock_theme_id_theme_id_fk` | そのテーマは無い |
-> | `theme_stock_stock_id_stock_id_fk` | その銘柄は無い |
 >
 > `holding_user_id_user_id_fk` は入れない。利用者IDはセッションから来るため画面からは届かず、サインイン中に利用者が消えた場合にしか出ない。ここに「その銘柄は無い」のような文を出すと嘘になる。
+>
+> **この文は INSERT と UPDATE のときの意味**。`event_theme_id_theme_id_fk` と `event_stock_id_stock_id_fk` は `ON DELETE restrict` で、テーマや銘柄を消す機能を足すと、イベントから参照されている行を消したときにも同じ制約名が返る。そのときの意味は「そのテーマはイベントに使われていて消せない」で正反対になるため、削除の経路は別扱いにする。
 
 ## 7. 画面
 

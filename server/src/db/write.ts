@@ -25,7 +25,13 @@ const MESSAGES: Record<string, string> = {
   // 存在しないIDを指した外部キー違反。選択肢は画面がDBから出しているため、
   // 画面を通した操作では起きない。Server Action への直接POSTでだけ届く。
   // holding_user_id_user_id_fk は入れない。利用者IDはセッションから来るため
-  // 画面からは届かず、サインイン中に利用者が消えた場合にしか出ない（Issue #49）
+  // 画面からは届かず、サインイン中に利用者が消えた場合にしか出ない（Issue #49）。
+  //
+  // この文は INSERT と UPDATE のときの意味。下の5つのうち event_* と
+  // holding_stock_id_stock_id_fk は ON DELETE restrict で、テーマや銘柄を消す
+  // 機能を足すと、参照されている行を消したときにも同じ制約名が返る。そのときの
+  // 意味は「そのテーマはイベントに使われていて消せない」で正反対になるため、
+  // 削除の経路は別扱いにする
   event_theme_id_theme_id_fk: "そのテーマは無い",
   event_stock_id_stock_id_fk: "その銘柄は無い",
   holding_stock_id_stock_id_fk: "その銘柄は無い",
