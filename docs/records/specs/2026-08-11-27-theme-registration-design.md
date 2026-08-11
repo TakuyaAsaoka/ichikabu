@@ -38,6 +38,17 @@ export function createThemeStock(themeId: number, stockId: number): Promise<stri
 | `theme_name_unique` | そのテーマ名は登録済み |
 | `theme_stock_theme_id_stock_id_pk` | その銘柄はすでにこのテーマに登録済み |
 
+> **2026-08-11 追記（Issue #49）: 外部キー違反も表に入れる**
+>
+> 存在しないIDを指したときのエラーも日本語にする（決定の経緯はイベント登録フォーム設計書 §6 の追記）。テーマ所属の分は次の2つ。
+>
+> | 制約名 | 画面に出す文 |
+> |---|---|
+> | `theme_stock_theme_id_theme_id_fk` | そのテーマは無い |
+> | `theme_stock_stock_id_stock_id_fk` | その銘柄は無い |
+>
+> どちらも `ON DELETE cascade` なので、テーマや銘柄を消したときにこの制約名は返らない（`event` と `holding` の外部キーは `restrict` で事情が違う。管理UI設計書 §5 の追記）。
+
 ### 3.1 テーマ名の前後の空白は落とす
 
 `theme.name` は `notNull` だが空文字を弾く CHECK が無い。HTML の `required` は空文字しか弾かないため、`"   "`（空白だけ）と `"半導体 "`（末尾に空白）が素通りする。`createTheme` の中で前後の空白を落とし、落とした結果が空なら「テーマ名を入れる」を返す。
