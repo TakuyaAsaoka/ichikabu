@@ -25,20 +25,21 @@ const MESSAGES: Record<string, string> = {
 };
 
 /**
- * 列に入らない値を渡したときの pg のエラーコード。
- * 22003 は範囲外（integer に入らない大きさの数）、22P02 は形式違い（NaN など）、
- * 22007 は日付・時刻の形式違い（"" や "abc"）。
+ * 渡した値が列に入らないときの pg のエラーコードの先頭2桁。
+ * 数の範囲外（22003）・形式違い（22P02）・日付や時刻の形式違い（22007）と
+ * 範囲外（22008）が、すべてこの1つのまとまりに入る。
+ * 制約違反は 23、接続断は 08 で、どちらもここには当たらず投げ直す。
  *
  * 画面から来る値はすべて文字列のまま、または Number() を通して DB に渡している。
  * Number() は数字でない文字列を NaN に、桁数の多い文字列をそのままの数にするが、
  * どちらも integer 列には入らない。制約違反ではないため MESSAGES を通らない。
  * <input> や <select> からはこの値が出ないが、Server Action は画面を通さず直接POSTできる。
  *
- * 今のスキーマの列は数値・日付・文字列だけで、この3つのコードは画面から来た値が
+ * 今のスキーマの列は数値・日付・文字列だけで、このまとまりのエラーは画面から来た値が
  * 列に入らないときにしか出ない。uuid や json の列を足すと、実装側のバグも
  * 同じコードで出るようになるため、そのときは列ごとの判定が要る
  */
-const INVALID_VALUE_CODES = ["22003", "22P02", "22007"];
+const INVALID_VALUE_CLASS = "22";
 
 /**
  * 登録を実行し、上の表にある制約違反なら日本語のエラー文を返す。
@@ -54,7 +55,7 @@ async function run(operation: Promise<unknown>): Promise<string | null> {
     if (message) {
       return message;
     }
-    if (code && INVALID_VALUE_CODES.includes(code)) {
+    if (code?.startsWith(INVALID_VALUE_CLASS)) {
       // どの列かは pg のエラーから取れないため、文言は列ごとに分けない
       return "入力に使えない値がある";
     }
