@@ -106,7 +106,7 @@ server/
 
 `server/test/helpers.ts` の `violatedConstraint()`（エラーの `cause` を辿って制約名を取り出す関数）を `src/db/` に移し、テストと `register.ts` の両方から使う。
 
-> 2026-08-11 追記（Issue #46）: この関数は `pgError()` になり、制約名に加えて pg のエラーコードも返す。
+> 2026-08-11 追記（Issue #46・#49）: この関数は `pgError()` になり、制約名に加えて pg のエラーコードも返す。ファイル名も中身に合わせて `src/db/pg-error.ts` にした。
 
 制約名と画面に出す文の対応（制約名は `server/drizzle/0000_simple_blacklash.sql` の実物）:
 

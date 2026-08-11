@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "../src/db";
-import { pgError } from "../src/db/violation";
+import { pgError } from "../src/db/pg-error";
 
 /**
  * テストごとに全テーブルを空にする。採番も1に戻す。

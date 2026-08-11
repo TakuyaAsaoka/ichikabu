@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from ".";
+import { pgError } from "./pg-error";
 import { event, holding, stock, theme, themeStock } from "./schema";
-import { pgError } from "./violation";
 
 /**
  * 制約違反を画面に出す日本語にする（設計書 §5）。
@@ -22,6 +22,15 @@ const MESSAGES: Record<string, string> = {
   event_importance_check: "重要度は1〜3",
   event_source_name_check: "出典の名前を入れるならURLも入れる",
   event_market_check: "市場は JP・US・GLOBAL のどれか",
+  // 存在しないIDを指した外部キー違反。選択肢は画面がDBから出しているため、
+  // 画面を通した操作では起きない。Server Action への直接POSTでだけ届く。
+  // holding_user_id_user_id_fk は入れない。利用者IDはセッションから来るため
+  // 画面からは届かず、サインイン中に利用者が消えた場合にしか出ない（Issue #49）
+  event_theme_id_theme_id_fk: "そのテーマは無い",
+  event_stock_id_stock_id_fk: "その銘柄は無い",
+  holding_stock_id_stock_id_fk: "その銘柄は無い",
+  theme_stock_theme_id_theme_id_fk: "そのテーマは無い",
+  theme_stock_stock_id_stock_id_fk: "その銘柄は無い",
 };
 
 /**
