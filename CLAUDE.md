@@ -7,7 +7,7 @@
 
 ```
 <repo>/
-├── openapi.yaml   ← API契約の唯一の正（手書き）
+├── openapi.yaml   ← パスとリクエスト・レスポンスの型の唯一の正（手書き）
 ├── ios/           ← Xcode プロジェクト（Swift + SwiftUI）
 └── server/        ← Next.js（管理UI + API Route Handlers）
 ```
@@ -73,7 +73,7 @@ DBのコンテナとデータはWorktree間で共有される（compose のプ�
 
 ## 規約
 
-- `openapi.yaml` が API契約の唯一の正。サーバー実装からの自動生成はしない
+- `openapi.yaml` がパスとリクエスト・レスポンスの型の唯一の正。サーバー実装からの自動生成はしない
 - `openapi-typescript` の生成物（`server/src/generated/`）は**コミットしない**。品質ゲートで毎回 `pnpm gen` が走るため、コミットしても常に再生成される冗長なファイルになるうえ、契約とのズレを生む余地しかない。iOS側の生成物も同様（設計書 §7）
 - `server/drizzle/` のマイグレーションと `server/src/db/auth-schema.ts`（Better Auth の生成物）は**コミットする**。前者は適用済みかどうかがDB側の状態と対応する履歴そのもので、再生成すると別物になる。後者は drizzle-kit が全テーブルを1本の履歴で管理するために必要で、これが無いと `DROP TABLE "user"` を含むマイグレーションが生成される
 - コードコメント・テストケース名・コミットメッセージは日本語。ファイル名・ディレクトリ名は英語
