@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from ".";
 import { event, holding, stock, theme, themeStock } from "./schema";
-import { violatedConstraint } from "./violation";
+import { pgError } from "./violation";
 
 /**
  * 制約違反を画面に出す日本語にする（設計書 §5）。
@@ -25,16 +25,41 @@ const MESSAGES: Record<string, string> = {
 };
 
 /**
+ * 渡した値が列に入らないときの pg のエラーコードの先頭2桁。
+ * 数の範囲外（22003）・形式違い（22P02）・日付や時刻の形式違い（22007）と
+ * 範囲外（22008）が、すべてこの1つのまとまりに入る。
+ * 制約違反は 23、接続断は 08 で、どちらもここには当たらず投げ直す。
+ *
+ * 画面から来る値はすべて文字列のまま、または Number() を通して DB に渡している。
+ * Number() は数字でない文字列を NaN に、桁数の多い文字列をそのままの数にするが、
+ * どちらも integer 列には入らない。制約違反ではないため MESSAGES を通らない。
+ * <input> や <select> からはこの値が出ないが、Server Action は画面を通さず直接POSTできる。
+ *
+ * 今のスキーマの列は数値・日付・文字列だけで、このまとまりのエラーは画面から来た値が
+ * 列に入らないときにしか出ない。ただし 2200H（id の採番が 2147483647 を超えた）だけは
+ * このまとまりに入るのに入力の話ではない。手で登録するイベントでは届かないため分けない。
+ * uuid や json の列を足すと、実装側のバグも同じコードで出るようになるため、
+ * そのときは列ごとの判定が要る
+ */
+const INVALID_VALUE_CLASS = "22";
+
+/**
  * 登録を実行し、上の表にある制約違反なら日本語のエラー文を返す。
- * 表に無いエラーは投げ直す。握りつぶすと、理由が出ないまま失敗する画面になる
+ * 列に入らない値も日本語のエラー文にする。それ以外のエラーは投げ直す。
+ * 握りつぶすと、理由が出ないまま失敗する画面になる
  */
 async function run(operation: Promise<unknown>): Promise<string | null> {
   try {
     await operation;
   } catch (error) {
-    const message = MESSAGES[violatedConstraint(error) ?? ""];
+    const { code, constraint } = pgError(error);
+    const message = MESSAGES[constraint ?? ""];
     if (message) {
       return message;
+    }
+    if (code?.startsWith(INVALID_VALUE_CLASS)) {
+      // どの列かは pg のエラーから取れないため、文言は列ごとに分けない
+      return "入力に使えない値がある";
     }
     throw error;
   }

@@ -515,3 +515,88 @@ describe("deleteEvent", () => {
     expect(await db.select().from(event)).toHaveLength(1);
   });
 });
+
+/**
+ * 画面から来る値はすべて文字列で、Number() が数字でない文字列を NaN に、
+ * 桁数の多い文字列をそのままの数にする。どちらも integer 列には入らない（Issue #46）。
+ * <select> からはこの値が出ないが、Server Action は画面を通さず直接POSTできる
+ */
+const UNUSABLE = [Number("abc"), 9999999999];
+const UNUSABLE_MESSAGE = "入力に使えない値がある";
+
+describe("問い合わせに渡せない値", () => {
+  it("イベントの対象IDに入れるとエラー文が返る", async () => {
+    for (const value of UNUSABLE) {
+      expect(await createEvent({ ...BASE, themeId: value })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+      expect(await createEvent({ ...BASE, stockId: value })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("銘柄の決算月に入れるとエラー文が返る", async () => {
+    for (const value of UNUSABLE) {
+      expect(await createStock({ ...TOYOTA, fiscalMonth: value })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    expect(await db.select().from(stock)).toHaveLength(0);
+  });
+
+  it("保有の銘柄IDに入れるとエラー文が返る", async () => {
+    const { userId } = await seedUser(
+      "dev@example.com",
+      "correct-horse-battery-staple",
+    );
+
+    for (const value of UNUSABLE) {
+      expect(await createHolding(userId, value)).toBe(UNUSABLE_MESSAGE);
+    }
+    expect(await db.select().from(holding)).toHaveLength(0);
+  });
+
+  it("テーマ所属のテーマID・銘柄IDに入れるとエラー文が返る", async () => {
+    for (const value of UNUSABLE) {
+      expect(await createThemeStock(value, 1)).toBe(UNUSABLE_MESSAGE);
+      expect(await createThemeStock(1, value)).toBe(UNUSABLE_MESSAGE);
+    }
+    expect(await db.select().from(themeStock)).toHaveLength(0);
+  });
+
+  it("イベントの更新でもエラー文が返る", async () => {
+    // 更新も登録と同じ経路（run()）を通ることを固定する
+    await createEvent({ ...BASE, market: "JP" });
+    const { id } = await onlyEvent();
+
+    expect(await updateEvent(id, { ...BASE, themeId: Number("abc") })).toBe(
+      UNUSABLE_MESSAGE,
+    );
+    expect((await onlyEvent()).market).toBe("JP");
+  });
+
+  it("日付・時刻に入れるとエラー文が返る", async () => {
+    // 日付は Number() を通らないが、日付として読めない文字列を date 列に渡すと
+    // 同じく制約違反ではないエラーになる（イベント登録フォーム設計書 §7）。
+    // 形が違う（"" や "abc"）ときと、形は日付だが値が範囲外（"2026-13-45"）の
+    // ときで pg のエラーコードが分かれるため、両方を確かめる
+    for (const startDate of ["", "abc", "2026-13-45"]) {
+      expect(await createEvent({ ...BASE, market: "JP", startDate })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    for (const endDate of ["abc", "2026-13-45"]) {
+      expect(await createEvent({ ...BASE, market: "JP", endDate })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    for (const time of ["zz", "25:99"]) {
+      expect(await createEvent({ ...BASE, market: "JP", time })).toBe(
+        UNUSABLE_MESSAGE,
+      );
+    }
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+});

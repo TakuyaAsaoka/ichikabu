@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "../src/db";
-import { violatedConstraint } from "../src/db/violation";
+import { pgError } from "../src/db/violation";
 
 /**
  * テストごとに全テーブルを空にする。採番も1に戻す。
@@ -31,7 +31,7 @@ export async function expectViolation(
   try {
     await operation;
   } catch (error) {
-    const name = violatedConstraint(error);
+    const name = pgError(error).constraint;
     if (name) return name;
     throw error;
   }
