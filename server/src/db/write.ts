@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from ".";
 import { pgError } from "./pg-error";
 import { event, holding, stock, theme, themeStock } from "./schema";
@@ -232,6 +232,104 @@ export async function updateEvent(
  */
 export async function deleteEvent(id: number): Promise<string | null> {
   return invalidId(id) ?? run(db.delete(event).where(eq(event.id, id)));
+}
+
+/** 取り込みで公表日時が変わった1件。何が変わったかを実行時に出すために返す */
+export type ScheduleChange = {
+  title: string;
+  from: { startDate: string; time: string | null };
+  to: { startDate: string; time: string | null };
+};
+
+/** 取り込みの結果。入れた名称の並びと、公表日時が変わった行の一覧 */
+export type UpsertResult = {
+  created: string[];
+  changed: ScheduleChange[];
+};
+
+/**
+ * 公表予定の取り込み用に、市場イベントを登録または更新する
+ * （公表予定の取り込み設計書 §4）。
+ *
+ * 名称が無ければ登録し、あれば**開始日と時刻だけ**を更新する。短縮ラベル・
+ * 重要度・備考は運用者が手で直す列なので上書きしない。
+ *
+ * 名称で引けるのは、名称に対象期が入っていて公表回ごとに1つに定まるため。
+ * ただし `event` に一意の制約は無く、同じ名称の行が手で2件入っていると、
+ * 更新が当たるのは1件だけでもう1件は古い公表日のまま残る。運用者が1人で
+ * この経路しか使わない前提で制約は足さない。
+ *
+ * 失敗はエラー文にせず投げる。呼び出すのは画面ではなくスクリプトで、
+ * 表示するエラー文が要らない
+ */
+export async function upsertMarketEvents(
+  inputs: EventInput[],
+): Promise<UpsertResult> {
+  const created: string[] = [];
+  const changed: ScheduleChange[] = [];
+  if (inputs.length === 0) {
+    return { created, changed };
+  }
+
+  await db.transaction(async (tx) => {
+    const existing = await tx
+      .select({
+        id: event.id,
+        title: event.title,
+        startDate: event.startDate,
+        time: event.time,
+      })
+      .from(event)
+      .where(
+        inArray(
+          event.title,
+          inputs.map((input) => input.title),
+        ),
+      );
+    const found = new Map(existing.map((row) => [row.title, row]));
+
+    for (const input of inputs) {
+      const row = found.get(input.title);
+      if (!row) {
+        const [inserted] = await tx
+          .insert(event)
+          .values(eventValues(input))
+          .returning({
+            id: event.id,
+            title: event.title,
+            startDate: event.startDate,
+            time: event.time,
+          });
+        // 入れた行を控える。同じ名称が1回の入力に2つあると、控えないと2件入る
+        found.set(inserted.title, inserted);
+        created.push(input.title);
+        continue;
+      }
+      // 違うかどうかの判定はDBに任せる。time 列は '08:30' を入れると '08:30:00' で
+      // 返るため、文字列のまま比べると毎回「変わった」になる
+      const updated = await tx
+        .update(event)
+        .set({ startDate: input.startDate, time: input.time })
+        .where(
+          and(
+            eq(event.id, row.id),
+            sql`(${event.startDate}, ${event.time}) IS DISTINCT FROM (${input.startDate}::date, ${input.time}::time)`,
+          ),
+        )
+        .returning({ startDate: event.startDate, time: event.time });
+      // 更新後の値もDBから受け取る。入力の '08:30' をそのまま使うと、
+      // 前後で時刻の書き方が変わって「08:30:00 → 08:30」と出る
+      const [after] = updated;
+      if (after) {
+        changed.push({
+          title: input.title,
+          from: { startDate: row.startDate, time: row.time },
+          to: after,
+        });
+      }
+    }
+  });
+  return { created, changed };
 }
 
 /**
