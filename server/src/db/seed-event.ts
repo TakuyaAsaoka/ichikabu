@@ -6,9 +6,9 @@ import { event, holding, stock } from "./schema";
  * 開発中の表示確認に使うデータ（Issue #8 設計書 §3）。
  *
  * 入れられるのは、全体設計書 §5.1 の表で「使う」になっている出典で日付を
- * 確認できるものだけになる。今は各社のIRページ（銘柄イベント）と、FRB・BLS
- * （市場イベント）の3つ。テーマイベントは、テーマ固有の出来事の出典が
- * まだ無いため入れられない。
+ * 確認できるものだけになる。今は各社のIRページ（銘柄イベント）と、FRB・BLS・
+ * 総務省統計局（市場イベント）の4つ。テーマイベントは、テーマ固有の出来事の
+ * 出典がまだ無いため入れられない。
  */
 const STOCKS = [
   { market: "JP", ticker: "7203", name: "トヨタ自動車", fiscalMonth: 3 },
@@ -63,8 +63,8 @@ type MarketEventRow = {
 
 /**
  * 同じ略号・重要度・出典を持つ市場イベントの塊を作る。
- * 対象はすべて `GLOBAL`。日本株にも効く出来事だからで、`US` にすると
- * 米国株の保有者にしか出ない（設計書 §4.2）
+ * 対象の既定は `GLOBAL`。日本株にも効く出来事だからで、`US` にすると
+ * 米国株の保有者にしか出ない（設計書 §4.2）。日本の指標だけ `JP` を渡す
  */
 function marketEvents(
   common: {
@@ -73,10 +73,12 @@ function marketEvents(
     sourceName: string;
     sourceUrl: string;
     note?: string;
+    market?: "JP" | "US" | "GLOBAL";
   },
   rows: MarketEventRow[],
 ) {
-  return rows.map((row) => ({ ...common, ...row, market: "GLOBAL" as const }));
+  const { market = "GLOBAL", ...rest } = common;
+  return rows.map((row) => ({ ...rest, ...row, market }));
 }
 
 /**
@@ -253,7 +255,50 @@ const EMPLOYMENT_EVENTS = marketEvents(
   ],
 );
 
-const MARKET_EVENTS = [...FOMC_EVENTS, ...CPI_EVENTS, ...EMPLOYMENT_EVENTS];
+/**
+ * 日本の消費者物価指数。出典は総務省統計局で、条件は出所の記載だけ
+ * （全体設計書 §2.1）。
+ *
+ * 対象は `JP`。米CPI を `GLOBAL` にしているのは日本株にも効くからで、
+ * 日本のCPI は米国株の保有者には効かない（公表予定の取り込み設計書 §1 #8）。
+ *
+ * 下の3件は公表予定 XML から取った実物。`pnpm import:stat` を実行すると
+ * 同じ出所から15件が入る（うち3件はここで入っているので登録は12件になる）。
+ * ここに置いてあるのは、取り込みを動かさなくても日本の指標が1件は見えるようにするため
+ */
+const JP_CPI_EVENTS = marketEvents(
+  {
+    shortLabel: "日本CPI",
+    importance: 2,
+    market: "JP",
+    sourceName: "総務省統計局",
+    sourceUrl: "https://www.stat.go.jp/data/cpi/",
+  },
+  [
+    {
+      title: "消費者物価指数（2026年6月分）",
+      startDate: "2026-07-24",
+      time: "08:30",
+    },
+    {
+      title: "消費者物価指数（2026年7月分）",
+      startDate: "2026-08-21",
+      time: "08:30",
+    },
+    {
+      title: "消費者物価指数（2026年8月分）",
+      startDate: "2026-09-18",
+      time: "08:30",
+    },
+  ],
+);
+
+const MARKET_EVENTS = [
+  ...FOMC_EVENTS,
+  ...CPI_EVENTS,
+  ...EMPLOYMENT_EVENTS,
+  ...JP_CPI_EVENTS,
+];
 
 /**
  * 銘柄・保有・イベントを投入する。何度実行しても増えない。
