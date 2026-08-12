@@ -1,14 +1,19 @@
-# 配信の設定（Issue #74 設計書 §2）。デプロイは手で実行する。
-# 自動にすると月20回で無料枠（月300クレジット・デプロイ1回15）が尽き、
-# 枠切れでサイトが停止する。手順は docs/guides/deploy.md
+# 配信の設定（Issue #74 設計書 §2）。手順は docs/guides/deploy.md
+#
+# **自動デプロイは画面で止める**（Build & deploy → Continuous deployment →
+# Build status を Stopped builds）。このファイルには止める手立てが無い。
+# 止めないと、push のたびに15クレジット減って月20回で無料枠（月300）が尽き、
+# 枠切れでサイトが停止する
 
 [build]
-# pnpm はこの中だけで回す（リポジトリ構成は最上位の CLAUDE.md）
+# pnpm はこの中だけで回す（リポジトリ構成は最上位の CLAUDE.md）。
+# netlify.toml のパスはすべてこの起点からの相対になる
 base = "server"
-# `gen` は `../openapi.yaml` を読む。Netlify は最上位ごと複製するため、
-# 起点が server でもこの相対パスは解決できる
+# `gen` は `../openapi.yaml` を読む。手元でビルドして配信するため、
+# リポジトリ全体があり、この相対パスは解決できる
 command = "pnpm gen && pnpm build"
-publish = ".next"
+# publish は書かない。Next.js は設定不要で、配信先の置き場所は
+# アダプタ（OpenNext）が決める。書くと衝突する
 
 [build.environment]
 # package.json の engines は `>=20.12`。Netlify の既定に任せると、

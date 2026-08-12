@@ -19,3 +19,7 @@ ios/build/
 # アプリのビルドが使うのは Ichikabu.xcodeproj 側の Package.resolved で、
 # 中身（pins）は同じになるため、2箇所で管理してズレるのを防ぐ
 ios/IchikabuAPI/Package.resolved
+
+# Netlify CLI が作る作業用ディレクトリ（siteId・手元ビルドの中間物）。
+# 配信の設定そのものは netlify.toml でコミットする
+.netlify/

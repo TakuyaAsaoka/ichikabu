@@ -64,6 +64,8 @@ DBのコンテナとデータはWorktree間で共有される（compose のプ�
 
 開発用は Docker の PostgreSQL（`server/compose.yaml`、ポート 5434）。本番のホスティング・DBは Issue #16 で選定する（設計書 §1.1 でプラットフォーム選定は保留）。
 
+実機で使うための配信先（Netlify + Supabase）は本番とは別に立てている。手順は `docs/guides/deploy.md`。
+
 | コマンド | 内容 |
 |---|---|
 | `pnpm db:generate` | スキーマの変更からマイグレーションを生成する |
