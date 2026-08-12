@@ -95,10 +95,39 @@
 | 項目 | 内容 |
 |---|---|
 | 確認日 | 2026-08-12 |
-| 確認したこと | 各サイトの `robots.txt` |
-| `www.stat.go.jp` | `User-agent: *` と `Disallow: /library/opac/` の2行だけ。**公表予定の置き場（`/data/kouhyou/`）は対象外** |
-| `www.esri.cao.go.jp` | **`robots.txt` が無い**（HTTP 404） |
-| `www.customs.go.jp` | `Disallow:` が空＝全許可。`Sitemap:` も公開している |
+| 確認したこと | 各サイトの `robots.txt` を取得した |
+| 取得方法 | `curl -sS -w "http_code=%{http_code} size=%{size_download} content_type=%{content_type}"`。**下に貼ったのは返ってきたものそのもので、要約していない** |
+
+#### `https://www.stat.go.jp/robots.txt`
+
+`http_code=200 size=39 content_type=text/plain`
+
+````
+User-agent: *
+Disallow: /library/opac/
+````
+
+これで全文（末尾に改行が無いため39バイト）。**公表予定の置き場（`/data/kouhyou/`）は `Disallow` に入っていない。**
+
+#### `https://www.esri.cao.go.jp/robots.txt`
+
+`http_code=404 size=5646 content_type=text/html`
+
+**`robots.txt` は置かれていない。** 返ってきたのは内閣府の一般的な404ページで、`<title>404 Not Found - 内閣府</title>` と「指定されたページまたはファイルは存在しません。」が入っている。**方針が書かれたページではない。** BLS が 403 とともに方針文のページを返したのとは違う（→ 下記）。
+
+#### `https://www.customs.go.jp/robots.txt`
+
+`http_code=200 size=72 content_type=text/plain`
+
+````
+User-agent:*
+Disallow:
+Sitemap:https://www.customs.go.jp/sitemap_00.xml
+````
+
+これで全文。`Disallow:` の右が空なので、禁止しているパスは無い。
+
+#### 読み取ったこと
 
 **3つとも、取得を禁じる記述が見当たらなかった。** BLS（下記）とは正反対である。この結果を根拠に、全体設計書 §2.1 が「配信されている構造化データを読むのは可」と決めている。
 
@@ -202,6 +231,6 @@
 | 見るもの | どこ |
 |---|---|
 | 公表予定の配信の有無（形・掲載期間・公表時刻） | 日本の府省は「公表予定の配信」の節。FRB は「読み取った条件」の表の「日程の掲載場所」の欄、BLS は同じ表の「機械で読める形」の欄 |
-| プログラムからの取得の可否（`robots.txt` と利用条件） | 「プログラムからの取得」の節（日本の府省・FRB・BLS の3つの節すべてにある） |
+| プログラムからの取得の可否（`robots.txt` と利用条件） | 「プログラムからの取得」の節（日本の府省・FRB・BLS の3つの節すべてにある）。**`robots.txt` は取り直して、貼ってある原文とそのまま見比べる** |
 
 変わっていたら、全体設計書 §5.1 の表だけでなく **§2.1 の当てはめ表**も直す。特に `robots.txt` は後から足されることがあり、今「無い」ものが「ある」に変わりうる。
