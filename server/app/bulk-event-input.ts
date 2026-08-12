@@ -40,6 +40,11 @@ type Target = {
 function toTarget(value: string, lookup: Lookup): Target | string {
   // 最初のコロンだけで分ける。テーマ名にコロンが入っても読めるようにするため
   const separator = value.indexOf(":");
+  if (separator === -1) {
+    // コロンが無いと slice(0, -1) で最後の1文字が落ち、"market1" のような値が
+    // "market" 分岐に紛れ込んでしまう。ここで弾く
+    return "対象は market: / stock: / theme: のどれかで始める";
+  }
   const kind = value.slice(0, separator);
   const rest = value.slice(separator + 1);
 

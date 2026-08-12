@@ -143,6 +143,16 @@ describe("toEventInputs", () => {
     );
   });
 
+  it("コロンが無くキーワードに似た対象もエラー文が返る", () => {
+    // "market1" は indexOf(":") が -1 を返すケース。ガードが無いと
+    // slice(0, -1) で末尾の1文字が落ち "market" として誤って通ってしまう
+    const inputs = toEventInputs(rowOf({ 2: "market1" }), LOOKUP);
+
+    expect(inputs).toBe(
+      "1行目: 対象は market: / stock: / theme: のどれかで始める",
+    );
+  });
+
   it("読める行が1つも無ければエラー文が返る", () => {
     expect(toEventInputs("  \n\n", LOOKUP)).toBe("登録する行がない");
   });
