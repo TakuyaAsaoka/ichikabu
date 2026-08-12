@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../src/auth";
 import { db } from "../../../src/db";
 import { event, stock, theme } from "../../../src/db/schema";
-import { isEventId } from "../../../src/db/write";
+import { isId } from "../../../src/db/write";
 import { editEvent, removeEvent } from "../../actions";
 import { EventForm } from "../../event-form";
 import { ActionForm } from "../../form";
@@ -28,7 +28,7 @@ export default async function Page({
   // 500 になる。判定は Server Action と同じものを使う（設計書 §6）
   const { id } = await params;
   const eventId = Number(id);
-  if (!isEventId(eventId)) {
+  if (!isId(eventId)) {
     notFound();
   }
 

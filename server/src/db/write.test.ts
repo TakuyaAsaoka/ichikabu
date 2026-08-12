@@ -12,8 +12,12 @@ import {
   createTheme,
   createThemeStock,
   deleteEvent,
+  deleteStock,
+  deleteTheme,
   type EventInput,
   updateEvent,
+  updateStock,
+  updateTheme,
 } from "./write";
 
 const TOYOTA = {
@@ -97,6 +101,21 @@ describe("createStock", () => {
         fiscalMonth: null,
       }),
     ).toBeNull();
+  });
+
+  it("空白だけの銘柄名はエラー文が返る", async () => {
+    // <input required> は "" しか弾かず "   " を通す（設計書 §5）
+    expect(await createStock({ ...TOYOTA, name: "   " })).toBe(
+      "銘柄名を入れる",
+    );
+    expect(await db.select().from(stock)).toHaveLength(0);
+  });
+
+  it("前後に空白のある銘柄名は空白を落として登録される", async () => {
+    expect(await createStock({ ...TOYOTA, name: " トヨタ自動車 " })).toBeNull();
+
+    const [row] = await db.select().from(stock);
+    expect(row.name).toBe("トヨタ自動車");
   });
 });
 
@@ -514,6 +533,261 @@ describe("deleteEvent", () => {
 
     expect(await deleteEvent(Number(null))).toBe("そのイベントは見つからない");
     expect(await db.select().from(event)).toHaveLength(1);
+  });
+});
+
+/** トヨタを1件だけ登録し、その id を返す */
+async function onlyStockId(): Promise<number> {
+  await createStock({ ...TOYOTA });
+  const [row] = await db.select({ id: stock.id }).from(stock);
+  return row.id;
+}
+
+/** テーマを1件だけ登録し、その id を返す */
+async function onlyThemeId(name = "半導体"): Promise<number> {
+  await createTheme(name);
+  const [row] = await db.select({ id: theme.id }).from(theme).limit(1);
+  return row.id;
+}
+
+describe("updateStock", () => {
+  it("4列すべてを更新するとDBの行が変わる", async () => {
+    const id = await onlyStockId();
+
+    expect(
+      await updateStock(id, {
+        market: "US",
+        ticker: "AAPL",
+        name: "Apple",
+        fiscalMonth: null,
+      }),
+    ).toBeNull();
+
+    const [row] = await db.select().from(stock);
+    expect(row.market).toBe("US");
+    expect(row.ticker).toBe("AAPL");
+    expect(row.name).toBe("Apple");
+    expect(row.fiscalMonth).toBeNull();
+  });
+
+  it("イベントから参照されている銘柄のティッカーを変えても参照は外れない", async () => {
+    // 外部キーは stock.id を見るため、市場・ティッカーを直しても参照は付いてくる（設計書 §4）
+    const stockId = await onlyStockId();
+    await createEvent({ ...BASE, stockId });
+
+    expect(
+      await updateStock(stockId, { ...TOYOTA, ticker: "7204" }),
+    ).toBeNull();
+
+    expect((await onlyEvent()).stockId).toBe(stockId);
+    const [row] = await db.select().from(stock);
+    expect(row.ticker).toBe("7204");
+  });
+
+  it("既にある市場とティッカーの組に変えるとエラー文が返る", async () => {
+    const id = await onlyStockId();
+    await createStock({ ...TOYOTA, ticker: "7267", name: "ホンダ" });
+
+    expect(await updateStock(id, { ...TOYOTA, ticker: "7267" })).toBe(
+      "その市場のティッカーは登録済み",
+    );
+  });
+
+  it("決算月を残したままUS銘柄に変えるとエラー文が返る", async () => {
+    const id = await onlyStockId();
+
+    expect(await updateStock(id, { ...TOYOTA, market: "US" })).toBe(
+      "決算月はJP銘柄にだけ入れられる",
+    );
+    const [row] = await db.select().from(stock);
+    expect(row.market).toBe("JP");
+  });
+
+  it("空白だけの銘柄名に更新するとエラー文が返る", async () => {
+    const id = await onlyStockId();
+
+    expect(await updateStock(id, { ...TOYOTA, name: "   " })).toBe(
+      "銘柄名を入れる",
+    );
+    const [row] = await db.select().from(stock);
+    expect(row.name).toBe("トヨタ自動車");
+  });
+
+  it("存在しないIDの更新は何も起きない", async () => {
+    await onlyStockId();
+
+    expect(await updateStock(999999, { ...TOYOTA, name: "別名" })).toBeNull();
+    const [row] = await db.select().from(stock);
+    expect(row.name).toBe("トヨタ自動車");
+  });
+
+  it("問い合わせに渡せないIDの更新はエラー文が返る", async () => {
+    for (const id of [Number("abc"), 9999999999, Number(null)]) {
+      expect(await updateStock(id, { ...TOYOTA })).toBe(
+        "その銘柄は見つからない",
+      );
+    }
+  });
+});
+
+describe("deleteStock", () => {
+  it("どこからも参照されていない銘柄は消える", async () => {
+    const id = await onlyStockId();
+
+    expect(await deleteStock(id)).toBeNull();
+    expect(await db.select().from(stock)).toHaveLength(0);
+  });
+
+  it("テーマ所属は一緒に消える", async () => {
+    // theme_stock.stock_id は ON DELETE cascade（設計書 §2）
+    const stockId = await onlyStockId();
+    const themeId = await onlyThemeId();
+    await createThemeStock(themeId, stockId);
+
+    expect(await deleteStock(stockId)).toBeNull();
+    expect(await db.select().from(themeStock)).toHaveLength(0);
+    expect(await db.select().from(theme)).toHaveLength(1);
+  });
+
+  it("イベントから参照されているとエラー文が返り、銘柄は消えない", async () => {
+    // 制約名は登録のときと同じ event_stock_id_stock_id_fk が返る。
+    // 「その銘柄は無い」を出すと意味が正反対になる（設計書 §2）
+    const stockId = await onlyStockId();
+    await createEvent({ ...BASE, stockId });
+
+    expect(await deleteStock(stockId)).toBe(
+      "その銘柄はイベントに使われていて消せない",
+    );
+    expect(await db.select().from(stock)).toHaveLength(1);
+  });
+
+  it("保有から参照されているとエラー文が返り、銘柄は消えない", async () => {
+    const { userId } = await seedUser(
+      "dev@example.com",
+      "correct-horse-battery-staple",
+    );
+    const stockId = await onlyStockId();
+    await createHolding(userId, stockId);
+
+    expect(await deleteStock(stockId)).toBe(
+      "その銘柄は保有に登録されていて消せない",
+    );
+    expect(await db.select().from(stock)).toHaveLength(1);
+  });
+
+  it("イベントと保有の両方から参照されていると、参照元を1つずつ知らせる", async () => {
+    // PostgreSQL は最初に当たった制約だけを返す。運用者は2回に分けて消すことになる（設計書 §2）
+    const { userId } = await seedUser(
+      "dev@example.com",
+      "correct-horse-battery-staple",
+    );
+    const stockId = await onlyStockId();
+    await createEvent({ ...BASE, stockId });
+    await createHolding(userId, stockId);
+
+    expect(await deleteStock(stockId)).toBe(
+      "その銘柄はイベントに使われていて消せない",
+    );
+
+    await deleteEvent((await onlyEvent()).id);
+    expect(await deleteStock(stockId)).toBe(
+      "その銘柄は保有に登録されていて消せない",
+    );
+
+    await db.delete(holding);
+    expect(await deleteStock(stockId)).toBeNull();
+    expect(await db.select().from(stock)).toHaveLength(0);
+  });
+
+  it("存在しないIDの削除は何も起きない", async () => {
+    await onlyStockId();
+
+    expect(await deleteStock(999999)).toBeNull();
+    expect(await db.select().from(stock)).toHaveLength(1);
+  });
+
+  it("問い合わせに渡せないIDの削除はエラー文が返る", async () => {
+    for (const id of [Number("abc"), 9999999999, Number(null)]) {
+      expect(await deleteStock(id)).toBe("その銘柄は見つからない");
+    }
+  });
+});
+
+describe("updateTheme", () => {
+  it("テーマ名を更新するとDBの行が変わる", async () => {
+    const id = await onlyThemeId();
+
+    expect(await updateTheme(id, "生成AI")).toBeNull();
+
+    const [row] = await db.select().from(theme);
+    expect(row.name).toBe("生成AI");
+  });
+
+  it("前後の空白は落として更新される", async () => {
+    const id = await onlyThemeId();
+
+    expect(await updateTheme(id, " 生成AI ")).toBeNull();
+
+    const [row] = await db.select().from(theme);
+    expect(row.name).toBe("生成AI");
+  });
+
+  it("空白だけの名前に更新するとエラー文が返る", async () => {
+    const id = await onlyThemeId();
+
+    expect(await updateTheme(id, "   ")).toBe("テーマ名を入れる");
+    const [row] = await db.select().from(theme);
+    expect(row.name).toBe("半導体");
+  });
+
+  it("既にある名前に変えるとエラー文が返る", async () => {
+    const id = await onlyThemeId();
+    await createTheme("生成AI");
+
+    expect(await updateTheme(id, "生成AI")).toBe("そのテーマ名は登録済み");
+  });
+
+  it("問い合わせに渡せないIDの更新はエラー文が返る", async () => {
+    for (const id of [Number("abc"), 9999999999, Number(null)]) {
+      expect(await updateTheme(id, "生成AI")).toBe("そのテーマは見つからない");
+    }
+  });
+});
+
+describe("deleteTheme", () => {
+  it("イベントから参照されていないテーマは消え、所属も一緒に消える", async () => {
+    // theme_stock.theme_id は ON DELETE cascade（設計書 §2）
+    const themeId = await onlyThemeId();
+    const stockId = await onlyStockId();
+    await createThemeStock(themeId, stockId);
+
+    expect(await deleteTheme(themeId)).toBeNull();
+    expect(await db.select().from(theme)).toHaveLength(0);
+    expect(await db.select().from(themeStock)).toHaveLength(0);
+    expect(await db.select().from(stock)).toHaveLength(1);
+  });
+
+  it("イベントから参照されているとエラー文が返り、テーマは消えない", async () => {
+    const themeId = await onlyThemeId();
+    await createEvent({ ...BASE, themeId });
+
+    expect(await deleteTheme(themeId)).toBe(
+      "そのテーマはイベントに使われていて消せない",
+    );
+    expect(await db.select().from(theme)).toHaveLength(1);
+  });
+
+  it("存在しないIDの削除は何も起きない", async () => {
+    await onlyThemeId();
+
+    expect(await deleteTheme(999999)).toBeNull();
+    expect(await db.select().from(theme)).toHaveLength(1);
+  });
+
+  it("問い合わせに渡せないIDの削除はエラー文が返る", async () => {
+    for (const id of [Number("abc"), 9999999999, Number(null)]) {
+      expect(await deleteTheme(id)).toBe("そのテーマは見つからない");
+    }
   });
 });
 

@@ -16,7 +16,7 @@ export const field = "rounded border border-border p-2";
 export const fieldLabel = "flex flex-col gap-1";
 
 /** Server Action は useActionState の形（前の状態と FormData を受け取る）で渡す */
-type Action = (
+export type Action = (
   previous: string | null,
   formData: FormData,
 ) => Promise<string | null>;
