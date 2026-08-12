@@ -38,7 +38,7 @@ export default async function Page({
   }
 
   // テーマを消すと所属も一緒に消える（theme_stock.theme_id は ON DELETE cascade）。
-  // 何が外れるかを画面と確認ダイアログの両方に出す（設計書 §4）
+  // 何が外れるかを画面と確認ダイアログの両方に出す（設計書 §4.1）
   const belongings = await db
     .select({
       market: stock.market,
@@ -75,7 +75,7 @@ export default async function Page({
           )}
         </ul>
         {/* 消したテーマは戻せないため、送信前に確認を挟む（イベントの編集・削除 設計書 §3.2）。
-            所属は黙って一緒に消えるため件数を出す。名前は上に出ている（設計書 §4） */}
+            所属は黙って一緒に消えるため件数を出す。名前は上に出ている（設計書 §4.1） */}
         <ActionForm
           action={removeTheme}
           submitLabel="このテーマを削除"

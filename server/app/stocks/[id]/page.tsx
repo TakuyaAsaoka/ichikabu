@@ -38,7 +38,7 @@ export default async function Page({
   }
 
   // 銘柄を消すとテーマ所属も一緒に消える（theme_stock.stock_id は ON DELETE cascade）。
-  // 何が外れるかを画面と確認ダイアログの両方に出す（設計書 §4）
+  // 何が外れるかを画面と確認ダイアログの両方に出す（設計書 §4.1）
   const belongings = await db
     .select({ name: theme.name })
     .from(themeStock)
@@ -59,20 +59,25 @@ export default async function Page({
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">削除</h2>
-        <p className="text-muted text-sm">
-          所属しているテーマ:{" "}
-          {belongings.length === 0
-            ? "なし"
-            : belongings.map((t) => t.name).join("・")}
-        </p>
+        <ul className="flex flex-col gap-1">
+          {belongings.length === 0 ? (
+            <li className="text-muted">所属しているテーマなし</li>
+          ) : (
+            belongings.map((t) => (
+              <li key={t.name} className="text-muted">
+                {t.name}
+              </li>
+            ))
+          )}
+        </ul>
         {/* 消した銘柄は戻せないため、送信前に確認を挟む（イベントの編集・削除 設計書 §3.2）。
-            テーマ所属は黙って一緒に消えるため件数を出す。名前は上に出ている（設計書 §4） */}
+            テーマ所属は黙って一緒に消えるため件数を出す。名前は上に出ている（設計書 §4.1） */}
         <ActionForm
           action={removeStock}
           submitLabel="この銘柄を削除"
           confirm={`「${row.name}」を削除する。${
             belongings.length > 0
-              ? `テーマ所属${belongings.length}件も外れる。`
+              ? `所属しているテーマ${belongings.length}件も外れる。`
               : ""
           }取り消せない。`}
         >

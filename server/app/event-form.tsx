@@ -1,5 +1,5 @@
 import type { EventInput } from "../src/db/write";
-import { ActionForm, field, fieldLabel } from "./form";
+import { type Action, ActionForm, field, fieldLabel } from "./form";
 
 type Theme = { id: number; name: string };
 type Stock = { id: number; market: string; ticker: string; name: string };
@@ -44,10 +44,7 @@ export function EventForm({
 }: {
   themes: Theme[];
   stocks: Stock[];
-  action: (
-    previous: string | null,
-    formData: FormData,
-  ) => Promise<string | null>;
+  action: Action;
   submitLabel: string;
   event?: EventRow;
 }) {

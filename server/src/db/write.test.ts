@@ -543,9 +543,9 @@ async function onlyStockId(): Promise<number> {
   return row.id;
 }
 
-/** テーマを1件だけ登録し、その id を返す */
-async function onlyThemeId(name = "半導体"): Promise<number> {
-  await createTheme(name);
+/** テーマ「半導体」を1件だけ登録し、その id を返す */
+async function onlyThemeId(): Promise<number> {
+  await createTheme("半導体");
   const [row] = await db.select({ id: theme.id }).from(theme).limit(1);
   return row.id;
 }
@@ -601,6 +601,17 @@ describe("updateStock", () => {
     );
     const [row] = await db.select().from(stock);
     expect(row.market).toBe("JP");
+  });
+
+  it("前後に空白のある銘柄名は空白を落として更新される", async () => {
+    const id = await onlyStockId();
+
+    expect(
+      await updateStock(id, { ...TOYOTA, name: " トヨタ自動車 " }),
+    ).toBeNull();
+
+    const [row] = await db.select().from(stock);
+    expect(row.name).toBe("トヨタ自動車");
   });
 
   it("空白だけの銘柄名に更新するとエラー文が返る", async () => {

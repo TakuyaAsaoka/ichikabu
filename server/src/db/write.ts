@@ -56,7 +56,12 @@ const DELETE_MESSAGES: Record<string, string> = {
  * このコードが返る経路は削除だけである。restrict が付いているのは ON DELETE の
  * 側だけで、外部キー8本の ON UPDATE はすべて no action（drizzle/0000_simple_blacklash.sql）。
  * 参照先の id は generatedAlwaysAsIdentity で更新されず、実測でも参照されている
- * 銘柄のティッカーは更新できる（銘柄・テーマの編集 設計書 §2）
+ * 銘柄のティッカーは更新できる（銘柄・テーマの編集 設計書 §2）。
+ *
+ * **stock か theme を参照する外部キーを足すときは onDelete を必ず書く。**
+ * 省くと既定の no action になり、削除を弾いたときのコードが 23503 になって
+ * この分岐に入らない。DELETE_MESSAGES ではなく MESSAGES 側に落ち、
+ * 「その銘柄は無い」という正反対の文が戻る。schema.test.ts がこれを判定する
  */
 const RESTRICT_VIOLATION = "23001";
 
@@ -258,6 +263,7 @@ function invalidId(id: number, label: string): string | null {
 
 /**
  * 銘柄を更新する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として null を返す。
  *
  * 市場とティッカーも変えられる。参照しているイベント・保有・テーマ所属は
  * stock.id で紐づいているため、変えても参照は外れない（設計書 §4）
@@ -282,13 +288,17 @@ export async function updateStock(
 
 /**
  * 銘柄を削除する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件削除になり、成功として null を返す。
  * イベント・保有から参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）
  */
 export async function deleteStock(id: number): Promise<string | null> {
   return invalidId(id, "銘柄") ?? run(db.delete(stock).where(eq(stock.id, id)));
 }
 
-/** テーマを更新する。成功で null、失敗で日本語のエラー文を返す */
+/**
+ * テーマを更新する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として null を返す
+ */
 export async function updateTheme(
   id: number,
   name: string,
@@ -304,6 +314,7 @@ export async function updateTheme(
 
 /**
  * テーマを削除する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件削除になり、成功として null を返す。
  * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）
  */
 export async function deleteTheme(id: number): Promise<string | null> {
