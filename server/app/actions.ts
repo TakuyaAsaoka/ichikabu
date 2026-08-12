@@ -14,8 +14,10 @@ import {
   createTheme,
   createThemeStock,
   deleteEvent,
+  deleteHolding,
   deleteStock,
   deleteTheme,
+  deleteThemeStock,
   type StockInput,
   updateEvent,
   updateStock,
@@ -184,6 +186,25 @@ export async function removeStock(
   redirect("/");
 }
 
+/**
+ * 保有を外す。戻り値は失敗したときのエラー文で、useActionState の状態になる。
+ * 利用者IDはセッションから取る。画面からは渡さない（設計書 §2.1）
+ */
+export async function removeHolding(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  const userId = await requireUserId();
+
+  const message = await deleteHolding(userId, Number(formData.get("stockId")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
 /** テーマを更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
 export async function editTheme(
   _previous: string | null,
@@ -211,6 +232,25 @@ export async function removeTheme(
   await requireUserId();
 
   const message = await deleteTheme(Number(formData.get("id")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+/** テーマ所属を外す。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function removeThemeStock(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await deleteThemeStock(
+    Number(formData.get("themeId")),
+    Number(formData.get("stockId")),
+  );
   if (message) {
     return message;
   }

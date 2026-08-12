@@ -12,8 +12,10 @@ import {
   createTheme,
   createThemeStock,
   deleteEvent,
+  deleteHolding,
   deleteStock,
   deleteTheme,
+  deleteThemeStock,
   type EventInput,
   updateEvent,
   updateStock,
@@ -800,6 +802,102 @@ describe("deleteTheme", () => {
     for (const id of [Number("abc"), 9999999999, Number(null)]) {
       expect(await deleteTheme(id)).toBe("そのテーマは見つからない");
     }
+  });
+});
+
+describe("deleteHolding", () => {
+  let userId: string;
+  let stockId: number;
+
+  beforeEach(async () => {
+    ({ userId } = await seedUser(
+      "dev@example.com",
+      "correct-horse-battery-staple",
+    ));
+    stockId = await onlyStockId();
+    await createHolding(userId, stockId);
+  });
+
+  it("保有を消しても銘柄は消えない", async () => {
+    expect(await deleteHolding(userId, stockId)).toBeNull();
+    expect(await db.select().from(holding)).toHaveLength(0);
+    expect(await db.select().from(stock)).toHaveLength(1);
+  });
+
+  it("他の利用者の保有は消えない", async () => {
+    // 主キーは user_id + stock_id。銘柄IDだけで消すと他人の保有まで消える
+    const { userId: otherId } = await seedUser(
+      "other@example.com",
+      "correct-horse-battery-staple",
+    );
+    await createHolding(otherId, stockId);
+
+    expect(await deleteHolding(userId, stockId)).toBeNull();
+    const rows = await db.select().from(holding);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].userId).toBe(otherId);
+  });
+
+  it("存在しない組の削除は何も起きない", async () => {
+    expect(await deleteHolding(userId, 999999)).toBeNull();
+    expect(await db.select().from(holding)).toHaveLength(1);
+  });
+
+  it("問い合わせに渡せないIDの削除はエラー文が返る", async () => {
+    for (const id of [Number("abc"), 9999999999, Number(null)]) {
+      expect(await deleteHolding(userId, id)).toBe("その銘柄は見つからない");
+    }
+    expect(await db.select().from(holding)).toHaveLength(1);
+  });
+});
+
+describe("deleteThemeStock", () => {
+  let themeId: number;
+  let stockId: number;
+
+  beforeEach(async () => {
+    themeId = await onlyThemeId();
+    stockId = await onlyStockId();
+    await createThemeStock(themeId, stockId);
+  });
+
+  it("所属を消してもテーマも銘柄も消えない", async () => {
+    expect(await deleteThemeStock(themeId, stockId)).toBeNull();
+    expect(await db.select().from(themeStock)).toHaveLength(0);
+    expect(await db.select().from(theme)).toHaveLength(1);
+    expect(await db.select().from(stock)).toHaveLength(1);
+  });
+
+  it("他のテーマの同じ銘柄の所属は消えない", async () => {
+    // 主キーは theme_id + stock_id。銘柄IDだけで消すと他のテーマの所属まで消える
+    await createTheme("自動車");
+    const [{ id: otherThemeId }] = await db
+      .select({ id: theme.id })
+      .from(theme)
+      .where(eq(theme.name, "自動車"));
+    await createThemeStock(otherThemeId, stockId);
+
+    expect(await deleteThemeStock(themeId, stockId)).toBeNull();
+    const rows = await db.select().from(themeStock);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].themeId).toBe(otherThemeId);
+  });
+
+  it("存在しない組の削除は何も起きない", async () => {
+    expect(await deleteThemeStock(themeId, 999999)).toBeNull();
+    expect(await db.select().from(themeStock)).toHaveLength(1);
+  });
+
+  it("問い合わせに渡せないIDの削除はエラー文が返る", async () => {
+    for (const id of [Number("abc"), 9999999999, Number(null)]) {
+      expect(await deleteThemeStock(id, stockId)).toBe(
+        "そのテーマは見つからない",
+      );
+      expect(await deleteThemeStock(themeId, id)).toBe(
+        "その銘柄は見つからない",
+      );
+    }
+    expect(await db.select().from(themeStock)).toHaveLength(1);
   });
 });
 

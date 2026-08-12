@@ -324,6 +324,51 @@ export async function deleteTheme(id: number): Promise<string | null> {
 }
 
 /**
+ * 保有を消す。成功で null、失敗で日本語のエラー文を返す。
+ * 該当する行が無ければ0件削除になり、成功として null を返す。
+ *
+ * userId はセッションから渡す。この関数はセッションを読まない（管理UI設計書 §3）。
+ * 主キーの2列とも条件に入れる。stockId だけで消すと他人の保有まで消える
+ */
+export async function deleteHolding(
+  userId: string,
+  stockId: number,
+): Promise<string | null> {
+  return (
+    invalidId(stockId, "銘柄") ??
+    run(
+      db
+        .delete(holding)
+        .where(and(eq(holding.userId, userId), eq(holding.stockId, stockId))),
+    )
+  );
+}
+
+/**
+ * テーマ所属を消す。成功で null、失敗で日本語のエラー文を返す。
+ * 該当する行が無ければ0件削除になり、成功として null を返す。
+ *
+ * theme_stock は他のテーブルから参照されないため、外部キー違反は起きない。
+ * 消えるのは所属だけで、テーマも銘柄も残る
+ */
+export async function deleteThemeStock(
+  themeId: number,
+  stockId: number,
+): Promise<string | null> {
+  return (
+    invalidId(themeId, "テーマ") ??
+    invalidId(stockId, "銘柄") ??
+    run(
+      db
+        .delete(themeStock)
+        .where(
+          and(eq(themeStock.themeId, themeId), eq(themeStock.stockId, stockId)),
+        ),
+    )
+  );
+}
+
+/**
  * イベントを更新する。成功で null、失敗で日本語のエラー文を返す。
  * 該当するIDが無ければ0件更新になり、成功として null を返す
  */
