@@ -13,10 +13,30 @@ enum APIError: Error, Equatable {
 	case unexpectedStatus(Int)
 }
 
+/// 実機からの接続先。**Netlify のサイトが決まったらここを書き換える**（Issue #74）。
+///
+/// 秘密ではないのでソースに置く。ビルド設定や `Info.plist` に移すと、置き場所が増える割に
+/// 書き換える手間は変わらない。https なので、暗号化なし通信を許す設定は要らない
+private let deployedBaseURL = "https://ichikabu.netlify.app"
+
 /// サーバーとの通信。
 /// 経路が2本しかないため、契約からは型だけを生成し、通信は自分で書く（Issue #5 設計書 §3 判断3）。
 struct APIClient {
-	static let baseURL = URL(string: "http://localhost:3000")!
+	/// 接続先。**シミュレータは手元の開発サーバー、実機は配信先**（Issue #74 設計書 §3）。
+	///
+	/// ビルド構成（Debug/Release）では分けない。Xcode から実機へ入れると Debug になり、
+	/// 実機でいつも手元のサーバーを見ることになる。実機は Mac と別の機械なので
+	/// `localhost` は自分自身を指し、どのみち届かない。
+	///
+	/// 実機から手元のサーバーを見る手立ては用意していない。同じ Wi-Fi に限られるうえ、
+	/// 暗号化なしの通信を許す設定をアプリに入れることになるため（Issue #74 棄却済みの道）
+	static let baseURL: URL = {
+		#if targetEnvironment(simulator)
+			return URL(string: "http://localhost:3000")!
+		#else
+			return URL(string: deployedBaseURL)!
+		#endif
+	}()
 
 	/// 通信に使うセッション。**Cookie を保管しない**。
 	///

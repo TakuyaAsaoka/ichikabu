@@ -1,0 +1,19 @@
+# 配信の設定（Issue #74 設計書 §2）。デプロイは手で実行する。
+# 自動にすると月20回で無料枠（月300クレジット・デプロイ1回15）が尽き、
+# 枠切れでサイトが停止する。手順は docs/guides/deploy.md
+
+[build]
+# pnpm はこの中だけで回す（リポジトリ構成は最上位の CLAUDE.md）
+base = "server"
+# `gen` は `../openapi.yaml` を読む。Netlify は最上位ごと複製するため、
+# 起点が server でもこの相対パスは解決できる
+command = "pnpm gen && pnpm build"
+publish = ".next"
+
+[build.environment]
+# package.json の engines は `>=20.12`。Netlify の既定に任せると、
+# 向こうの既定が変わった日にビルドの結果が変わる
+NODE_VERSION = "22"
+
+# マイグレーションはここで流さない。ビルドに混ぜると、壊れたマイグレーションで
+# サイトごと落ちる。手元から配信先のDBへ流す（docs/guides/deploy.md）
