@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { event, holding, stock, theme, themeStock } from "../src/db/schema";
-import { addEvent } from "./actions";
+import { addEvent, addStock, addTheme } from "./actions";
 import { BulkEventForm } from "./bulk-event-form";
 import { EventForm } from "./event-form";
 import { HoldingForm } from "./holding-form";
@@ -15,7 +15,8 @@ import { ThemeStockForm } from "./theme-stock-form";
 
 /**
  * 管理画面。登録フォームと一覧を縦に並べる（設計書 §3）。
- * イベントだけは各行から編集ページへ行ける（編集・削除 設計書 §3）。
+ * 銘柄・テーマ・イベントは各行から編集ページへ行ける（編集・削除 設計書 §3）。
+ * 保有とテーマ所属だけは行から動けない（Issue #68）。
  * 並べ替え・絞り込みは付けない
  */
 export default async function Page() {
@@ -94,7 +95,7 @@ export default async function Page() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">銘柄を登録</h2>
-        <StockForm />
+        <StockForm action={addStock} submitLabel="銘柄を登録" />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -105,7 +106,10 @@ export default async function Page() {
               {row.market} {row.ticker} {row.name}
               {row.fiscalMonth !== null && (
                 <span className="text-muted"> / {row.fiscalMonth}月決算</span>
-              )}
+              )}{" "}
+              <Link href={`/stocks/${row.id}`} className="underline">
+                編集
+              </Link>
             </li>
           ))}
         </ul>
@@ -132,7 +136,7 @@ export default async function Page() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">テーマを登録</h2>
-        <ThemeForm />
+        <ThemeForm action={addTheme} submitLabel="テーマを登録" />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -147,7 +151,10 @@ export default async function Page() {
             const belongings = themeStocks.filter((s) => s.themeId === row.id);
             return (
               <li key={row.id} className="border-b border-border py-1">
-                {row.name}
+                {row.name}{" "}
+                <Link href={`/themes/${row.id}`} className="underline">
+                  編集
+                </Link>
                 <ul className="pl-4">
                   {belongings.length === 0 ? (
                     <li className="text-muted">銘柄なし</li>

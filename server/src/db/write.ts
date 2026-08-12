@@ -27,17 +27,43 @@ const MESSAGES: Record<string, string> = {
   // holding_user_id_user_id_fk は入れない。利用者IDはセッションから来るため
   // 画面からは届かず、サインイン中に利用者が消えた場合にしか出ない（Issue #49）。
   //
-  // この文は INSERT と UPDATE のときの意味。下の5つのうち event_* と
-  // holding_stock_id_stock_id_fk は ON DELETE restrict で、テーマや銘柄を消す
-  // 機能を足すと、参照されている行を消したときにも同じ制約名が返る。そのときの
-  // 意味は「そのテーマはイベントに使われていて消せない」で正反対になるため、
-  // 削除の経路は別扱いにする
+  // この文は INSERT と UPDATE のときの意味。削除では同じ制約名が正反対の意味で
+  // 返るため、下の DELETE_MESSAGES で分ける（銘柄・テーマの編集 設計書 §2）
   event_theme_id_theme_id_fk: "そのテーマは無い",
   event_stock_id_stock_id_fk: "その銘柄は無い",
   holding_stock_id_stock_id_fk: "その銘柄は無い",
   theme_stock_theme_id_theme_id_fk: "そのテーマは無い",
   theme_stock_stock_id_stock_id_fk: "その銘柄は無い",
 };
+
+/**
+ * 参照されている行を消そうとしたときの日本語（銘柄・テーマの編集 設計書 §2）。
+ *
+ * 制約名は MESSAGES と同じものが返る。同じ名前で意味が正反対になるため、
+ * 上の表とは別に持つ。ここに載るのは ON DELETE restrict の3本だけで、
+ * theme_stock の2本は cascade のため削除では返らない
+ */
+const DELETE_MESSAGES: Record<string, string> = {
+  event_stock_id_stock_id_fk: "その銘柄はイベントに使われていて消せない",
+  holding_stock_id_stock_id_fk: "その銘柄は保有に登録されていて消せない",
+  event_theme_id_theme_id_fk: "そのテーマはイベントに使われていて消せない",
+};
+
+/**
+ * ON DELETE restrict に阻まれたときの pg のエラーコード。
+ * 外部キー違反（23503）とは別の専用のコードを持つ。
+ *
+ * このコードが返る経路は削除だけである。restrict が付いているのは ON DELETE の
+ * 側だけで、外部キー8本の ON UPDATE はすべて no action（drizzle/0000_simple_blacklash.sql）。
+ * 参照先の id は generatedAlwaysAsIdentity で更新されず、実測でも参照されている
+ * 銘柄のティッカーは更新できる（銘柄・テーマの編集 設計書 §2）。
+ *
+ * **stock か theme を参照する外部キーを足すときは onDelete を必ず書く。**
+ * 省くと既定の no action になり、削除を弾いたときのコードが 23503 になって
+ * この分岐に入らない。DELETE_MESSAGES ではなく MESSAGES 側に落ち、
+ * 「その銘柄は無い」という正反対の文が戻る。schema.test.ts がこれを判定する
+ */
+const RESTRICT_VIOLATION = "23001";
 
 /**
  * 渡した値が列に入らないときの pg のエラーコードの先頭2桁。
@@ -59,7 +85,7 @@ const MESSAGES: Record<string, string> = {
 const INVALID_VALUE_CLASS = "22";
 
 /**
- * 登録を実行し、上の表にある制約違反なら日本語のエラー文を返す。
+ * 書き込みを実行し、上の表にある制約違反なら日本語のエラー文を返す。
  * 列に入らない値も日本語のエラー文にする。それ以外のエラーは投げ直す。
  * 握りつぶすと、理由が出ないまま失敗する画面になる
  */
@@ -68,7 +94,11 @@ async function run(operation: Promise<unknown>): Promise<string | null> {
     await operation;
   } catch (error) {
     const { code, constraint } = pgError(error);
-    const message = MESSAGES[constraint ?? ""];
+    // 削除で参照が残っているときだけ別の表を引く。制約名は登録・更新と同じものが
+    // 返るため、名前ではなくコードで振り分ける（銘柄・テーマの編集 設計書 §2）
+    const message = (code === RESTRICT_VIOLATION ? DELETE_MESSAGES : MESSAGES)[
+      constraint ?? ""
+    ];
     if (message) {
       return message;
     }
@@ -81,6 +111,22 @@ async function run(operation: Promise<unknown>): Promise<string | null> {
   return null;
 }
 
+/**
+ * 名前の前後の空白を落とす。空白だけなら null を返す。
+ *
+ * stock.name と theme.name は notNull だが空文字を弾く CHECK が無く、
+ * <input required> は "" しか弾かないため "   " が素通りする。
+ * テーマ名では「半導体」と「半導体 」が別のテーマとして UNIQUE も素通りし、
+ * 画面には見分けの付かない選択肢が2つ並ぶ（テーマ登録 設計書 §3.1）。
+ *
+ * CHECK 制約にはしない。空を弾くことはできても「半導体 」を「半導体」に
+ * そろえる正規化はできず、この関数の置き換えにならない（銘柄・テーマの編集 設計書 §5）
+ */
+function trimmedName(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 export type StockInput = {
   /** DB の stock_market_check 制約が正。ここでは絞り込まない */
   market: string;
@@ -90,13 +136,21 @@ export type StockInput = {
   fiscalMonth: number | null;
 };
 
+/**
+ * 銘柄の列に入れる値。market は Drizzle 上 "JP" | "US" の型だが、
+ * StockInput.market は string。as で型を偽らず、生の値のまま渡して
+ * DB の stock_market_check に判定させる
+ */
+function stockValues(input: StockInput, name: string) {
+  return { ...input, name, market: sql`${input.market}` };
+}
+
 /** 銘柄を登録する。成功で null、制約違反で日本語のエラー文を返す */
-export function createStock(input: StockInput): Promise<string | null> {
-  // market 列は Drizzle 上 "JP" | "US" の型だが、StockInput.market は string。
-  // as で型を偽らず、sql`` で生の値のまま渡し、DB の stock_market_check に判定させる
-  return run(
-    db.insert(stock).values({ ...input, market: sql`${input.market}` }),
-  );
+export async function createStock(input: StockInput): Promise<string | null> {
+  const name = trimmedName(input.name);
+  return name === null
+    ? "銘柄名を入れる"
+    : run(db.insert(stock).values(stockValues(input, name)));
 }
 
 /**
@@ -110,19 +164,12 @@ export function createHolding(
   return run(db.insert(holding).values({ userId, stockId }));
 }
 
-/**
- * テーマを登録する。成功で null、失敗で日本語のエラー文を返す。
- * 前後の空白は落とす。「半導体 」は「半導体」と別の名前として UNIQUE を素通りするが、
- * 画面には見分けが付かない選択肢が2つ並び、消す画面も無い（設計書 §3）
- */
+/** テーマを登録する。成功で null、失敗で日本語のエラー文を返す */
 export async function createTheme(name: string): Promise<string | null> {
-  const trimmed = name.trim();
-  // name は notNull だが空文字を弾く CHECK が無い。空白だけの入力は
-  // <input required> を素通りするため、ここで弾く
-  if (trimmed === "") {
-    return "テーマ名を入れる";
-  }
-  return run(db.insert(theme).values({ name: trimmed }));
+  const trimmed = trimmedName(name);
+  return trimmed === null
+    ? "テーマ名を入れる"
+    : run(db.insert(theme).values({ name: trimmed }));
 }
 
 /** テーマ所属を登録する。成功で null、制約違反で日本語のエラー文を返す */
@@ -196,19 +243,84 @@ export async function createEvent(input: EventInput): Promise<string | null> {
 const MAX_ID = 2147483647;
 
 /**
- * event.id として問い合わせに渡してよい値かを判定する。
+ * 問い合わせに渡してよいIDかを判定する。
  *
  * 画面やURLから来る id は文字列で、Number() が NaN や integer の範囲外の数を
  * 返すことがある。それをそのまま integer 列に渡すと、制約違反ではない
- * 型変換エラーになり、日本語化を通らず 500 になる（設計書 §6）
+ * 型変換エラーになり、日本語化を通らず 500 になる（イベントの編集・削除 設計書 §6）。
+ *
+ * event.id・stock.id・theme.id で1つを使う。3列とも
+ * integer().primaryKey().generatedAlwaysAsIdentity() で判定に差が入る余地が無い
  */
-export function isEventId(id: number): boolean {
+export function isId(id: number): boolean {
   return Number.isInteger(id) && id >= 1 && id <= MAX_ID;
 }
 
-/** 問い合わせに渡せないIDなら日本語のエラー文を返す */
-function invalidId(id: number): string | null {
-  return isEventId(id) ? null : "そのイベントは見つからない";
+/** 問い合わせに渡せないIDなら日本語のエラー文を返す。label は「銘柄」等 */
+function invalidId(id: number, label: string): string | null {
+  return isId(id) ? null : `その${label}は見つからない`;
+}
+
+/**
+ * 銘柄を更新する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として null を返す。
+ *
+ * 市場とティッカーも変えられる。参照しているイベント・保有・テーマ所属は
+ * stock.id で紐づいているため、変えても参照は外れない（設計書 §4）
+ */
+export async function updateStock(
+  id: number,
+  input: StockInput,
+): Promise<string | null> {
+  const name = trimmedName(input.name);
+  return (
+    invalidId(id, "銘柄") ??
+    (name === null
+      ? "銘柄名を入れる"
+      : run(
+          db
+            .update(stock)
+            .set(stockValues(input, name))
+            .where(eq(stock.id, id)),
+        ))
+  );
+}
+
+/**
+ * 銘柄を削除する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件削除になり、成功として null を返す。
+ * イベント・保有から参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）
+ */
+export async function deleteStock(id: number): Promise<string | null> {
+  return invalidId(id, "銘柄") ?? run(db.delete(stock).where(eq(stock.id, id)));
+}
+
+/**
+ * テーマを更新する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として null を返す
+ */
+export async function updateTheme(
+  id: number,
+  name: string,
+): Promise<string | null> {
+  const trimmed = trimmedName(name);
+  return (
+    invalidId(id, "テーマ") ??
+    (trimmed === null
+      ? "テーマ名を入れる"
+      : run(db.update(theme).set({ name: trimmed }).where(eq(theme.id, id))))
+  );
+}
+
+/**
+ * テーマを削除する。成功で null、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件削除になり、成功として null を返す。
+ * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）
+ */
+export async function deleteTheme(id: number): Promise<string | null> {
+  return (
+    invalidId(id, "テーマ") ?? run(db.delete(theme).where(eq(theme.id, id)))
+  );
 }
 
 /**
@@ -220,7 +332,7 @@ export async function updateEvent(
   input: EventInput,
 ): Promise<string | null> {
   return (
-    invalidId(id) ??
+    invalidId(id, "イベント") ??
     tooLongLabel(input.shortLabel) ??
     run(db.update(event).set(eventValues(input)).where(eq(event.id, id)))
   );
@@ -231,7 +343,9 @@ export async function updateEvent(
  * event は他のテーブルから参照されないため、外部キー違反は起きない（設計書 §3.2）
  */
 export async function deleteEvent(id: number): Promise<string | null> {
-  return invalidId(id) ?? run(db.delete(event).where(eq(event.id, id)));
+  return (
+    invalidId(id, "イベント") ?? run(db.delete(event).where(eq(event.id, id)))
+  );
 }
 
 /** 取り込みで公表日時が変わった1件。何が変わったかを実行時に出すために返す */

@@ -279,6 +279,26 @@ describe("外部キーの削除時の挙動", () => {
     );
     expect(violated).toBe("event_theme_id_theme_id_fk");
   });
+
+  it("銘柄とテーマを参照する外部キーは restrict か cascade で宣言されている", async () => {
+    // onDelete を省くと既定の no action になり、削除を弾いたときのコードが
+    // 23001 ではなく 23503 になる。src/db/write.ts の DELETE_MESSAGES を通らず
+    // 「その銘柄は無い」という正反対の文が戻る（銘柄・テーマの編集 設計書 §2）。
+    // confdeltype は a=no action、r=restrict、c=cascade
+    const rows = await db.execute<{ conname: string; confdeltype: string }>(sql`
+      SELECT c.conname, c.confdeltype
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.confrelid
+       WHERE c.contype = 'f'
+         AND t.relname IN ('stock', 'theme')
+       ORDER BY c.conname
+    `);
+
+    expect(rows.rows.length).toBeGreaterThan(0);
+    expect(
+      rows.rows.filter((row) => !["r", "c"].includes(row.confdeltype)),
+    ).toEqual([]);
+  });
 });
 
 describe("theme の一意性", () => {

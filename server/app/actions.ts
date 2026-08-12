@@ -14,7 +14,12 @@ import {
   createTheme,
   createThemeStock,
   deleteEvent,
+  deleteStock,
+  deleteTheme,
+  type StockInput,
   updateEvent,
+  updateStock,
+  updateTheme,
 } from "../src/db/write";
 import { toEventInputs } from "./bulk-event-input";
 import { toEventInput } from "./event-input";
@@ -45,6 +50,18 @@ function toFiscalMonth(value: FormDataEntryValue | null): number | null {
   return text === "" ? null : Number(text);
 }
 
+/** 銘柄フォームの FormData を createStock / updateStock の入力にする */
+function toStockInput(formData: FormData): StockInput {
+  return {
+    // <select> の選択肢は JP と US だけだが、値の妥当性はここで絞り込まず
+    // そのまま渡し、DB の stock_market_check 制約に弾かせる（設計書 §5）
+    market: String(formData.get("market") ?? ""),
+    ticker: String(formData.get("ticker") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    fiscalMonth: toFiscalMonth(formData.get("fiscalMonth")),
+  };
+}
+
 /** 銘柄を登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
 export async function addStock(
   _previous: string | null,
@@ -52,14 +69,7 @@ export async function addStock(
 ): Promise<string | null> {
   await requireUserId();
 
-  const message = await createStock({
-    // <select> の選択肢は JP と US だけだが、値の妥当性はここで絞り込まず
-    // そのまま渡し、DB の stock_market_check 制約に弾かせる（設計書 §5）
-    market: String(formData.get("market") ?? ""),
-    ticker: String(formData.get("ticker") ?? ""),
-    name: String(formData.get("name") ?? ""),
-    fiscalMonth: toFiscalMonth(formData.get("fiscalMonth")),
-  });
+  const message = await createStock(toStockInput(formData));
   if (message) {
     return message;
   }
@@ -138,6 +148,76 @@ export async function addEvent(
 // 更新・削除は成功したら一覧に戻す（設計書 §5.3）。編集ページに留まらせると
 // 「更新した」を出すための状態を別に持つことになる。
 // redirect() は例外を投げて動くため、revalidatePath() を先に呼ぶ
+
+/** 銘柄を更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function editStock(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await updateStock(
+    Number(formData.get("id")),
+    toStockInput(formData),
+  );
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+/** 銘柄を削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function removeStock(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await deleteStock(Number(formData.get("id")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+/** テーマを更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function editTheme(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await updateTheme(
+    Number(formData.get("id")),
+    String(formData.get("name") ?? ""),
+  );
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+/** テーマを削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
+export async function removeTheme(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const message = await deleteTheme(Number(formData.get("id")));
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
 
 /** イベントを更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
 export async function editEvent(
