@@ -1,4 +1,8 @@
-import { fetchStatSchedule, toStatEvents } from "../app/stat-schedule";
+import {
+  fetchStatSchedule,
+  STAT_TITLE_PATTERN,
+  toStatEvents,
+} from "../app/stat-schedule";
 import { db } from "../src/db";
 import { upsertMarketEvents } from "../src/db/write";
 
@@ -18,7 +22,10 @@ if (events.length === 0) {
 }
 console.log(`公表予定から ${events.length} 件を読んだ`);
 
-const { created, changed } = await upsertMarketEvents(events);
+const { created, changed, deactivated } = await upsertMarketEvents(
+  events,
+  STAT_TITLE_PATTERN,
+);
 
 console.log(`登録した: ${created.length} 件`);
 for (const title of created) {
@@ -30,6 +37,13 @@ for (const { title, from, to } of changed) {
   console.log(
     `  * ${title}: ${from.startDate} ${from.time} → ${to.startDate} ${to.time}`,
   );
+}
+
+// 中止・延期で公表予定から消えたこれからの回。行は残り、カレンダーに出なくなる。
+// アクティブに戻った回は出さない。運用者がすることが無いため（設計書 §5）
+console.log(`非アクティブにした: ${deactivated.length} 件`);
+for (const title of deactivated) {
+  console.log(`  - ${title}`);
 }
 
 // pg の接続プールが開いたままだと終了しない。process.exit(0) では、パイプに

@@ -82,6 +82,9 @@ export default async function Page() {
       // 出典の表示名を入れ忘れた行は、出典の記載を条件とする出典では規約の
       // 条件を満たさない。一覧でそれが分かるように出す（編集・削除 設計書 §3.1）
       sourceName: event.sourceName,
+      // 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
+      // ここに出す（公表予定の非アクティブ化 設計書 §4）
+      active: event.active,
       themeName: theme.name,
       ticker: stock.ticker,
     })
@@ -201,6 +204,7 @@ export default async function Page() {
         <ul className="flex flex-col gap-1">
           {events.map((row) => (
             <li key={row.id} className="border-b border-border py-1">
+              {!row.active && "【非アクティブ】"}
               {row.startDate}
               {row.endDate !== null && `〜${row.endDate}`} ★{row.importance}{" "}
               {row.shortLabel}

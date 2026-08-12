@@ -142,11 +142,17 @@ export async function GET(request: Request): Promise<Response> {
     .select()
     .from(event)
     .where(
-      or(
-        eq(event.market, "GLOBAL"),
-        inArray(event.market, heldMarkets),
-        inArray(event.stockId, heldStocks),
-        inArray(event.themeId, heldThemes),
+      and(
+        // 非アクティブの行は返さない（公表予定の非アクティブ化 設計書 §1）。
+        // 開始日は見ない。非アクティブのまま公表日を過ぎた行（＝中止された回）も
+        // 出さないため、書き込み側で開始日を見て active だけで絞れる形にしてある
+        eq(event.active, true),
+        or(
+          eq(event.market, "GLOBAL"),
+          inArray(event.market, heldMarkets),
+          inArray(event.stockId, heldStocks),
+          inArray(event.themeId, heldThemes),
+        ),
       ),
     );
 

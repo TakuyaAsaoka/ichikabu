@@ -1,0 +1,1 @@
+ALTER TABLE "event" ADD COLUMN "active" boolean DEFAULT true NOT NULL;
