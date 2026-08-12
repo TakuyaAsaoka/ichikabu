@@ -18,6 +18,7 @@ import {
   updateEvent,
   updateStock,
   updateTheme,
+  upsertMarketEvents,
 } from "./write";
 
 const TOYOTA = {
@@ -1010,5 +1011,141 @@ describe("createEvents", () => {
     ).toBe("2行目: その銘柄は無い");
 
     expect(await db.select().from(event)).toHaveLength(0);
+  });
+});
+
+describe("upsertMarketEvents", () => {
+  /** 公表予定から作られる1件。名称に対象期が入るのが前提（設計書 §4） */
+  function statEvent(overrides: Partial<EventInput> = {}): EventInput {
+    return {
+      title: "消費者物価指数（2026年1月分）",
+      shortLabel: "日本CPI",
+      startDate: "2026-02-20",
+      endDate: null,
+      time: "08:30",
+      importance: 2,
+      note: null,
+      sourceUrl: "https://www.stat.go.jp/data/cpi/",
+      sourceName: "総務省統計局",
+      market: "JP",
+      themeId: null,
+      stockId: null,
+      ...overrides,
+    };
+  }
+
+  it("無い名称は登録される", async () => {
+    expect(await upsertMarketEvents([statEvent()])).toEqual({
+      created: ["消費者物価指数（2026年1月分）"],
+      changed: [],
+    });
+
+    const rows = await db.select().from(event);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].startDate).toBe("2026-02-20");
+    expect(rows[0].time).toBe("08:30:00");
+  });
+
+  it("同じ取り込みを2回実行しても2件に増えない", async () => {
+    await upsertMarketEvents([statEvent()]);
+
+    // time 列は '08:30' を入れると '08:30:00' で返る。文字列のまま比べていると
+    // ここが changed 1件になり、値は同じなのに毎回「変わった」と出る
+    expect(await upsertMarketEvents([statEvent()])).toEqual({
+      created: [],
+      changed: [],
+    });
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("公表日が変わると開始日が更新され、変更が返る", async () => {
+    await upsertMarketEvents([statEvent()]);
+
+    expect(
+      await upsertMarketEvents([statEvent({ startDate: "2026-02-24" })]),
+    ).toEqual({
+      created: [],
+      changed: [
+        {
+          title: "消費者物価指数（2026年1月分）",
+          // 前後ともDBから受け取った値。時刻の書き方が揃う
+          from: { startDate: "2026-02-20", time: "08:30:00" },
+          to: { startDate: "2026-02-24", time: "08:30:00" },
+        },
+      ],
+    });
+
+    const rows = await db.select().from(event);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].startDate).toBe("2026-02-24");
+  });
+
+  it("公表時刻が変わると時刻が更新される", async () => {
+    await upsertMarketEvents([statEvent()]);
+
+    await upsertMarketEvents([statEvent({ time: "14:00" })]);
+
+    const rows = await db.select().from(event);
+    expect(rows[0].time).toBe("14:00:00");
+  });
+
+  it("運用者が直した短縮ラベル・重要度・備考は上書きされない", async () => {
+    await upsertMarketEvents([statEvent()]);
+    await db
+      .update(event)
+      .set({ shortLabel: "CPI", importance: 3, note: "手で直した備考" });
+
+    // 公表日が変わった取り込みでも、更新するのは開始日と時刻の2列だけ（設計書 §1 #6）
+    await upsertMarketEvents([statEvent({ startDate: "2026-02-24" })]);
+
+    const rows = await db.select().from(event);
+    expect(rows[0].shortLabel).toBe("CPI");
+    expect(rows[0].importance).toBe(3);
+    expect(rows[0].note).toBe("手で直した備考");
+    expect(rows[0].startDate).toBe("2026-02-24");
+  });
+
+  it("登録と更新が混ざっても両方が返る", async () => {
+    await upsertMarketEvents([statEvent()]);
+
+    expect(
+      await upsertMarketEvents([
+        statEvent({ startDate: "2026-02-24" }),
+        statEvent({
+          title: "消費者物価指数（2026年2月分）",
+          startDate: "2026-03-24",
+        }),
+      ]),
+    ).toMatchObject({
+      created: ["消費者物価指数（2026年2月分）"],
+      changed: [{ title: "消費者物価指数（2026年1月分）" }],
+    });
+    expect(await db.select().from(event)).toHaveLength(2);
+  });
+
+  it("同じ名称が1回の入力に2つあっても1件しか入らない", async () => {
+    await upsertMarketEvents([statEvent(), statEvent()]);
+
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("途中で失敗すると1件も入らない", async () => {
+    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る
+    await expect(
+      upsertMarketEvents([
+        statEvent(),
+        statEvent({
+          title: "消費者物価指数（2026年2月分）",
+          importance: 9,
+        }),
+      ]),
+    ).rejects.toThrow();
+
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("空の並びを渡しても落ちない", async () => {
+    // 区分の名前が変わって月次が0件になったときにここへ来る
+    expect(await upsertMarketEvents([])).toEqual({ created: [], changed: [] });
   });
 });

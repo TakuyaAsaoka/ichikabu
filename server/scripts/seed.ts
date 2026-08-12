@@ -1,3 +1,4 @@
+import { db } from "../src/db";
 import { seedEvents } from "../src/db/seed-event";
 import { seedUser } from "../src/db/seed-user";
 
@@ -18,5 +19,7 @@ console.log(
 const { created: eventCount } = await seedEvents(userId);
 console.log(`イベントを ${eventCount} 件作成した`);
 
-// pg の接続プールが開いたままだと終了しないため明示的に落とす
-process.exit(0);
+// pg の接続プールが開いたままだと終了しないため明示的に閉じる。
+// process.exit(0) にすると、パイプにつないだときに書きかけの出力が落ちる
+// （scripts/import-stat-schedule.ts と揃えてある）
+await db.$client.end();

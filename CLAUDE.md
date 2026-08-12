@@ -70,6 +70,7 @@ DBのコンテナとデータはWorktree間で共有される（compose のプ�
 | `pnpm db:migrate` | マイグレーションを適用する |
 | `pnpm db:seed` | 利用者を1件投入する（何度実行しても増えない） |
 | `pnpm auth:gen` | Better Auth のテーブル定義を再生成する |
+| `pnpm import:stat` | 総務省統計局の公表予定から日本CPI を取り込む（月1回を目安に手で実行する。→ `docs/records/specs/2026-08-12-64-import-stat-schedule-design.md`） |
 
 ## 規約
 
