@@ -783,8 +783,9 @@ describe("upsertMarketEvents", () => {
       changed: [
         {
           title: "消費者物価指数（2026年1月分）",
+          // 前後ともDBから受け取った値。時刻の書き方が揃う
           from: { startDate: "2026-02-20", time: "08:30:00" },
-          to: { startDate: "2026-02-24", time: "08:30" },
+          to: { startDate: "2026-02-24", time: "08:30:00" },
         },
       ],
     });
@@ -835,6 +836,27 @@ describe("upsertMarketEvents", () => {
       changed: [{ title: "消費者物価指数（2026年1月分）" }],
     });
     expect(await db.select().from(event)).toHaveLength(2);
+  });
+
+  it("同じ名称が1回の入力に2つあっても1件しか入らない", async () => {
+    await upsertMarketEvents([statEvent(), statEvent()]);
+
+    expect(await db.select().from(event)).toHaveLength(1);
+  });
+
+  it("途中で失敗すると1件も入らない", async () => {
+    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る
+    await expect(
+      upsertMarketEvents([
+        statEvent(),
+        statEvent({
+          title: "消費者物価指数（2026年2月分）",
+          importance: 9,
+        }),
+      ]),
+    ).rejects.toThrow();
+
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 
   it("空の並びを渡しても落ちない", async () => {

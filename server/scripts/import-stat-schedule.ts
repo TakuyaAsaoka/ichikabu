@@ -1,4 +1,5 @@
 import { fetchStatSchedule, toStatEvents } from "../app/stat-schedule";
+import { db } from "../src/db";
 import { upsertMarketEvents } from "../src/db/write";
 
 /**
@@ -31,5 +32,7 @@ for (const { title, from, to } of changed) {
   );
 }
 
-// pg の接続プールが開いたままだと終了しないため明示的に落とす
-process.exit(0);
+// pg の接続プールが開いたままだと終了しない。process.exit(0) では、パイプに
+// つないだときに書きかけの出力が落ちる。このスクリプトは何が変わったかを
+// 出すのが目的なので、プールを閉じて自然に終わらせる
+await db.$client.end();

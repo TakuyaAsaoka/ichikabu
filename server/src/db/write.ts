@@ -255,8 +255,9 @@ export type UpsertResult = {
  * 重要度・備考は運用者が手で直す列なので上書きしない。
  *
  * 名称で引けるのは、名称に対象期が入っていて公表回ごとに1つに定まるため。
- * ただし `event` に一意の制約は無く、同じ名称の行が手で2件入っていれば
- * 更新は2件とも当たる。運用者が1人でこの経路しか使わない前提で制約は足さない。
+ * ただし `event` に一意の制約は無く、同じ名称の行が手で2件入っていると、
+ * 更新が当たるのは1件だけでもう1件は古い公表日のまま残る。運用者が1人で
+ * この経路しか使わない前提で制約は足さない。
  *
  * 失敗はエラー文にせず投げる。呼び出すのは画面ではなくスクリプトで、
  * 表示するエラー文が要らない
@@ -290,7 +291,17 @@ export async function upsertMarketEvents(
     for (const input of inputs) {
       const row = found.get(input.title);
       if (!row) {
-        await tx.insert(event).values(eventValues(input));
+        const [inserted] = await tx
+          .insert(event)
+          .values(eventValues(input))
+          .returning({
+            id: event.id,
+            title: event.title,
+            startDate: event.startDate,
+            time: event.time,
+          });
+        // 入れた行を控える。同じ名称が1回の入力に2つあると、控えないと2件入る
+        found.set(inserted.title, inserted);
         created.push(input.title);
         continue;
       }
@@ -305,12 +316,15 @@ export async function upsertMarketEvents(
             sql`(${event.startDate}, ${event.time}) IS DISTINCT FROM (${input.startDate}::date, ${input.time}::time)`,
           ),
         )
-        .returning({ id: event.id });
-      if (updated.length > 0) {
+        .returning({ startDate: event.startDate, time: event.time });
+      // 更新後の値もDBから受け取る。入力の '08:30' をそのまま使うと、
+      // 前後で時刻の書き方が変わって「08:30:00 → 08:30」と出る
+      const [after] = updated;
+      if (after) {
         changed.push({
           title: input.title,
           from: { startDate: row.startDate, time: row.time },
-          to: { startDate: input.startDate, time: input.time },
+          to: after,
         });
       }
     }

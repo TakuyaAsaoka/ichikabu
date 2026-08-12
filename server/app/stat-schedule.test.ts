@@ -1,32 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { decodeStatSchedule, toStatEvents } from "./stat-schedule";
 
+/** 実物と同じ形の class_2。公表日時は class_5 の中に入っている */
+function entry(period: string, date: string, time: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  return `      <class_2 name="${period}">
+        <class_3 name=""><class_4 name=""><class_5 name="">
+          <release_year>${year}</release_year>
+          <release_month>${month}</release_month>
+          <release_day>${day}</release_day>
+          <release_hour>${hour}</release_hour>
+          <release_minute>${minute}</release_minute>
+        </class_5></class_4></class_3>
+      </class_2>`;
+}
+
 /**
- * 実物の公表予定 XML から取った入れ子（Issue #64）。
- * 「2025年平均」を入れているのは、月次でないものが落ちることを
- * 確かめるため。月次だけの入力では、絞り込みを外しても赤くならない
+ * 実物の公表予定 XML から取った入れ子（Issue #64）。**実物と同じ形にしてある。**
+ *
+ * - 区分が2つある。1つだけだと、class_1 の取り出しを最短一致から最長一致に
+ *   変えても赤くならない（東京都区部の月次が全国に混ざるのに気づけない）
+ * - 全国の月次が2件ある。1件だけだと、class_2 の取り出しを最長一致に変えても
+ *   赤くならない（2件目以降が黙って落ちるのに気づけない）
+ * - 「2025年平均」が混ざっている。月次だけの入力では、月次の判定を外しても赤くならない
  */
 const XML = `<e-stat>
   <os_code id="00200573" name="消費者物価指数">
     <class_1 name="全国">
-      <class_2 name="2026年1月分">
-        <class_3 name=""><class_4 name=""><class_5 name="">
-          <release_year>2026</release_year>
-          <release_month>2</release_month>
-          <release_day>20</release_day>
-          <release_hour>8</release_hour>
-          <release_minute>30</release_minute>
-        </class_5></class_4></class_3>
-      </class_2>
-      <class_2 name="2025年平均">
-        <class_3 name=""><class_4 name=""><class_5 name="">
-          <release_year>2026</release_year>
-          <release_month>1</release_month>
-          <release_day>23</release_day>
-          <release_hour>8</release_hour>
-          <release_minute>30</release_minute>
-        </class_5></class_4></class_3>
-      </class_2>
+${entry("2026年1月分", "2026-02-20", "8:30")}
+${entry("2025年平均", "2026-01-23", "8:30")}
+${entry("2026年2月分", "2026-03-24", "8:30")}
+    </class_1>
+    <class_1 name="東京都区部（中旬速報値）">
+${entry("2026年1月分", "2026-01-30", "8:30")}
     </class_1>
   </os_code>
 </e-stat>`;
@@ -35,7 +42,11 @@ describe("toStatEvents", () => {
   it("全国の月次だけがイベントになる", () => {
     const events = toStatEvents(XML);
 
-    expect(events).toHaveLength(1);
+    // 東京都区部の 2026-01-30 が混ざらず、全国の2件が両方そろう
+    expect(events.map((e) => e.startDate)).toEqual([
+      "2026-02-20",
+      "2026-03-24",
+    ]);
     expect(events[0]).toEqual({
       title: "消費者物価指数（2026年1月分）",
       shortLabel: "日本CPI",
@@ -50,6 +61,7 @@ describe("toStatEvents", () => {
       themeId: null,
       stockId: null,
     });
+    expect(events[1].title).toBe("消費者物価指数（2026年2月分）");
   });
 
   it("月次でない対象期はどれも入らない", () => {
@@ -74,9 +86,8 @@ describe("toStatEvents", () => {
     expect(toStatEvents(xml)).toEqual([]);
   });
 
-  it("全国以外の区分は入らない", () => {
-    // 実物には「東京都区部（中旬速報値）」の月次が15件あり、区分で絞らないと混ざる
-    const xml = XML.replaceAll("全国", "東京都区部（中旬速報値）");
+  it("全国が1つも無ければ何も入らない", () => {
+    const xml = XML.replaceAll('class_1 name="全国"', 'class_1 name="沖縄県"');
 
     expect(toStatEvents(xml)).toEqual([]);
   });
@@ -118,7 +129,7 @@ describe("decodeStatSchedule", () => {
     const decoded = decodeStatSchedule(toUtf16Le(XML));
 
     expect(decoded.startsWith("<e-stat>")).toBe(true);
-    expect(toStatEvents(decoded)).toHaveLength(1);
+    expect(toStatEvents(decoded)).toHaveLength(2);
   });
 
   it("BOM が無いバイト列は落とす", () => {

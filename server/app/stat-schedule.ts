@@ -113,7 +113,10 @@ export function decodeStatSchedule(bytes: Uint8Array): string {
 
 /** 公表予定 XML を取って文字列にする */
 export async function fetchStatSchedule(): Promise<string> {
-  const response = await fetch(SCHEDULE_URL);
+  // 相手が黙ったときに手で実行したまま固まらないよう、待つ時間に上限を置く
+  const response = await fetch(SCHEDULE_URL, {
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!response.ok) {
     throw new Error(`公表予定を取得できない: HTTP ${response.status}`);
   }
