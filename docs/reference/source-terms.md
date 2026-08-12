@@ -102,10 +102,10 @@
 
 `http_code=200 size=39 content_type=text/plain`
 
-````
+```
 User-agent: *
 Disallow: /library/opac/
-````
+```
 
 これで全文（末尾に改行が無いため39バイト）。**公表予定の置き場（`/data/kouhyou/`）は `Disallow` に入っていない。**
 
@@ -119,11 +119,11 @@ Disallow: /library/opac/
 
 `http_code=200 size=72 content_type=text/plain`
 
-````
+```
 User-agent:*
 Disallow:
 Sitemap:https://www.customs.go.jp/sitemap_00.xml
-````
+```
 
 これで全文。`Disallow:` の右が空なので、禁止しているパスは無い。
 
