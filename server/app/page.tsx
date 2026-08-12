@@ -6,6 +6,7 @@ import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { event, holding, stock, theme, themeStock } from "../src/db/schema";
 import { addEvent } from "./actions";
+import { BulkEventForm } from "./bulk-event-form";
 import { EventForm } from "./event-form";
 import { HoldingForm } from "./holding-form";
 import { StockForm } from "./stock-form";
@@ -172,6 +173,11 @@ export default async function Page() {
           action={addEvent}
           submitLabel="イベントを登録"
         />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-base font-bold">イベントをまとめて登録</h2>
+        <BulkEventForm />
       </section>
 
       <section className="flex flex-col gap-3">

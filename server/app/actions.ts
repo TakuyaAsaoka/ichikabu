@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
+import { db } from "../src/db";
+import { stock, theme } from "../src/db/schema";
 import {
   createEvent,
+  createEvents,
   createHolding,
   createStock,
   createTheme,
@@ -13,6 +16,7 @@ import {
   deleteEvent,
   updateEvent,
 } from "../src/db/write";
+import { toEventInputs } from "./bulk-event-input";
 import { toEventInput } from "./event-input";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
@@ -168,4 +172,40 @@ export async function removeEvent(
 
   revalidatePath("/");
   redirect("/");
+}
+
+/**
+ * イベントをまとめて登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる。
+ *
+ * 対象はティッカーとテーマ名で書くため、IDを引くための対応表をここで読む（設計書 §3）。
+ * 行ごとに問い合わせず、2回の読み出しで済ませる
+ */
+export async function addEvents(
+  _previous: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireUserId();
+
+  const [stocks, themes] = await Promise.all([
+    db
+      .select({ id: stock.id, market: stock.market, ticker: stock.ticker })
+      .from(stock),
+    db.select({ id: theme.id, name: theme.name }).from(theme),
+  ]);
+
+  const inputs = toEventInputs(String(formData.get("rows") ?? ""), {
+    stocks,
+    themes,
+  });
+  if (typeof inputs === "string") {
+    return inputs;
+  }
+
+  const message = await createEvents(inputs);
+  if (message) {
+    return message;
+  }
+
+  revalidatePath("/");
+  return null;
 }
