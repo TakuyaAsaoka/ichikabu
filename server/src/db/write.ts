@@ -233,3 +233,42 @@ export async function updateEvent(
 export async function deleteEvent(id: number): Promise<string | null> {
   return invalidId(id) ?? run(db.delete(event).where(eq(event.id, id)));
 }
+
+/**
+ * まとめて登録の途中で失敗したことを表す。
+ * 取り引きの中から投げると Drizzle が ROLLBACK する
+ */
+class BulkFailure extends Error {}
+
+/**
+ * イベントをまとめて登録する。成功で null、失敗で行番号付きの日本語のエラー文を返す。
+ *
+ * **1行でも失敗したら1件も入れない**（設計書 §4）。一部だけ入った状態は、
+ * 何が入って何が入らなかったのかを運用者が確かめられず、貼り直すと二重に入る。
+ *
+ * 1行ずつ INSERT する。まとめて1回の INSERT にすると、どの行が失敗したかが
+ * 分からず行番号を出せない。貼り付ける行数はせいぜい数十で、1行ずつでも問題にならない
+ */
+export async function createEvents(
+  inputs: EventInput[],
+): Promise<string | null> {
+  try {
+    await db.transaction(async (tx) => {
+      for (const [index, input] of inputs.entries()) {
+        const message =
+          tooLongLabel(input.shortLabel) ??
+          (await run(tx.insert(event).values(eventValues(input))));
+        if (message) {
+          throw new BulkFailure(`${index + 1}行目: ${message}`);
+        }
+      }
+    });
+  } catch (error) {
+    // 途中で失敗したときの文言はここで取り出す。それ以外の例外は投げ直す
+    if (error instanceof BulkFailure) {
+      return error.message;
+    }
+    throw error;
+  }
+  return null;
+}

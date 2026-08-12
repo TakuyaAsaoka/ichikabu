@@ -6,6 +6,7 @@ import { event, holding, stock, theme, themeStock } from "./schema";
 import { seedUser } from "./seed-user";
 import {
   createEvent,
+  createEvents,
   createHolding,
   createStock,
   createTheme,
@@ -657,5 +658,72 @@ describe("存在しないID", () => {
     const name = await expectViolation(createHolding("no-such-user", stockId));
     expect(name).toBe("holding_user_id_user_id_fk");
     expect(await db.select().from(holding)).toHaveLength(0);
+  });
+});
+
+describe("createEvents", () => {
+  /** 市場イベントの入力を作る。対象は market の1列だけ */
+  function marketEvent(overrides: Partial<EventInput> = {}): EventInput {
+    return {
+      title: "米消費者物価指数（2026年7月分）",
+      shortLabel: "米CPI",
+      startDate: "2026-08-12",
+      endDate: null,
+      time: "21:30",
+      importance: 2,
+      note: null,
+      sourceUrl: "https://www.bls.gov/schedule/news_release/cpi.htm",
+      sourceName: "U.S. Bureau of Labor Statistics",
+      market: "GLOBAL",
+      themeId: null,
+      stockId: null,
+      ...overrides,
+    };
+  }
+
+  it("複数のイベントをまとめて登録できる", async () => {
+    expect(
+      await createEvents([
+        marketEvent(),
+        marketEvent({
+          title: "米雇用統計（2026年8月分）",
+          startDate: "2026-09-04",
+        }),
+      ]),
+    ).toBeNull();
+
+    expect(await db.select().from(event)).toHaveLength(2);
+  });
+
+  it("1行でも制約に反すると1件も入らない", async () => {
+    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る（設計書 §4）
+    expect(
+      await createEvents([marketEvent(), marketEvent({ importance: 9 })]),
+    ).toBe("2行目: 重要度は1〜3");
+
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("短縮ラベルが長すぎる行があると1件も入らない", async () => {
+    // DB の制約ではなくアプリ側で判定するものでも取り引きが戻る
+    expect(
+      await createEvents([
+        marketEvent(),
+        marketEvent({ shortLabel: "長すぎる短縮ラベル" }),
+      ]),
+    ).toBe("2行目: 短縮ラベルは全角5文字まで");
+
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("存在しない銘柄を指した行があると1件も入らない", async () => {
+    expect(
+      await createEvents([
+        marketEvent(),
+        marketEvent({ market: null, stockId: 999 }),
+      ]),
+    ).toBe("2行目: その銘柄は無い");
+
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 });
