@@ -445,7 +445,7 @@ export async function upsertMarketEvents(
   // 0件のときは何もしない。ここで非アクティブ化まで走ると、XML の形が変わって
   // 1件も読めなかったときに取り込み済みの回が全部消える
   if (inputs.length === 0) {
-    return { created, changed, deactivated: [] };
+    return { created, changed, deactivated };
   }
 
   await db.transaction(async (tx) => {
@@ -518,7 +518,10 @@ export async function upsertMarketEvents(
 
     // 公表予定から消えたこれからの回を非アクティブにする。
     // 今日は日本時間で決める。DBの時間帯そのままの CURRENT_DATE だと、
-    // 日本時間の朝9時までは前日と判定され、公表済みの回まで対象に入る
+    // 日本時間の朝9時までは前日と判定され、公表済みの回まで対象に入る。
+    // 日付だけで見るため、今日の朝に公表を終えた回は「これから」に入る。
+    // 時刻まで見て守ることもできるが、その回が公表予定から落ちるのは
+    // 公表当日の1日だけで、翌日には公表済みとして守られる
     deactivated.push(
       ...(
         await tx

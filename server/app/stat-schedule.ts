@@ -40,7 +40,7 @@ const AREA = "全国";
 const CLASS_1 = /<class_1\s+name="([^"]*)">([\s\S]*?)<\/class_1>/g;
 const CLASS_2 = /<class_2\s+name="([^"]*)">([\s\S]*?)<\/class_2>/g;
 
-/** 月次の対象期の形。`[0-9]` で書くのは、下の名称の形を PostgreSQL でも使うため */
+/** 月次の対象期の形。下の名称の形と共通の部品にするため、文字列で持つ */
 const MONTHLY_SHAPE = "[0-9]{4}年[0-9]{1,2}月分";
 
 /** 対象期が月次かどうか。年平均・年度平均・接続指数はこの形にならない（設計書 §2.3） */
@@ -53,8 +53,9 @@ const MONTHLY = new RegExp(`^${MONTHLY_SHAPE}$`);
  * 下の `toStatEvents` が作る名称と同じ2つの部品から組み立てている。統計名や
  * 対象期の形を変えれば、この形も一緒に変わる。2箇所に書き写さない。
  *
- * PostgreSQL の正規表現としてそのまま渡す。`[0-9]{4}` のような書き方は
- * JavaScript と PostgreSQL で同じ意味になるものだけを使う
+ * PostgreSQL の正規表現としてそのまま渡す。**統計名に正規表現の記号
+ * （`.` `(` `|` 等）を入れてはならない。** ここは記号を打ち消さずに埋め込むため、
+ * 入れると意図より広い範囲に当たり、公表される回まで非アクティブになる
  */
 export const STAT_TITLE_PATTERN = `^${STATISTIC_NAME}（${MONTHLY_SHAPE}）$`;
 
