@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { decodeStatSchedule, toStatEvents } from "./stat-schedule";
+import {
+  decodeStatSchedule,
+  STAT_TITLE_PATTERN,
+  toStatEvents,
+} from "./stat-schedule";
 
 /** 実物と同じ形の class_2。公表日時は class_5 の中に入っている */
 function entry(period: string, date: string, time: string) {
@@ -106,6 +110,35 @@ describe("toStatEvents", () => {
     const xml = XML.replace("<release_day>20</release_day>", "");
 
     expect(() => toStatEvents(xml)).toThrow("公表日時の day が読めない");
+  });
+});
+
+describe("STAT_TITLE_PATTERN", () => {
+  /** PostgreSQL に渡すのと同じ文字列から作る。JavaScript 側でも同じ意味になる */
+  const pattern = new RegExp(STAT_TITLE_PATTERN);
+
+  it("取り込みが作る名称はすべてこの形に当たる", () => {
+    // 当たらない名称が1つでもあると、その回は非アクティブ化の対象から外れる
+    // （非アクティブ化 設計書 §2）。名称の組み立てを変えたらここが赤くなる
+    const titles = toStatEvents(XML).map((e) => e.title);
+
+    expect(titles).not.toHaveLength(0);
+    for (const title of titles) {
+      expect(pattern.test(title)).toBe(true);
+    }
+  });
+
+  it("取り込みが作らない名称は当たらない", () => {
+    // 公表予定に載っているのに取り込みが落とす回（年平均・東京都区部）。
+    // 運用者が手で登録しうる。当たると、載っているのに非アクティブにされる
+    for (const title of [
+      "消費者物価指数（2026年平均）",
+      "消費者物価指数（2025年度平均）",
+      "東京都区部消費者物価指数（2026年1月分）",
+      "消費者物価指数（2026年1月分）※2025年基準",
+    ]) {
+      expect(pattern.test(title)).toBe(false);
+    }
   });
 });
 

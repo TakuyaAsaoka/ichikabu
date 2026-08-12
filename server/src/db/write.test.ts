@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
+import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { expectViolation, resetDatabase } from "../../test/helpers";
 import { db } from ".";
 import { event, holding, stock, theme, themeStock } from "./schema";
@@ -1133,10 +1134,13 @@ describe("upsertMarketEvents", () => {
   }
 
   it("無い名称は登録される", async () => {
-    expect(await upsertMarketEvents([statEvent()])).toEqual({
-      created: ["消費者物価指数（2026年1月分）"],
-      changed: [],
-    });
+    expect(await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN)).toEqual(
+      {
+        created: ["消費者物価指数（2026年1月分）"],
+        changed: [],
+        deactivated: [],
+      },
+    );
 
     const rows = await db.select().from(event);
     expect(rows).toHaveLength(1);
@@ -1145,22 +1149,28 @@ describe("upsertMarketEvents", () => {
   });
 
   it("同じ取り込みを2回実行しても2件に増えない", async () => {
-    await upsertMarketEvents([statEvent()]);
+    await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
 
     // time 列は '08:30' を入れると '08:30:00' で返る。文字列のまま比べていると
     // ここが changed 1件になり、値は同じなのに毎回「変わった」と出る
-    expect(await upsertMarketEvents([statEvent()])).toEqual({
-      created: [],
-      changed: [],
-    });
+    expect(await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN)).toEqual(
+      {
+        created: [],
+        changed: [],
+        deactivated: [],
+      },
+    );
     expect(await db.select().from(event)).toHaveLength(1);
   });
 
   it("公表日が変わると開始日が更新され、変更が返る", async () => {
-    await upsertMarketEvents([statEvent()]);
+    await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
 
     expect(
-      await upsertMarketEvents([statEvent({ startDate: "2026-02-24" })]),
+      await upsertMarketEvents(
+        [statEvent({ startDate: "2026-02-24" })],
+        STAT_TITLE_PATTERN,
+      ),
     ).toEqual({
       created: [],
       changed: [
@@ -1171,6 +1181,7 @@ describe("upsertMarketEvents", () => {
           to: { startDate: "2026-02-24", time: "08:30:00" },
         },
       ],
+      deactivated: [],
     });
 
     const rows = await db.select().from(event);
@@ -1179,22 +1190,28 @@ describe("upsertMarketEvents", () => {
   });
 
   it("公表時刻が変わると時刻が更新される", async () => {
-    await upsertMarketEvents([statEvent()]);
+    await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
 
-    await upsertMarketEvents([statEvent({ time: "14:00" })]);
+    await upsertMarketEvents(
+      [statEvent({ time: "14:00" })],
+      STAT_TITLE_PATTERN,
+    );
 
     const rows = await db.select().from(event);
     expect(rows[0].time).toBe("14:00:00");
   });
 
   it("運用者が直した短縮ラベル・重要度・備考は上書きされない", async () => {
-    await upsertMarketEvents([statEvent()]);
+    await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
     await db
       .update(event)
       .set({ shortLabel: "CPI", importance: 3, note: "手で直した備考" });
 
     // 公表日が変わった取り込みでも、更新するのは開始日と時刻の2列だけ（設計書 §1 #6）
-    await upsertMarketEvents([statEvent({ startDate: "2026-02-24" })]);
+    await upsertMarketEvents(
+      [statEvent({ startDate: "2026-02-24" })],
+      STAT_TITLE_PATTERN,
+    );
 
     const rows = await db.select().from(event);
     expect(rows[0].shortLabel).toBe("CPI");
@@ -1204,16 +1221,19 @@ describe("upsertMarketEvents", () => {
   });
 
   it("登録と更新が混ざっても両方が返る", async () => {
-    await upsertMarketEvents([statEvent()]);
+    await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
 
     expect(
-      await upsertMarketEvents([
-        statEvent({ startDate: "2026-02-24" }),
-        statEvent({
-          title: "消費者物価指数（2026年2月分）",
-          startDate: "2026-03-24",
-        }),
-      ]),
+      await upsertMarketEvents(
+        [
+          statEvent({ startDate: "2026-02-24" }),
+          statEvent({
+            title: "消費者物価指数（2026年2月分）",
+            startDate: "2026-03-24",
+          }),
+        ],
+        STAT_TITLE_PATTERN,
+      ),
     ).toMatchObject({
       created: ["消費者物価指数（2026年2月分）"],
       changed: [{ title: "消費者物価指数（2026年1月分）" }],
@@ -1222,7 +1242,7 @@ describe("upsertMarketEvents", () => {
   });
 
   it("同じ名称が1回の入力に2つあっても1件しか入らない", async () => {
-    await upsertMarketEvents([statEvent(), statEvent()]);
+    await upsertMarketEvents([statEvent(), statEvent()], STAT_TITLE_PATTERN);
 
     expect(await db.select().from(event)).toHaveLength(1);
   });
@@ -1230,20 +1250,132 @@ describe("upsertMarketEvents", () => {
   it("途中で失敗すると1件も入らない", async () => {
     // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る
     await expect(
-      upsertMarketEvents([
-        statEvent(),
-        statEvent({
-          title: "消費者物価指数（2026年2月分）",
-          importance: 9,
-        }),
-      ]),
+      upsertMarketEvents(
+        [
+          statEvent(),
+          statEvent({
+            title: "消費者物価指数（2026年2月分）",
+            importance: 9,
+          }),
+        ],
+        STAT_TITLE_PATTERN,
+      ),
     ).rejects.toThrow();
 
     expect(await db.select().from(event)).toHaveLength(0);
   });
 
-  it("空の並びを渡しても落ちない", async () => {
-    // 区分の名前が変わって月次が0件になったときにここへ来る
-    expect(await upsertMarketEvents([])).toEqual({ created: [], changed: [] });
+  it("空の並びを渡すと何もしない", async () => {
+    // 区分の名前が変わって月次が0件になったときにここへ来る。ここで
+    // 非アクティブ化まで走ると、取り込んだこれからの回が全部消える
+    await upsertMarketEvents(
+      [
+        statEvent({
+          title: "消費者物価指数（2099年1月分）",
+          startDate: "2099-02-20",
+        }),
+      ],
+      STAT_TITLE_PATTERN,
+    );
+
+    expect(await upsertMarketEvents([], STAT_TITLE_PATTERN)).toEqual({
+      created: [],
+      changed: [],
+      deactivated: [],
+    });
+
+    const rows = await db.select().from(event);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].active).toBe(true);
+  });
+
+  /**
+   * 非アクティブ化のテスト（非アクティブ化 設計書 §3）。
+   * 2099年＝これからの回、1999年＝公表済みの回。今日を跨がない年にしてある
+   */
+  const FUTURE = statEvent({
+    title: "消費者物価指数（2099年1月分）",
+    startDate: "2099-02-20",
+  });
+  const PAST = statEvent({
+    title: "消費者物価指数（1999年1月分）",
+    startDate: "1999-02-20",
+  });
+
+  it("公表予定から消えたこれからの回は非アクティブになり、行は残る", async () => {
+    await upsertMarketEvents([FUTURE], STAT_TITLE_PATTERN);
+
+    // 別の回だけが載っている公表予定。2099年1月分は載らなくなった
+    expect(
+      await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN),
+    ).toMatchObject({ deactivated: ["消費者物価指数（2099年1月分）"] });
+
+    const rows = await db.select().from(event).orderBy(event.startDate);
+    expect(rows).toHaveLength(2);
+    expect(rows[1].title).toBe("消費者物価指数（2099年1月分）");
+    expect(rows[1].active).toBe(false);
+  });
+
+  it("公表予定から消えても公表済みの回はアクティブのまま残る", async () => {
+    // 窓から落ちただけで、その日に発表はあった。過去のカレンダーの記録になる
+    await upsertMarketEvents([PAST], STAT_TITLE_PATTERN);
+
+    expect(
+      await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN),
+    ).toMatchObject({ deactivated: [] });
+
+    const [row] = await db
+      .select()
+      .from(event)
+      .where(eq(event.title, "消費者物価指数（1999年1月分）"));
+    expect(row.active).toBe(true);
+  });
+
+  it("また公表予定に載ればアクティブに戻る", async () => {
+    await upsertMarketEvents([FUTURE], STAT_TITLE_PATTERN);
+    await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
+
+    // 公表日が変わっていなくても戻す。開始日と時刻の比較で更新を止めていると、
+    // 中止されて戻った回が非アクティブのまま残る
+    await upsertMarketEvents([FUTURE], STAT_TITLE_PATTERN);
+
+    const [row] = await db
+      .select()
+      .from(event)
+      .where(eq(event.title, "消費者物価指数（2099年1月分）"));
+    expect(row.active).toBe(true);
+  });
+
+  it("取り込みが名づけない名称の行は触らない", async () => {
+    // 公表予定に載っているのに取り込みが落とす回（東京都区部・年平均）を
+    // 運用者が手で登録した場合。出典URLは取り込みと同じものしか無い。
+    // 出典URLで所有を見分けると、載っているのにここが非アクティブになる
+    await db.insert(event).values([
+      {
+        title: "東京都区部消費者物価指数（2099年1月分）",
+        shortLabel: "都区部CPI",
+        startDate: "2099-01-30",
+        importance: 2,
+        market: "JP",
+        sourceName: "総務省統計局",
+        sourceUrl: "https://www.stat.go.jp/data/cpi/",
+      },
+      {
+        title: "消費者物価指数（2099年平均）",
+        shortLabel: "日本CPI年",
+        startDate: "2099-01-22",
+        importance: 2,
+        market: "JP",
+        sourceName: "総務省統計局",
+        sourceUrl: "https://www.stat.go.jp/data/cpi/",
+      },
+    ]);
+
+    expect(
+      await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN),
+    ).toMatchObject({ deactivated: [] });
+
+    const rows = await db.select().from(event);
+    expect(rows.filter((row) => row.active)).toHaveLength(3);
   });
 });

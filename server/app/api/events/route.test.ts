@@ -255,6 +255,48 @@ describe("GET /api/events", () => {
     expect(event0.source).toBeNull();
   });
 
+  it("非アクティブのイベントは返らない", async () => {
+    // 取り込みが「これからの回なのに公表予定に載らなくなった」と判定した行
+    // （公表予定の非アクティブ化 設計書 §1）。開始日は見ない。中止された回は
+    // 公表日を過ぎても出してはならない
+    const holder = await createUser("inactive-holder@example.com");
+    const [toyota] = await db
+      .insert(stock)
+      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
+      .returning();
+    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
+
+    await db.insert(event).values([
+      {
+        title: "消費者物価指数（2026年9月分）",
+        shortLabel: "日本CPI",
+        startDate: "2026-10-23",
+        importance: 2,
+        market: "JP",
+      },
+      {
+        title: "消費者物価指数（2026年10月分）",
+        shortLabel: "日本CPI",
+        startDate: "2026-11-20",
+        importance: 2,
+        market: "JP",
+        active: false,
+      },
+      {
+        title: "中止された過去の回",
+        shortLabel: "中止",
+        startDate: "2020-01-01",
+        importance: 2,
+        market: "JP",
+        active: false,
+      },
+    ]);
+
+    expect(titles(await fetchEvents(holder.token))).toEqual(
+      new Set(["消費者物価指数（2026年9月分）"]),
+    );
+  });
+
   it("決算月のあるJP銘柄を保有していると権利付最終日が計算されて返る", async () => {
     const holder = await createUser("rights-holder@example.com");
     const [toyota] = await db

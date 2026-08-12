@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   integer,
@@ -104,6 +105,12 @@ export const event = pgTable(
     time: time(),
     importance: smallint().notNull(),
     note: text(),
+    /**
+     * カレンダーに出すかどうか（公表予定の非アクティブ化 設計書 §1）。
+     * 取り込みが「これからの回なのに最新の公表予定に載らなくなった行」を false にする。
+     * 手で登録する行は既定の true。false の行は `GET /events` が返さない
+     */
+    active: boolean().notNull().default(true),
     /** この日付をどこで確認したかの記録（設計書 §4.2） */
     sourceUrl: text("source_url"),
     /**

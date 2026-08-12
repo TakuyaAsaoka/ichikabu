@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import { pgError } from "./pg-error";
 import { event, holding, stock, theme, themeStock } from "./schema";
@@ -400,10 +400,14 @@ export type ScheduleChange = {
   to: { startDate: string; time: string | null };
 };
 
-/** 取り込みの結果。入れた名称の並びと、公表日時が変わった行の一覧 */
+/**
+ * 取り込みの結果。入れた名称の並び、公表日時が変わった行の一覧、
+ * 非アクティブにした名称の並び
+ */
 export type UpsertResult = {
   created: string[];
   changed: ScheduleChange[];
+  deactivated: string[];
 };
 
 /**
@@ -418,16 +422,30 @@ export type UpsertResult = {
  * 更新が当たるのは1件だけでもう1件は古い公表日のまま残る。運用者が1人で
  * この経路しか使わない前提で制約は足さない。
  *
+ * 渡した並びに無い名称のうち、`ownedTitlePattern` に当たる**これからの回**は
+ * 非アクティブにする（非アクティブ化 設計書 §3）。中止・延期で公表予定から
+ * 消えた回がカレンダーに残り続けないようにするため。公表済みの回は触らない。
+ * その日に発表はあり、載せなくなっただけだからである。
+ *
  * 失敗はエラー文にせず投げる。呼び出すのは画面ではなくスクリプトで、
  * 表示するエラー文が要らない
+ *
+ * @param ownedTitlePattern 取り込みが名づける名称の形（PostgreSQL の正規表現）。
+ *   この形に当たる行だけを非アクティブにする。出典URLで見分けないのは、
+ *   取り込みが落とす回（東京都区部・年平均）を運用者が手で登録すると出典URLが
+ *   同じになり、公表予定に載っているのに非アクティブになるため（設計書 §2）
  */
 export async function upsertMarketEvents(
   inputs: EventInput[],
+  ownedTitlePattern: string,
 ): Promise<UpsertResult> {
   const created: string[] = [];
   const changed: ScheduleChange[] = [];
+  const deactivated: string[] = [];
+  // 0件のときは何もしない。ここで非アクティブ化まで走ると、XML の形が変わって
+  // 1件も読めなかったときに取り込み済みの回が全部消える
   if (inputs.length === 0) {
-    return { created, changed };
+    return { created, changed, deactivated };
   }
 
   await db.transaction(async (tx) => {
@@ -487,8 +505,41 @@ export async function upsertMarketEvents(
         });
       }
     }
+
+    const titles = inputs.map((input) => input.title);
+
+    // 公表予定にまた載った回はアクティブに戻す。上の更新に混ぜないのは、
+    // あちらが公表日時の変わった行だけを返す形になっているため。日時が
+    // 変わらないまま戻ってきた回を混ぜると、前後が同じ「変更」が出る
+    await tx
+      .update(event)
+      .set({ active: true })
+      .where(and(eq(event.active, false), inArray(event.title, titles)));
+
+    // 公表予定から消えたこれからの回を非アクティブにする。
+    // 今日は日本時間で決める。DBの時間帯そのままの CURRENT_DATE だと、
+    // 日本時間の朝9時までは前日と判定され、公表済みの回まで対象に入る。
+    // 日付だけで見るため、今日の朝に公表を終えた回は「これから」に入る。
+    // 時刻まで見て守ることもできるが、その回が公表予定から落ちるのは
+    // 公表当日の1日だけで、翌日には公表済みとして守られる
+    deactivated.push(
+      ...(
+        await tx
+          .update(event)
+          .set({ active: false })
+          .where(
+            and(
+              eq(event.active, true),
+              sql`${event.title} ~ ${ownedTitlePattern}`,
+              sql`${event.startDate} >= (now() AT TIME ZONE 'Asia/Tokyo')::date`,
+              notInArray(event.title, titles),
+            ),
+          )
+          .returning({ title: event.title })
+      ).map((row) => row.title),
+    );
   });
-  return { created, changed };
+  return { created, changed, deactivated };
 }
 
 /**
