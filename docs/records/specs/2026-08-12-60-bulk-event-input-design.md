@@ -34,9 +34,10 @@
 | 10 | 出典の表示名 | U.S. Bureau of Labor Statistics | ○ |
 
 - 行の区切りは `\r?\n`。改行コードの違うところからコピーしても同じに読む
-- 空白だけの行は飛ばす。貼り付けの末尾に改行が入るため
+- 落とすのは**末尾の空行だけ**。貼り付けの末尾に改行が入るため。途中の空行は落とさず、そのまま列数のエラーにする。全部を無条件に飛ばすと、貼り付けた文字列の途中に空行が1つでもあるだけで、以降のエラーの行番号がテキストエリアの行番号より小さくなる
 - 列が10個でない行はエラーにする。多い場合も少ない場合も同じ扱い
 - 空欄を `null` に読み替える規則は1件ずつのフォームと同じ（`app/event-input.ts` の `toNullable`）。空文字のまま date・time 列に渡すと、制約違反ではない型変換エラーで500になる
+- 名称・短縮ラベル・開始日は空にできない。DB の `notNull` は空文字を弾かず、1件ずつのフォームを守っている `<input required>` も貼り付け経路には効かないため、`toEventInputs` の中で空文字を判定する
 
 **CSV にはしない。** 引用符とカンマの扱いが要る。スプレッドシートからのコピーはタブ区切りになるため、タブなら分けるだけで済む。
 
@@ -82,26 +83,41 @@ IDで書く案は採らない。決算発表日の一括登録では対象が銘
 
 **DB に入れる側は1行ずつ INSERT する。** まとめて1回の INSERT にすると、どの行が失敗したかが分からず行番号を出せない。貼り付ける行数はせいぜい数十で、1行ずつでも問題にならない。
 
+行番号は `inputs` の添字（`index + 1`）そのまま。`app/bulk-event-input.ts` の `toEventInputs` は読めた行を1件ずつそのまま `EventInput` として積むため、`inputs` の並びは貼り付けた行の並びと1対1で一致する。
+
 ```ts
-let failure: string | null = null;
-try {
-  await db.transaction(async (tx) => {
-    for (const [index, input] of inputs.entries()) {
-      const message =
-        tooLongLabel(input.shortLabel) ??
-        (await run(tx.insert(event).values(eventValues(input))));
-      if (message) {
-        failure = `${index + 1}行目: ${message}`;
-        tx.rollback();
+/**
+ * まとめて登録の途中で失敗したことを表す。
+ * 取り引きの中から投げると Drizzle が ROLLBACK する
+ */
+class BulkFailure extends Error {}
+
+export async function createEvents(
+  inputs: EventInput[],
+): Promise<string | null> {
+  try {
+    await db.transaction(async (tx) => {
+      for (const [index, input] of inputs.entries()) {
+        const message =
+          tooLongLabel(input.shortLabel) ??
+          (await run(tx.insert(event).values(eventValues(input))));
+        if (message) {
+          throw new BulkFailure(`${index + 1}行目: ${message}`);
+        }
       }
+    });
+  } catch (error) {
+    // 途中で失敗したときの文言はここで取り出す。それ以外の例外は投げ直す
+    if (error instanceof BulkFailure) {
+      return error.message;
     }
-  });
-} catch (error) {
-  // rollback は必ず例外を投げる。それ以外の例外は投げ直す
-  if (failure === null) throw error;
+    throw error;
+  }
+  return null;
 }
-return failure;
 ```
+
+`tx.rollback()` ではなく例外を投げる形にした。`tx.rollback()` は必ず例外を投げる仕組みで、`try` の外に出た時点で TypeScript は `failure` を「代入されているかもしれないし `null` のままかもしれない」としか絞り込めず、`catch` の中で握っている失敗の型が合わない。自前の `BulkFailure` に文言を持たせて投げれば、`catch` の中で `instanceof` を通すだけで型が絞り込める。
 
 `run()` は制約違反を日本語にする既存の関数で、渡す問い合わせを取り引き側（`tx`）に差し替えるだけで使える。
 
@@ -162,11 +178,13 @@ export function toEventInputs(text: string, lookup: Lookup): EventInput[] | stri
 |---|---|
 | 市場のイベントと銘柄のイベントを1回で読める | 対象の振り分け先が行ごとに変わる。空欄が `null` になる（Issue #60 の検証） |
 | テーマ名で対象を指定できる | `theme:半導体` が `theme_id` になる |
-| 空白だけの行は飛ばす | 貼り付けの末尾の改行 |
+| 末尾の空行だけを落とす | 貼り付けの末尾の改行 |
+| 途中の空行はそのまま列数のエラーになる | 行番号が貼り付けた行とずれない |
 | 列が10個でない行はエラー文を返す | 行番号が付く |
 | 登録されていないティッカーはエラー文を返す | 対応表に無い |
 | 登録されていないテーマ名はエラー文を返す | 同上 |
 | 読める行が1つも無ければエラー文を返す | 空の貼り付け |
+| 名称・短縮ラベル・開始日が空欄の行はエラー文を返す | `notNull` だけでは空文字を弾けない |
 
 1つ目は Issue #60 の「あるべき姿の出力」そのもので、`src/db/seed-event.ts` に手で入っている実物の値を使う。
 

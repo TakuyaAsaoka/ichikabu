@@ -96,11 +96,19 @@ describe("toEventInputs", () => {
     expect(inputs).toEqual([expect.objectContaining({ stockId: 2 })]);
   });
 
-  it("空白だけの行は飛ばす", () => {
+  it("末尾の空行だけを落とす", () => {
     // 貼り付けの末尾には改行が入る
     const inputs = toEventInputs(`${rowOf()}\n\n  \n`, LOOKUP);
 
     expect(inputs).toHaveLength(1);
+  });
+
+  it("途中の空行はそのまま列数のエラーになり、行番号がずれない", () => {
+    // 空行を読み飛ばすと、以降の行番号が貼り付けた行より小さくなってしまう。
+    // 空行自身が「2行目」のエラーとして出ることが、番号がずれていない証拠
+    const inputs = toEventInputs(`${rowOf()}\n\n${rowOf()}`, LOOKUP);
+
+    expect(inputs).toBe("2行目: 列は10個にする（1個ある）");
   });
 
   it("改行コードが CRLF でも読める", () => {
@@ -112,7 +120,7 @@ describe("toEventInputs", () => {
   it("列が10個ない行はエラー文が返る", () => {
     const inputs = toEventInputs(`${rowOf()}\n名称\t短縮\tmarket:JP`, LOOKUP);
 
-    expect(inputs).toBe("2行目: 列が10個ない（3個）");
+    expect(inputs).toBe("2行目: 列は10個にする（3個ある）");
   });
 
   it("登録されていないティッカーはエラー文が返る", () => {
@@ -155,6 +163,26 @@ describe("toEventInputs", () => {
 
   it("読める行が1つも無ければエラー文が返る", () => {
     expect(toEventInputs("  \n\n", LOOKUP)).toBe("登録する行がない");
+  });
+
+  it("名称が空欄の行はエラー文が返る", () => {
+    // title は notNull だが空文字を弾く CHECK が無いため、貼り付け経路でここを
+    // 弾かないと名称が空のイベントがそのまま入ってしまう（設計書 §2）
+    const inputs = toEventInputs(rowOf({ 0: "  " }), LOOKUP);
+
+    expect(inputs).toBe("1行目: 名称を入れる");
+  });
+
+  it("短縮ラベルが空欄の行はエラー文が返る", () => {
+    const inputs = toEventInputs(rowOf({ 1: "  " }), LOOKUP);
+
+    expect(inputs).toBe("1行目: 短縮ラベルを入れる");
+  });
+
+  it("開始日が空欄の行はエラー文が返る", () => {
+    const inputs = toEventInputs(rowOf({ 3: "  " }), LOOKUP);
+
+    expect(inputs).toBe("1行目: 開始日を入れる");
   });
 
   it("空欄の終了日・時刻・補足・出典は null になる", () => {

@@ -75,7 +75,19 @@ function toTarget(value: string, lookup: Lookup): Target | string {
 function toInput(line: string, lookup: Lookup): EventInput | string {
   const columns = line.split("\t");
   if (columns.length !== COLUMNS) {
-    return `列が${COLUMNS}個ない（${columns.length}個）`;
+    return `列は${COLUMNS}個にする（${columns.length}個ある）`;
+  }
+
+  // 名称・短縮ラベル・開始日は notNull だが空文字を弾く CHECK が無い。1件ずつの
+  // フォームは <input required> で弾いているが、貼り付け経路には無いためここで弾く
+  // （src/db/write.ts の createTheme と同じ考え方）
+  const title = columns[0].trim();
+  if (title === "") {
+    return "名称を入れる";
+  }
+  const shortLabel = columns[1].trim();
+  if (shortLabel === "") {
+    return "短縮ラベルを入れる";
   }
 
   const target = toTarget(columns[2].trim(), lookup);
@@ -83,10 +95,15 @@ function toInput(line: string, lookup: Lookup): EventInput | string {
     return target;
   }
 
+  const startDate = columns[3].trim();
+  if (startDate === "") {
+    return "開始日を入れる";
+  }
+
   return {
-    title: columns[0].trim(),
-    shortLabel: columns[1].trim(),
-    startDate: columns[3].trim(),
+    title,
+    shortLabel,
+    startDate,
     endDate: toNullable(columns[4]),
     time: toNullable(columns[5]),
     importance: Number(columns[6]),
@@ -101,15 +118,18 @@ function toInput(line: string, lookup: Lookup): EventInput | string {
  * 貼り付けた文字列を createEvents の入力にする。
  * 読めない行があれば、行番号を付けた日本語のエラー文を返す（設計書 §4）。
  *
- * 行番号は空白だけの行を除いたあとの番号。貼り付けの末尾には改行が入るため、
- * 空行を数に入れると最後の行の番号が実物とずれる
+ * 行番号は貼り付けた行の番号のまま。落とすのは末尾の空行だけで、途中の空行は
+ * そのまま列数のエラーにする。全部飛ばすと、途中に空行が1つでもあるだけで
+ * 以降の行番号が実物より小さくなり、運用者がエラーと違う行を見にいくことになる
  */
 export function toEventInputs(
   text: string,
   lookup: Lookup,
 ): EventInput[] | string {
   // 行全体は trim しない。末尾の列が空の行から末尾のタブが消えて列数が変わる
-  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+  const lines = text.split(/\r?\n/);
+  // 末尾の空行だけを落とす。貼り付けの末尾に改行が入るため
+  while (lines.at(-1)?.trim() === "") lines.pop();
   if (lines.length === 0) {
     return "登録する行がない";
   }
