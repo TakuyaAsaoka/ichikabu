@@ -128,7 +128,7 @@ export default async function Page() {
             <li key={row.stockId} className="border-b border-border py-1">
               {row.market} {row.ticker} {row.name}{" "}
               <Link href={`/holdings/${row.stockId}`} className="underline">
-                削除
+                外す
               </Link>
             </li>
           ))}
@@ -167,7 +167,7 @@ export default async function Page() {
                           href={`/themes/${row.id}/stocks/${s.stockId}`}
                           className="underline"
                         >
-                          削除
+                          外す
                         </Link>
                       </li>
                     ))

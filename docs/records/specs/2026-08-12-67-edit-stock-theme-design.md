@@ -107,6 +107,8 @@ const message = (code === RESTRICT_VIOLATION ? DELETE_MESSAGES : MESSAGES)[const
 
 先に Issue #68 をやればこの行き止まりは消える。順番を逆にした理由は、Issue #67 のほうが「列を持つ2つ」で作業が大きく、共通の部品（IDの判定・確認ダイアログ）がこちらに寄っているため。
 
+> **この行き止まりは Issue #68 で解消した。** 保有一覧の各行から `/holdings/[stockId]` へ行き、保有を外せる。「その銘柄は保有に登録されていて消せない」が出たら、保有を外してから銘柄を消す。詳細は[保有とテーマ所属の削除 設計書](2026-08-12-68-delete-holding-theme-stock-design.md)。
+
 ## 5. 空白だけの名前
 
 `stock.name` と `theme.name` は `notNull` だが空文字を弾く CHECK が無い。`<input required>` は `""` しか弾かず `"   "` を通すため、**空白だけの名前が入る**。実測でもテーマ名を `"   "` に更新できた。
