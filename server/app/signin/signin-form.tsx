@@ -29,10 +29,24 @@ export function SignInForm() {
       const response = await fetch("/api/auth/sign-in/social", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "google", callbackURL: "/" }),
+        body: JSON.stringify({
+          provider: "google",
+          callbackURL: "/",
+          // 既定の戻り先は Better Auth の /error で、そこから / へ飛ばされ、
+          // セッションが無いので何も出ないままこの画面に戻ってくる。
+          // 許可していないアカウントで押したときに理由を出すため、自分で受ける
+          errorCallbackURL: "/signin",
+        }),
       });
+      // 本文より先に応答コードを見る。設定漏れのときは本文の無い 500 が返り、
+      // json() が例外になって「通信に失敗しました」に化ける
+      if (!response.ok) {
+        setPending(false);
+        setError(messageFor(response.status));
+        return;
+      }
       const body: { url?: string } = await response.json();
-      if (!response.ok || !body.url) {
+      if (!body.url) {
         setPending(false);
         setError(messageFor(response.status));
         return;

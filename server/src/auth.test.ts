@@ -44,6 +44,24 @@ describe("seed によるユーザー投入", () => {
     expect(await db.select().from(user)).toHaveLength(1);
   });
 
+  it("大文字を含むメールアドレスでもサインインでき、2回実行しても増えない", async () => {
+    const 大文字混じり = "Operator@Example.com";
+
+    expect(await seedUser(大文字混じり, PASSWORD)).toMatchObject({
+      created: true,
+    });
+    expect(await seedUser(大文字混じり, PASSWORD)).toMatchObject({
+      created: false,
+    });
+    expect(await db.select().from(user)).toHaveLength(1);
+
+    const res = await post("sign-in/email", {
+      email: 大文字混じり,
+      password: PASSWORD,
+    });
+    expect(res.status).toBe(200);
+  });
+
   it("ユーザーだけ作られた状態で中断していても、実行し直せばサインインできるようになる", async () => {
     // 1回目がユーザー作成のあとで落ちた状態を作る
     await db

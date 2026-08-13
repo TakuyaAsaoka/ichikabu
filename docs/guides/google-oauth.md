@@ -99,16 +99,11 @@ curl -s -X POST http://localhost:3000/api/auth/sign-in/social \
 
 ### なぜ `disableSignUp` ではなく DB のフックなのか
 
-Better Auth 1.6.26 には、プロバイダ側の `disableSignUp: true` が効かない経路がある。
+プロバイダ側の `disableSignUp: true` には、Better Auth 1.6.26 で効かない経路がある。
+**理由は `server/src/auth.ts` のコメントに書いてある**（ライブラリを上げたときに読む場所を
+2つにしないため、ここには写さない）。
 
-- `/api/auth/callback/google`（同意画面からの戻り）は `provider.options.disableSignUp` を見る → 効く
-- `/api/auth/sign-in/social` に ID トークンを直接渡す経路は `provider.disableSignUp` を見る → **効かない**
-
-設定から上がってくるのは前者だけ（`create-context.mjs:103` が `disableImplicitSignUp` しか
-コピーしない）。後者の経路は素通りして利用者が作られる。
-
-経路ごとに塞ぐのをやめ、**どの経路も必ず通る `internalAdapter.createOAuthUser` の手前**で
-止めている。この関門が効いていることは `server/src/auth.test.ts` の
+関門が効いていることは `server/src/auth.test.ts` の
 「許可していない Google アカウントでは利用者が作られない」で確かめられる。
 フックの `throw` を消すと、このテストが `intruder@example.com` の作成を検出して失敗する。
 
