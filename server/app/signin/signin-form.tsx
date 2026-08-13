@@ -32,8 +32,9 @@ export function SignInForm() {
         body: JSON.stringify({
           provider: "google",
           callbackURL: "/",
-          // 既定の戻り先は Better Auth の /error で、そこから / へ飛ばされ、
-          // セッションが無いので何も出ないままこの画面に戻ってくる。
+          // 既定の戻り先は Better Auth の /error。本番ではそこから / へ飛ばされ、
+          // セッションが無いので何も出ないままこの画面に戻ってくる（開発中は
+          // ライブラリの英語のエラーページが出る）。
           // 許可していないアカウントで押したときに理由を出すため、自分で受ける
           errorCallbackURL: "/signin",
         }),
@@ -48,7 +49,7 @@ export function SignInForm() {
       const body: { url?: string } = await response.json();
       if (!body.url) {
         setPending(false);
-        setError(messageFor(response.status));
+        setError("Google のログインURLを取得できませんでした");
         return;
       }
       // Google の同意画面へ移る。戻り先は /api/auth/callback/google
