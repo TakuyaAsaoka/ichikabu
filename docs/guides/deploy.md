@@ -12,22 +12,33 @@ Mac    ──http───▶ next dev                     ──▶ Docker 開�
 
 ## 1. 毎回のデプロイ手順
 
+**メインcheckout で実行する。Worktree からはデプロイできない**（理由は §1.1）。
+
 ```bash
-# 1. マイグレーションを先に流す（配信先の値は .env.production.local。§3 を参照）
+# 1. 依存を入れる。ローカルビルドは自動で入れてくれない
 cd server
+pnpm install
+
+# 2. マイグレーションを先に流す（配信先の値は .env.production.local。§3 を参照）
 set -a && . ./.env.production.local && set +a
 pnpm db:migrate
 
-# 2. デプロイする。リポジトリの最上位から実行する
+# 3. デプロイする。リポジトリの最上位から実行する
 cd ..
 pnpm --package=netlify-cli dlx netlify deploy --build --prod
 ```
 
 順番を守る。**デプロイを先にすると、新しいコードが古いテーブルを触りにいく。**
 
-**デプロイは `server/` ではなくリポジトリの最上位から実行する。** `netlify.toml` が最上位にあり、`server/` から実行すると見つからず `base` が効かない。
-
 `--build` はビルドをこのMacで実行してから成果物だけを送る。Netlify 側でビルドしないため、ビルドの失敗で配信先が壊れることがない。
+
+### 1.1 実行する場所の決まり
+
+| 決まり | 理由 |
+|---|---|
+| **Worktree から実行しない** | netlify-cli はリポジトリの起点を探すときに Worktree の `.git`（ファイル）を辿ってメインcheckoutに行き着く。`base = "server"` がメインcheckoutの `server/` に解決され、そちらでビルドしてしまう |
+| **`server/` ではなく最上位から実行する** | `netlify.toml` が最上位にある。`server/` から実行すると見つからず `base` が効かない |
+| **先に `pnpm install` する** | Netlify のCIは依存を自動で入れるが、`netlify deploy --build` は入れない。無いと `openapi-typescript: command not found` で止まる |
 
 初回だけ、ブラウザ認証とサイトの紐付けが要る。
 
@@ -103,10 +114,11 @@ Supabase のダッシュボード上部の **Connect** に3つ並んでいる。
 1. https://app.netlify.com で **Add new project** → GitHub の `ichikabu` を選ぶ
 2. **Build & deploy > Continuous deployment > Build settings で `Stop builds` を選ぶ**。これをしないと main に push するたびに15クレジット減る。この状態でも §1 の CLI からのデプロイは動く
 3. **General > Project details > Change site name** でサイト名を決める。`https://<サイト名>.netlify.app` になる
-4. Deploy log visibility は **Private**。ビルドログには環境変数の名前とパスが出る
-5. 環境変数を3つ入れる（§2）
+4. **General > Project visibility を `Public` にする。** 2026年7月28日以降に作ったチームは、新しいサイトが既定で非公開になる。チームにログインした人しか開けず、実機からは401が返る
+5. Deploy log visibility は **Private**。ビルドログには環境変数の名前とパスが出る
+6. 環境変数を3つ入れる（§2）
 
-ビルド設定（base・command・publish）は `netlify.toml` に書いてあるので、画面で入れ直す必要はない。
+ビルド設定（base・command・publish）とアダプタの宣言は `netlify.toml` に書いてあるので、画面で入れ直す必要はない。
 
 ### 利用者の投入
 

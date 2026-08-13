@@ -60,13 +60,38 @@ Supabase は transaction mode について「prepared statements（同じSQLに�
 
 Issue #74 の「ビルドの起点をリポジトリ最上位にしないと通らない」は、確認した結果あたらなかった。
 
-### Netlify の Next.js 対応は自動
+### Next.js のアダプタは明示的に宣言する
 
-Netlify は OpenNext のアダプタを自動で当てる。Next.js 16 は「設定なしでデプロイできる」と changelog に名指しで書かれている。`netlify.toml` に `[[plugins]]` は書かない（公式がアダプタのバージョン固定を勧めていない）。
+```toml
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+```
+
+**これを書かないと動かない。** 設計の時点では「Netlify が自動で当てるので不要」と判断していたが、配信先で試して誤りだと分かった。
+
+- Netlify のCIでビルドする場合は、フレームワークの自動検出がアダプタを当てる
+- **この構成は `netlify deploy --build` でMacでビルドして送るため、自動検出が働かない**
+- 宣言が無いと `.next` が静的ファイルとして上がるだけになり、`/api/health` を含む全経路が404になる（実測）
+
+バージョンは固定しない。公式がアダプタのバージョン固定を勧めていない。Next.js 16 への対応は changelog に名指しで書かれている。
+
+### ローカルビルドは依存を自動で入れない
+
+Netlify のCIは `pnpm install` を自動で走らせるが、`netlify deploy --build` は走らせない。**デプロイの前に `server/` で `pnpm install` を済ませておく。**
+
+### Worktree からはデプロイできない
+
+netlify-cli はリポジトリの起点を探すときに、Worktree の `.git`（ファイル）を辿ってメインcheckoutに行き着く。その結果 `base = "server"` がメインcheckoutの `server/` に解決され、そちらでビルドしてしまう。
+
+**デプロイはメインcheckout（またはふつうのクローン）から実行する。** 配信するのは main にマージ済みのものなので、運用上これで困らない。
 
 ### 自動デプロイは Netlify の画面で止める
 
 `netlify.toml` では止められない。Project configuration > Build & deploy > Continuous deployment > Build settings の **Stop builds** を選ぶ。この状態でも CLI でローカルビルドして手でデプロイする経路は動くと公式ドキュメントに書かれている。
+
+### サイトは既定で非公開
+
+2026年7月28日以降に作ったチームは、新しいサイトが既定で非公開になる。チームにログインした人しか開けず、実機からは401が返る。Project configuration > General > Project visibility を **Public** にする。
 
 ## 5. Node と pnpm のバージョンを固定する
 
