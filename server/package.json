@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.12"
+    "node": ">=24"
   },
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "next dev",
     "gen": "openapi-typescript ../openapi.yaml -o src/generated/api.d.ts",
@@ -34,7 +35,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^26.1.2",
+    "@types/node": "^24.10.6",
     "@types/pg": "^8.20.4",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

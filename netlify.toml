@@ -1,0 +1,17 @@
+# Netlify のビルド設定（設計書 docs/records/specs/2026-08-13-74-deploy-target-design.md §4）。
+#
+# 自動デプロイはここでは止められない。Netlify の画面で
+# Project configuration > Build & deploy > Continuous deployment > Build settings の
+# Stop builds を選ぶ（→ docs/guides/deploy.md）。
+#
+# Next.js のアダプタは Netlify が自動で当てるため [[plugins]] は書かない。
+# Node と pnpm のバージョンは server/.nvmrc と server/package.json の
+# packageManager で固定する。ここには書かない（出典を1つにするため）。
+
+[build]
+  # 依存を入れてビルドコマンドを走らせるディレクトリ。
+  # clone されるのはリポジトリ全体なので、`pnpm gen` が読む ../openapi.yaml も存在する
+  base = "server"
+  command = "pnpm gen && pnpm build"
+  # 以下のパスは base からの相対
+  publish = ".next"
