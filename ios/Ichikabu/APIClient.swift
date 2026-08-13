@@ -16,7 +16,17 @@ enum APIError: Error, Equatable {
 /// サーバーとの通信。
 /// 経路が2本しかないため、契約からは型だけを生成し、通信は自分で書く（Issue #5 設計書 §3 判断3）。
 struct APIClient {
-	static let baseURL = URL(string: "http://localhost:3000")!
+	/// 接続先。Debug はMacの `next dev`、Release は配信先を見る。
+	///
+	/// 実機で配信先を使うときは、Xcode の Scheme > Run > Build Configuration を
+	/// Release にする。Debug のままだと iPhone 自身の 3000 番を指すため届かない。
+	static let baseURL: URL = {
+		#if DEBUG
+			return URL(string: "http://localhost:3000")!
+		#else
+			return URL(string: "https://ichikabu.netlify.app")!
+		#endif
+	}()
 
 	/// 通信に使うセッション。**Cookie を保管しない**。
 	///

@@ -6,6 +6,10 @@
 
 .DS_Store
 
+# netlify-cli がサイトとの紐付けを覚えるファイル。作業する人ごとに作り直す
+# （`netlify link --name ichikabu` → docs/guides/deploy.md）
+.netlify/
+
 # Xcode の利用者ごとの設定（エディタの状態・ブレークポイント等）
 xcuserdata/
 
