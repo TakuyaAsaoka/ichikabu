@@ -52,6 +52,7 @@ xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name
 cp .env.example .env.local
 # BETTER_AUTH_SECRET に `openssl rand -base64 32` の出力を入れる
 # SEED_USER_EMAIL / SEED_USER_PASSWORD を埋める
+nvm use
 docker compose up -d --wait
 pnpm install && pnpm db:migrate && pnpm db:seed
 ```
@@ -63,9 +64,13 @@ DBのコンテナとデータはWorktree間で共有される（compose のプ�
 - 複数のWorktreeで同時にテストを流すと互いのデータを消し合う
 - 片方のWorktreeで `db:migrate` すると、共有しているDBのスキーマがもう片方のブランチより先に進む。ブランチを行き来するときは、そのブランチで `db:migrate` を流し直す
 
+## 配信先
+
+iPhone から使う配信先は Netlify（`https://ichikabu.netlify.app`）と Supabase（東京）。**デプロイは自動ではない。手順は `docs/guides/deploy.md`。**
+
 ## データベース
 
-開発用は Docker の PostgreSQL（`server/compose.yaml`、ポート 5434）。本番のホスティング・DBは Issue #16 で選定する（設計書 §1.1 でプラットフォーム選定は保留）。
+開発用は Docker の PostgreSQL（`server/compose.yaml`、ポート 5434）。常用は Supabase（→ `docs/guides/deploy.md`）。収益化を前提とした本番のホスティング・DBは Issue #16 で選定する（設計書 §1.1 でプラットフォーム選定は保留）。
 
 | コマンド | 内容 |
 |---|---|

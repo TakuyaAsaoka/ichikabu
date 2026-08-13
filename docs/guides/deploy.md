@@ -23,8 +23,8 @@ nvm use
 # 2. 依存を入れる。ローカルビルドは自動で入れてくれない
 pnpm install
 
-# 3. マイグレーションを先に流す（配信先の値は .env.production.local。§3 を参照）
-( set -a; . ./.env.production.local; set +a; pnpm db:migrate )
+# 3. マイグレーションを先に流す（配信先の値は .env.deploy.local。§3 を参照）
+( set -a; . ./.env.deploy.local; set +a; pnpm db:migrate )
 
 # 4. デプロイする。リポジトリの最上位から実行する
 cd ..
@@ -67,7 +67,7 @@ curl https://ichikabu.netlify.app/api/health
 
 ## 2. 使う環境変数
 
-| 変数 | Netlify | `.env.production.local` | 値 |
+| 変数 | Netlify | `.env.deploy.local` | 値 |
 |---|---|---|---|
 | `DATABASE_URL` | 要る | 要る | **入口が違う。下の §4 を参照** |
 | `BETTER_AUTH_SECRET` | 要る | 要る | `openssl rand -base64 32`。開発用とは別の値 |
@@ -79,18 +79,24 @@ Netlify 側は Project configuration > Environment variables に入れる。
 
 **Netlify 側の `BETTER_AUTH_SECRET` は一度決めたら変えない。** セッションとトークンの署名鍵なので、変えるとサインイン済みの端末が全部やり直しになる。
 
-`.env.production.local` 側にも要るのは、`pnpm db:seed` が `server/src/auth.ts` を読み込み、未設定だと例外で止まるため。パスワードのハッシュには使われない（毎回違う値を混ぜる方式のため）ので、Netlify 側と一致していなくても動く。**同じ値を入れておくほうが、どちらを見ているか迷わなくて済む。**
+`.env.deploy.local` 側にも要るのは、`pnpm db:seed` が `server/src/auth.ts` を読み込み、未設定だと例外で止まるため。パスワードのハッシュには使われない（毎回違う値を混ぜる方式のため）ので、Netlify 側と一致していなくても動く。**同じ値を入れておくほうが、どちらを見ているか迷わなくて済む。**
 
-## 3. `server/.env.production.local`
+## 3. `server/.env.deploy.local`
 
 配信先の値を置くファイル。`.gitignore` の `.env*.local` に当たるのでコミットされない。**Worktree を作り直したときや別のマシンで作業するときは、手で作り直す。**
 
+**値はシングルクォートで囲む。** `.` で読み込むので、パスワードに `$` やバッククォートや空白が入っていると、囲まないと別の値になる（`$` は展開されて消える）。
+
 ```
-DATABASE_URL=<Supabase の Session pooler・:5432>
-BETTER_AUTH_SECRET=<openssl rand -base64 32 の出力>
-SEED_USER_EMAIL=<サインインに使うメールアドレス>
-SEED_USER_PASSWORD=<サインインに使うパスワード>
+DATABASE_URL='<Supabase の Session pooler・:5432>'
+BETTER_AUTH_SECRET='<openssl rand -base64 32 の出力>'
+SEED_USER_EMAIL='<サインインに使うメールアドレス>'
+SEED_USER_PASSWORD='<サインインに使うパスワード>'
 ```
+
+### 名前を `.env.production.local` にしないこと
+
+**Next.js が自動で読むファイル名だから。** `next build` は `NODE_ENV=production` で走り、`.env.production.local` を `.env.local` より先に読む。この名前にすると、ローカルの `pnpm build`（品質ゲート）が常用DBの `DATABASE_URL` を拾う。`NODE_ENV` が `deploy` になることはないので、`.env.deploy.local` なら拾われない。
 
 ## 4. Supabase の接続URLは用途で使い分ける
 
@@ -135,7 +141,7 @@ Supabase のダッシュボード上部の **Connect** に3つ並んでいる。
 ```bash
 cd server
 nvm use
-( set -a; . ./.env.production.local; set +a; pnpm db:migrate && pnpm db:seed )
+( set -a; . ./.env.deploy.local; set +a; pnpm db:migrate && pnpm db:seed )
 ```
 
 `( )` でくくるのは §1.1 と同じ理由。常用DBの `DATABASE_URL` をシェルに残さない。
@@ -175,7 +181,7 @@ Netlify の無料プランは**月300クレジット**。**使い切るとサイ
 | | 開発用 | 常用 |
 |---|---|---|
 | 場所 | Mac の Docker（`server/compose.yaml`・ポート5434） | Supabase（東京） |
-| 読む設定ファイル | `.env.local` | `.env.production.local` |
+| 読む設定ファイル | `.env.local` | `.env.deploy.local` |
 | 作り直し | `docker compose down -v` していつでも | しない |
 
 開発用を作り直しても常用のデータは残る。Netlify のサイトは1つで、常に常用DBだけを見る。

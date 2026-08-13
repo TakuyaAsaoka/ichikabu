@@ -10,10 +10,10 @@ Issue #74 の「残る判断」5件の結論。
 
 | # | 判断 | 結論 | 理由 |
 |---|---|---|---|
-| 1 | 配信先DBへのマイグレーション | 手で流す。`DATABASE_URL=<配信先> pnpm db:migrate` | コードの変更が要らない。Node の `--env-file` と `process.loadEnvFile` はどちらも既にある環境変数を上書きしないため、シェルで渡した値が `.env.local` より優先される（実測で確認）。デプロイ自体が手動なので、手順が1行増えるだけで済む |
+| 1 | 配信先DBへのマイグレーション | 手で流す。`( set -a; . ./.env.deploy.local; set +a; pnpm db:migrate )` | コードの変更が要らない。Node の `--env-file` と `process.loadEnvFile` はどちらも既にある環境変数を上書きしないため、シェルで渡した値が `.env.local` より優先される（実測で確認）。デプロイ自体が手動なので、手順が1行増えるだけで済む |
 | 2 | iOS の接続先の切り替え | `#if DEBUG` で2分岐。Debug は `localhost:3000`、Release は配信先 | 追加ファイルなし・ビルド設定の変更なし。切り替えは Xcode の Scheme > Run > Build Configuration で行う |
 | 3 | サイトとDBの数 | Netlify サイト1つ（常用）、Supabase プロジェクト1つ（常用）。開発用DBは今までどおりローカルの Docker | デプロイのクレジット消費が最小。「開発用DBを作り直しても常用DBのデータが残る」はこの形でも満たせる |
-| 4 | 配信先の利用者の投入 | 同じく `DATABASE_URL=<配信先> pnpm db:seed` | コードの変更が要らない。サンプルの銘柄・イベントも一緒に入るが、管理UIから消せる（Issue #68） |
+| 4 | 配信先の利用者の投入 | 同じく `.env.deploy.local` を読ませて `pnpm db:seed` | コードの変更が要らない。**`DATABASE_URL` だけを渡してはいけない。** `SEED_USER_EMAIL` と `SEED_USER_PASSWORD` が `.env.local`（開発用）から読まれ、エラーも出ずに常用DBへ開発用の利用者が作られる。サンプルの銘柄・イベントも一緒に入るが、管理UIから消せる（Issue #68） |
 | 5 | クレジット残量の見方 | `docs/guides/deploy.md` に Netlify の Usage & billing の見方を書く | コードを書く必要がない。50%・75%・100% でメールとアプリ内の通知も届く |
 
 ## 2. 配信の構成
@@ -127,7 +127,20 @@ static let baseURL: URL = {
 
 `openapi.yaml` の `servers` は変えない。iOS は生成された型だけを使い、通信は手で書いているため、`servers` の値はどこからも読まれない。
 
-`server/.env.example` には**値を足さない**。配信先の値は Netlify の環境変数と `.env.production.local` に入れるので、リポジトリには入らない。ただし置き場所が分かるように、末尾に案内を追記する。**Issue #74 の検証が見る9行目（`BETTER_AUTH_URL`）を動かさないよう、追記は末尾に置く。**
+`server/.env.example` には**値を足さない**。配信先の値は Netlify の環境変数と `.env.deploy.local` に入れるので、リポジトリには入らない。ただし置き場所が分かるように、末尾に案内を追記する。**Issue #74 の検証が見る9行目（`BETTER_AUTH_URL`）を動かさないよう、追記は末尾に置く。**
+
+### 配信先の値を置くファイル名は `.env.deploy.local`
+
+`.env.production.local` にしてはいけない。**Next.js が自動で読むファイル名だから。**
+
+`next build` は `NODE_ENV=production` で走り、`.env.production.local` → `.env.local` → `.env.production` → `.env` の順に読む（先に読んだものが勝つ）。つまりこの名前にすると、**ローカルの `pnpm build`（品質ゲート）が常用DBの `DATABASE_URL` を拾う。**
+
+実測で確認した。`.env.local` を外して `pnpm build` を実行すると、
+
+- `.env.production.local` という名前のとき: **通る**（配信先の値を読んでいる）
+- `.env.deploy.local` に変えたとき: 落ちる（`DATABASE_URL` の出どころが無い）
+
+今は全ページが動的でビルド中にDBへつながないため実害は出ていないが、静的生成するページを1枚足した時点でローカルのビルドが常用DBを見にいく。`NODE_ENV` が `deploy` になることはないので、この名前なら Next.js は拾わない。
 
 ## 7. `docs/guides/deploy.md` に書くこと
 
@@ -135,8 +148,8 @@ static let baseURL: URL = {
 |---|---|
 | 初回の準備 | Supabase でプロジェクトを作る（東京リージョン）／Netlify でサイトを作り GitHub とつなぐ／**Stop builds を選んで自動デプロイを止める**／Netlify の環境変数を3つ入れる |
 | Netlify に入れる環境変数 | `DATABASE_URL`（transaction mode・6543）・`BETTER_AUTH_SECRET`・`BETTER_AUTH_URL`（`https://<サイト名>.netlify.app`） |
-| マイグレーションの流し方 | `DATABASE_URL=<session mode の URL> pnpm db:migrate` |
-| 利用者の投入 | `DATABASE_URL=<session mode の URL> pnpm db:seed`。サンプルの銘柄・イベントも入るので、要らなければ管理UIから消す |
+| マイグレーションの流し方 | `( set -a; . ./.env.deploy.local; set +a; pnpm db:migrate )` |
+| 利用者の投入 | 同じ形で `pnpm db:seed`。サンプルの銘柄・イベントも入るので、要らなければ管理UIから消す |
 | デプロイの手順 | `pnpm --package=netlify-cli dlx netlify deploy --build --prod`。**先にマイグレーションを流してからデプロイする**。実行する場所と前提（メインcheckout・`nvm use`・`pnpm install`）も書く |
 | クレジットの見方 | Netlify の Usage & billing。無料は月300。内訳と枠切れの挙動（次の8節） |
 | iOS の切り替え | Xcode の Scheme > Run > Build Configuration を Debug と Release で切り替える |
