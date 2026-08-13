@@ -72,8 +72,10 @@ curl https://ichikabu.netlify.app/api/health
 | `DATABASE_URL` | 要る | 要る | **入口が違う。下の §4 を参照** |
 | `BETTER_AUTH_SECRET` | 要る | 要る | `openssl rand -base64 32`。開発用とは別の値 |
 | `BETTER_AUTH_URL` | 要る | 要らない | `https://ichikabu.netlify.app` |
-| `SEED_USER_EMAIL` | 要らない | 要る | サインインに使うメールアドレス |
-| `SEED_USER_PASSWORD` | 要らない | 要る | サインインに使うパスワード |
+| `GOOGLE_CLIENT_ID` | 要る | 要らない | 取得は `docs/guides/google-oauth.md`。`pnpm db:seed` は `.env.local` 側の値で足りる |
+| `GOOGLE_CLIENT_SECRET` | 要る | 要らない | 同上 |
+| `SEED_USER_EMAIL` | 要らない | 要る | サインインに使うメールアドレス。**Google でログインするアカウントと同じにする** |
+| `SEED_USER_PASSWORD` | 要らない | 要る | サインインに使うパスワード。iOS が使うので消さない |
 
 Netlify 側は Project configuration > Environment variables に入れる。
 
