@@ -20,7 +20,10 @@ GitHub Actions の CI は使わない。**ローカル検証がマージ前の�
 
 ### server（実行ディレクトリ: `server/`）
 
-前提: 開発用DBが起動していること（`docker compose up -d`）。テストが実際のPostgreSQLに対して制約を検証するため。
+前提:
+
+- Node が 24 であること（`server/` で `nvm use`）。`.nvmrc` は `nvm use` を実行しないと効かない。配信先も Node 24 で動くため、違うバージョンで検証しても意味がない
+- 開発用DBが起動していること（`docker compose up -d`）。テストが実際のPostgreSQLに対して制約を検証するため
 
 ```
 pnpm install && pnpm gen && pnpm build && pnpm test:run && pnpm typecheck && pnpm lint

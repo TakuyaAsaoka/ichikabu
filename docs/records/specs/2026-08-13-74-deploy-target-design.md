@@ -127,7 +127,7 @@ static let baseURL: URL = {
 
 `openapi.yaml` の `servers` は変えない。iOS は生成された型だけを使い、通信は手で書いているため、`servers` の値はどこからも読まれない。
 
-`server/.env.example` も変えない。配信先の値は Netlify の環境変数に入れるので、リポジトリには入らない。
+`server/.env.example` には**値を足さない**。配信先の値は Netlify の環境変数と `.env.production.local` に入れるので、リポジトリには入らない。ただし置き場所が分かるように、末尾に案内を追記する。**Issue #74 の検証が見る9行目（`BETTER_AUTH_URL`）を動かさないよう、追記は末尾に置く。**
 
 ## 7. `docs/guides/deploy.md` に書くこと
 
@@ -137,7 +137,7 @@ static let baseURL: URL = {
 | Netlify に入れる環境変数 | `DATABASE_URL`（transaction mode・6543）・`BETTER_AUTH_SECRET`・`BETTER_AUTH_URL`（`https://<サイト名>.netlify.app`） |
 | マイグレーションの流し方 | `DATABASE_URL=<session mode の URL> pnpm db:migrate` |
 | 利用者の投入 | `DATABASE_URL=<session mode の URL> pnpm db:seed`。サンプルの銘柄・イベントも入るので、要らなければ管理UIから消す |
-| デプロイの手順 | `pnpm dlx netlify-cli deploy --build --prod`。**先にマイグレーションを流してからデプロイする** |
+| デプロイの手順 | `pnpm --package=netlify-cli dlx netlify deploy --build --prod`。**先にマイグレーションを流してからデプロイする**。実行する場所と前提（メインcheckout・`nvm use`・`pnpm install`）も書く |
 | クレジットの見方 | Netlify の Usage & billing。無料は月300。内訳と枠切れの挙動（次の8節） |
 | iOS の切り替え | Xcode の Scheme > Run > Build Configuration を Debug と Release で切り替える |
 

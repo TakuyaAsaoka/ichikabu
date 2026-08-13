@@ -15,15 +15,18 @@ Mac    ──http───▶ next dev                     ──▶ Docker 開�
 **メインcheckout で実行する。Worktree からはデプロイできない**（理由は §1.1）。
 
 ```bash
-# 1. 依存を入れる。ローカルビルドは自動で入れてくれない
 cd server
+
+# 1. Node を 24 にする。ビルドするのはこのMacなので、シェルの Node がそのまま使われる
+nvm use
+
+# 2. 依存を入れる。ローカルビルドは自動で入れてくれない
 pnpm install
 
-# 2. マイグレーションを先に流す（配信先の値は .env.production.local。§3 を参照）
-set -a && . ./.env.production.local && set +a
-pnpm db:migrate
+# 3. マイグレーションを先に流す（配信先の値は .env.production.local。§3 を参照）
+( set -a; . ./.env.production.local; set +a; pnpm db:migrate )
 
-# 3. デプロイする。リポジトリの最上位から実行する
+# 4. デプロイする。リポジトリの最上位から実行する
 cd ..
 pnpm --package=netlify-cli dlx netlify deploy --build --prod
 ```
@@ -32,13 +35,16 @@ pnpm --package=netlify-cli dlx netlify deploy --build --prod
 
 `--build` はビルドをこのMacで実行してから成果物だけを送る。Netlify 側でビルドしないため、ビルドの失敗で配信先が壊れることがない。
 
-### 1.1 実行する場所の決まり
+### 1.1 実行する場所と前提
 
 | 決まり | 理由 |
 |---|---|
 | **Worktree から実行しない** | netlify-cli はリポジトリの起点を探すときに Worktree の `.git`（ファイル）を辿ってメインcheckoutに行き着く。`base = "server"` がメインcheckoutの `server/` に解決され、そちらでビルドしてしまう |
 | **`server/` ではなく最上位から実行する** | `netlify.toml` が最上位にある。`server/` から実行すると見つからず `base` が効かない |
+| **先に `nvm use` する** | `.nvmrc`（Node 24）は `nvm use` を実行しないと効かない。ビルドするのはこのMacなので、切り替え忘れると別のバージョンでビルドした成果物が上がる |
 | **先に `pnpm install` する** | Netlify のCIは依存を自動で入れるが、`netlify deploy --build` は入れない。無いと `openapi-typescript: command not found` で止まる |
+| **`server/.env.local` も要る** | `pnpm db:migrate` と `pnpm db:seed` は `.env.local` を必ず読む。無いと例外で止まる。配信先の値はシェルから渡すので中身は開発用のままでよい |
+| **配信先の値をシェルに残さない** | 上の手順が `( ... )` でくくってあるのは、常用DBの `DATABASE_URL` をそのシェルに残さないため。残すと、同じターミナルで続けて `pnpm dev` を実行したときに開発のつもりで常用DBを触る（シェルの値が `.env.local` より優先される） |
 
 初回だけ、ブラウザ認証とサイトの紐付けが要る。
 
@@ -61,8 +67,6 @@ curl https://ichikabu.netlify.app/api/health
 
 ## 2. 使う環境変数
 
-`BETTER_AUTH_SECRET` は Netlify と `.env.production.local` で**同じ値**にする。ずれるとデプロイのたびに全セッションが無効になる。
-
 | 変数 | Netlify | `.env.production.local` | 値 |
 |---|---|---|---|
 | `DATABASE_URL` | 要る | 要る | **入口が違う。下の §4 を参照** |
@@ -72,6 +76,10 @@ curl https://ichikabu.netlify.app/api/health
 | `SEED_USER_PASSWORD` | 要らない | 要る | サインインに使うパスワード |
 
 Netlify 側は Project configuration > Environment variables に入れる。
+
+**Netlify 側の `BETTER_AUTH_SECRET` は一度決めたら変えない。** セッションとトークンの署名鍵なので、変えるとサインイン済みの端末が全部やり直しになる。
+
+`.env.production.local` 側にも要るのは、`pnpm db:seed` が `server/src/auth.ts` を読み込み、未設定だと例外で止まるため。パスワードのハッシュには使われない（毎回違う値を混ぜる方式のため）ので、Netlify 側と一致していなくても動く。**同じ値を入れておくほうが、どちらを見ているか迷わなくて済む。**
 
 ## 3. `server/.env.production.local`
 
@@ -126,10 +134,11 @@ Supabase のダッシュボード上部の **Connect** に3つ並んでいる。
 
 ```bash
 cd server
-set -a && . ./.env.production.local && set +a
-pnpm db:migrate
-pnpm db:seed
+nvm use
+( set -a; . ./.env.production.local; set +a; pnpm db:migrate && pnpm db:seed )
 ```
+
+`( )` でくくるのは §1.1 と同じ理由。常用DBの `DATABASE_URL` をシェルに残さない。
 
 サンプルの銘柄・イベントも一緒に入る。要らなければ管理UI（`https://ichikabu.netlify.app`）から消す。
 
@@ -143,6 +152,8 @@ pnpm db:seed
 | Release | `https://ichikabu.netlify.app` |
 
 実機で配信先を使うときは、Xcode の **Scheme > Run > Build Configuration** を **Release** にする。Debug のままだと iPhone 自身の3000番を指すため届かない。
+
+**この切り替えは `ios/Ichikabu.xcodeproj/xcshareddata/xcschemes/Ichikabu.xcscheme` を書き換える。** このファイルはコミット対象なので、切り替えたあとは `git checkout` で戻すか、コミットに含めないようにする。既定は Debug のまま置く（開発のほうが回数が多いため）。
 
 ## 7. クレジット残量の見方
 
