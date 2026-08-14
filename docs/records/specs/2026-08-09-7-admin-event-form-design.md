@@ -3,6 +3,8 @@
 - 対応 Issue: [#7 管理UI: イベント登録](https://github.com/TakuyaAsaoka/ichikabu/issues/7)
 - 根拠: [全体設計書](2026-08-02-1-ichikabu-design.md)（§4 データモデル・§5 イベントの3種別・§10.2 セル表示の規則・§14 未決事項 #10）、[管理UI（銘柄・保有の登録）設計書](2026-08-09-6-admin-ui-design.md)
 
+**この設計書は着手時点の記録である。以後の変更は追記で示す。** 全体を通して出てくる `src/db/register.ts` と `src/db/register.test.ts` は、後に `src/db/write.ts` と `src/db/write.test.ts` へ改名した（→ [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md) §5.1）。
+
 ## 1. 目的と結論
 
 **イベント（`event`）を画面から登録できるようにする。** 現状イベントを入れる手段は `pnpm db:seed`（`src/db/seed-event.ts`）の固定3件だけで、本来の登録手段が無い。
@@ -23,7 +25,7 @@
 ```
 server/
 ├── app/
-│   ├── event-form.tsx   ← 新規。"use client"
+│   ├── event-form.tsx   ← 新規（後に Server Component になった。"use client" は app/form.tsx にある）
 │   ├── event-input.ts   ← 新規。FormData を createEvent の入力に直す
 │   ├── event-input.test.ts ← 新規
 │   ├── page.tsx         ← 「イベントを登録」と「イベント一覧」を足す
@@ -40,7 +42,7 @@ server/
 | `src/db/register.ts` | INSERT、`short_label` の幅の判定（→ §3）、制約違反の日本語化 |
 | `app/event-input.ts` | FormData を `createEvent` の入力に直す。対象の値の振り分け（→ §4）と空欄の読み替え（→ §5） |
 | `app/actions.ts` | 認証の確認と `revalidatePath` |
-| `app/event-form.tsx` | 入力欄と `useActionState` |
+| `app/event-form.tsx` | 入力欄（`useActionState` は後に `app/form.tsx` へ移した。→ [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md) §4.1） |
 
 **`app/event-input.ts` は `"use server"` を付けない素のモジュールにする。** 管理UI設計書 §4 は「Vitest のテスト対象は `src/db/register.ts` だけ」としていたが、対象の振り分けと空欄の読み替えを `app/actions.ts` に置くと、そこが `next/headers` を使うため Vitest から読み込めず、**完了条件の「`end_date` を空にすると単日として登録される」の「空にする」部分を自動で確かめる手段が無くなる**。純粋な変換だけを別ファイルに出せば普通にテストできる（→ §8）。`app/actions.ts` に残るのは認証の確認と `revalidatePath` だけになる。
 
