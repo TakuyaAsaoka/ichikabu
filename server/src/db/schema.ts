@@ -3,7 +3,9 @@ import {
   boolean,
   check,
   date,
+  index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   smallint,
@@ -23,6 +25,20 @@ export * from "./auth-schema";
 const MARKETS = ["JP", "US"] as const;
 /** 市場イベントの対象。管理UIの選択肢もここから作る */
 export const EVENT_MARKETS = ["JP", "US", "GLOBAL"] as const;
+
+/**
+ * 監査ログの操作の区分（監査ログ 設計書 §5.1）。
+ * `create_event` のように対象を混ぜない。対象は `resource_type` が別に持つ
+ */
+export const AUDIT_ACTIONS = ["create", "update", "delete"] as const;
+/** 記録の対象になるテーブル。値はDBのテーブル名そのもの */
+export const AUDIT_RESOURCES = [
+  "stock",
+  "theme",
+  "event",
+  "holding",
+  "theme_stock",
+] as const;
 
 /** 作成日時。全テーブルが持つ（設計書 §4.1）。DBのデフォルト値で入るためアプリからは書かない */
 const createdAt = timestamp("created_at", { withTimezone: true })
@@ -148,6 +164,67 @@ export const event = pgTable(
     check(
       "event_period_check",
       sql`${t.endDate} IS NULL OR ${t.endDate} > ${t.startDate}`,
+    ),
+  ],
+);
+
+/**
+ * 誰がいつ何を作成・更新・削除したかの記録（監査ログ 設計書 §5.1）。
+ * **書くのは `src/db/audit.ts` だけ**で、他のどこからも insert しない。
+ *
+ * IPアドレスとブラウザの種類は持たない。入力者は身内3人で、追跡する相手がいない
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    /**
+     * 操作した利用者。取り込みスクリプトなど人以外は NULL。
+     *
+     * `onDelete` は restrict にする。**この表は過去の事実の記録で、他の表への
+     * DELETE で書き換わってはならない。** set null にすると、入力者を1人消した
+     * 瞬間にその人の記録が NULL になり、「取り込みがイベントを削除した」という
+     * 実際には起こりえない行が §5.5 の集計に出る（`upsertMarketEvents` に
+     * DELETE は無い）。`seedUser` は `crypto.randomUUID()` で採番するので、
+     * 同じメールアドレスで入れ直しても紐づけは戻せない。
+     *
+     * `holding.user_id` の cascade と揃えない。あちらは「今の状態」の表で、
+     * 全体設計書 §4.1 がアカウント削除をFK違反で止めないために cascade を選んだ。
+     * 入力者をやめさせるのに `user` の行を消す必要は無い。メールアドレスを
+     * 書き換えれば、パスワードでも Google でもサインインできなくなる
+     * （Google の初回サインインは `src/auth.ts` のフックが拒む）
+     */
+    userId: text("user_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+    /**
+     * `stock.market` と違い、CHECK 制約は置かない。
+     * あちらは画面から来た生の文字列をそのまま渡してDBに判定させる形だが、
+     * この2列に入る値は `src/db/audit.ts` が書く決まった文字列だけで、
+     * 外から届く経路が無い。`text({ enum })` は TypeScript 側の型だけを絞る
+     */
+    action: text({ enum: AUDIT_ACTIONS }).notNull(),
+    resourceType: text("resource_type", { enum: AUDIT_RESOURCES }).notNull(),
+    /** 主キーの値。複合主キーの表は ":" でつないだ文字列 */
+    resourceId: text("resource_id").notNull(),
+    /**
+     * 変更前の行まるごと。削除ではこれが消えた行の唯一の写しで、
+     * `jsonb_populate_record` で戻せる（設計書 §5.4）
+     */
+    previousValues: jsonb("previous_values").$type<Record<string, unknown>>(),
+    /** 変更後の行まるごと */
+    newValues: jsonb("new_values").$type<Record<string, unknown>>(),
+    createdAt,
+  },
+  (t) => [
+    index("audit_log_created_at_idx").on(t.createdAt.desc()),
+    index("audit_log_user_id_idx").on(t.userId),
+    // 「このイベントを登録したのは誰か」を引くための索引。resource_type だけの
+    // 索引では行を絞れない（設計書 §5.1）
+    index("audit_log_resource_idx").on(
+      t.resourceType,
+      t.resourceId,
+      t.createdAt,
     ),
   ],
 );

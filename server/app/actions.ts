@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
+import { record } from "../src/db/audit";
 import { stock, theme } from "../src/db/schema";
 import {
   createEvent,
@@ -22,6 +23,7 @@ import {
   updateEvent,
   updateStock,
   updateTheme,
+  type WriteResult,
 } from "../src/db/write";
 import { toEventInputs } from "./bulk-event-input";
 import { toEventInput } from "./event-input";
@@ -44,13 +46,16 @@ if (!adminEmail) {
  * Server Action は画面を通さず直接POSTできるため、画面側の確認とは別にここでも確かめる
  * （Next.js 同梱ドキュメント 01-app/01-getting-started/07-mutating-data.md の警告）
  */
-async function requireSession() {
+async function requireSession(): Promise<Session> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     redirect("/signin");
   }
   return session;
 }
+
+/** サインインしている利用者。監査ログに残す利用者IDの出どころでもある */
+type Session = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
 /** セッションを確かめて利用者IDを返す */
 async function requireUserId(): Promise<string> {
@@ -64,14 +69,32 @@ async function requireUserId(): Promise<string> {
  * 拒み方を `redirect()` にしない。削除は成功しても `redirect("/")` するため、
  * 拒否と成功が同じ `NEXT_REDIRECT` になり、拒まれたことを画面でもテストでも
  * 見分けられなくなる（実測。→ 入力者を3人にする設計書 §4）。
- * 戻り値のエラー文は、他の Server Action と同じく ActionForm が表示する
+ * 戻り値のエラー文は、他の Server Action と同じく ActionForm が表示する。
+ *
+ * セッションを自分で読まずに受け取る。読むと、記録に残す利用者IDを取るために
+ * 同じセッションをもう1度読むことになる
  */
-async function requireAdmin(): Promise<string | null> {
-  const session = await requireSession();
+function requireAdmin(session: Session): string | null {
   // seedUser がメールアドレスを小文字にして入れるため、比較も小文字で揃える
   return session.user.email.toLowerCase() === adminEmail
     ? null
     : "削除できるのは管理者だけ";
+}
+
+/**
+ * 書き込みを実行し、成功したら監査ログに記録する（設計書 §5.2）。
+ * 成功で null、書き込みか記録の失敗で画面に出す日本語のエラー文を返す。
+ *
+ * **14の Server Action がすべてこれを通る。** 個々の関数が記録を自分で呼ぶ形に
+ * しないのは、呼び忘れがそのまま記録の漏れになるため。3つ目の書き込みの経路が
+ * 増えたときは `src/db/write-boundary.test.ts` が落ちる
+ */
+async function audited(
+  userId: string | null,
+  write: Promise<WriteResult>,
+): Promise<string | null> {
+  const result = await write;
+  return typeof result === "string" ? result : record(userId, result);
 }
 
 /**
@@ -101,9 +124,9 @@ export async function addStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await createStock(toStockInput(formData));
+  const message = await audited(userId, createStock(toStockInput(formData)));
   if (message) {
     return message;
   }
@@ -119,7 +142,10 @@ export async function addHolding(
 ): Promise<string | null> {
   const userId = await requireUserId();
 
-  const message = await createHolding(userId, Number(formData.get("stockId")));
+  const message = await audited(
+    userId,
+    createHolding(userId, Number(formData.get("stockId"))),
+  );
   if (message) {
     return message;
   }
@@ -133,9 +159,12 @@ export async function addTheme(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await createTheme(String(formData.get("name") ?? ""));
+  const message = await audited(
+    userId,
+    createTheme(String(formData.get("name") ?? "")),
+  );
   if (message) {
     return message;
   }
@@ -149,11 +178,14 @@ export async function addThemeStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await createThemeStock(
-    Number(formData.get("themeId")),
-    Number(formData.get("stockId")),
+  const message = await audited(
+    userId,
+    createThemeStock(
+      Number(formData.get("themeId")),
+      Number(formData.get("stockId")),
+    ),
   );
   if (message) {
     return message;
@@ -168,9 +200,9 @@ export async function addEvent(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await createEvent(toEventInput(formData));
+  const message = await audited(userId, createEvent(toEventInput(formData)));
   if (message) {
     return message;
   }
@@ -188,11 +220,11 @@ export async function editStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await updateStock(
-    Number(formData.get("id")),
-    toStockInput(formData),
+  const message = await audited(
+    userId,
+    updateStock(Number(formData.get("id")), toStockInput(formData)),
   );
   if (message) {
     return message;
@@ -207,12 +239,16 @@ export async function removeStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  const denied = await requireAdmin();
+  const session = await requireSession();
+  const denied = requireAdmin(session);
   if (denied) {
     return denied;
   }
 
-  const message = await deleteStock(Number(formData.get("id")));
+  const message = await audited(
+    session.user.id,
+    deleteStock(Number(formData.get("id"))),
+  );
   if (message) {
     return message;
   }
@@ -237,7 +273,10 @@ export async function removeHolding(
 ): Promise<string | null> {
   const userId = await requireUserId();
 
-  const message = await deleteHolding(userId, Number(formData.get("stockId")));
+  const message = await audited(
+    userId,
+    deleteHolding(userId, Number(formData.get("stockId"))),
+  );
   if (message) {
     return message;
   }
@@ -251,11 +290,11 @@ export async function editTheme(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await updateTheme(
-    Number(formData.get("id")),
-    String(formData.get("name") ?? ""),
+  const message = await audited(
+    userId,
+    updateTheme(Number(formData.get("id")), String(formData.get("name") ?? "")),
   );
   if (message) {
     return message;
@@ -270,12 +309,16 @@ export async function removeTheme(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  const denied = await requireAdmin();
+  const session = await requireSession();
+  const denied = requireAdmin(session);
   if (denied) {
     return denied;
   }
 
-  const message = await deleteTheme(Number(formData.get("id")));
+  const message = await audited(
+    session.user.id,
+    deleteTheme(Number(formData.get("id"))),
+  );
   if (message) {
     return message;
   }
@@ -289,14 +332,18 @@ export async function removeThemeStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  const denied = await requireAdmin();
+  const session = await requireSession();
+  const denied = requireAdmin(session);
   if (denied) {
     return denied;
   }
 
-  const message = await deleteThemeStock(
-    Number(formData.get("themeId")),
-    Number(formData.get("stockId")),
+  const message = await audited(
+    session.user.id,
+    deleteThemeStock(
+      Number(formData.get("themeId")),
+      Number(formData.get("stockId")),
+    ),
   );
   if (message) {
     return message;
@@ -311,11 +358,11 @@ export async function editEvent(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const message = await updateEvent(
-    Number(formData.get("id")),
-    toEventInput(formData),
+  const message = await audited(
+    userId,
+    updateEvent(Number(formData.get("id")), toEventInput(formData)),
   );
   if (message) {
     return message;
@@ -330,12 +377,16 @@ export async function removeEvent(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  const denied = await requireAdmin();
+  const session = await requireSession();
+  const denied = requireAdmin(session);
   if (denied) {
     return denied;
   }
 
-  const message = await deleteEvent(Number(formData.get("id")));
+  const message = await audited(
+    session.user.id,
+    deleteEvent(Number(formData.get("id"))),
+  );
   if (message) {
     return message;
   }
@@ -354,7 +405,7 @@ export async function addEvents(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const userId = await requireUserId();
 
   const [stocks, themes] = await Promise.all([
     db
@@ -371,7 +422,7 @@ export async function addEvents(
     return inputs;
   }
 
-  const message = await createEvents(inputs);
+  const message = await audited(userId, createEvents(inputs));
   if (message) {
     return message;
   }

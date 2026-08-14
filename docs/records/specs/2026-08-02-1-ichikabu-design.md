@@ -149,6 +149,7 @@
 | `theme` | 名前 | 名前UNIQUE |
 | `theme_stock` | theme × stock | PKは (theme_id, stock_id) の複合 |
 | `event` | `title`・`short_label`・`start_date`・`end_date`(NULL=単日)・`time`(NULL可)・`importance`(1〜3)・`note`(NULL可)・`source_url`(NULL可) ＋ **対象の3列** `market`(JP/US/GLOBAL)・`theme_id`・`stock_id` | 日付・時刻はすべてJST。対象の3列は**ちょうど1つだけ非NULL**（CHECK）。`end_date` は `start_date` より後 |
+| `audit_log` | `user_id`(NULL=人以外)・`action`(create/update/delete)・`resource_type`・`resource_id`・`previous_values`(jsonb)・`new_values`(jsonb) | 誰がいつ何を作成・更新・削除したかの記録（→ [監査ログ 設計書 §5](2026-08-14-82-multi-editor-audit-design.md)）。索引3本（`created_at`・`user_id`・`(resource_type, resource_id, created_at)`）。IPアドレスとブラウザの種類は持たない |
 
 **全テーブルに `created_at` を持つ**（DBのデフォルト値で自動設定。アプリコードは書かない）。
 
@@ -162,6 +163,7 @@
 | `holding.stock_id` | RESTRICT | 保有中の銘柄の削除は失敗させ、運用者に気づかせる |
 | `theme_stock` の2つ | CASCADE | 純粋な対応表。テーマ削除は通常の整理作業 |
 | `event.theme_id`・`event.stock_id` | RESTRICT | イベントは人力登録した製品の中身（→ §1）。親の削除で黙って消してはならない。SET NULL は対象の3列が全てNULLになりCHECK違反を招くため不可 |
+| `audit_log.user_id` | RESTRICT | **監査ログは過去の事実の記録で、他のテーブルへの DELETE で書き換わってはならない。** SET NULL にすると、入力者を1人消した瞬間にその人の記録が「人以外がやった」と読める行に化ける（取り込みスクリプトに DELETE は無いのに「取り込みが削除した」が集計に出る）。`seedUser` は `crypto.randomUUID()` で採番するため、同じメールアドレスで入れ直しても紐づけは戻せない。入力者をやめさせるのに `user` の行を消す必要は無く、メールアドレスを書き換えればパスワードでも Google でもサインインできなくなる（Google の初回サインインは §9 のフックが拒む） |
 
 休場日はテーブルにしない。年1回更新すれば足りるリストにDBは過剰であり、アプリ内静的定数で持つ。
 
@@ -186,6 +188,9 @@
 | `event.short_label` を持つ | iPhone縦のカレンダーセル幅は約44pt。日本語のイベント名は入らない。機械的な短縮は不可（「令和9年度予算概算要求」→「令和9年度…」で意味が消える）。人力登録なので登録者が略号を付ける | タイトルの機械的短縮 |
 | `event.importance`（★1〜3） | 「今週は荒れるか」に答える唯一の手段。Investing.com・TradingView・みんかぶで事実上の標準表記。人力登録の1カラムで済む | 重要度なし |
 | `event.source_url` を持つ（`event.source` は作らないまま） | **上の「`event.source` は作らない」と矛盾しない。別物である。** `source` は取り込み経路の区分（manual/auto）で、後から足しても既存行に正しい値を入れられる。`source_url` は「この日付をどこで確認したか」の記録で、**後から列を足しても、それまでに登録したイベントの出典は復元できない**。用途は権利の照会と誤登録の追跡で、どちらも**運用者が見る**。<br>**出典の記載が条件の出典への対応は、この列だけでは果たせない。** 記載は利用者に見える形で出すことを求めるもので、`source_url` はアプリに届かない。**そのため `source_name` を別に足し、名前とURLが揃った行だけをアプリに返す**（→ [出典表示設計書](2026-08-11-41-event-source-design.md)）。`source_url` だけの行は運用者の記録として残り、画面には出ない | 出典を残さない |
+| 作成者の列（`created_by`・`updated_by`）は作らない | **行を消せば列も一緒に消える**ので「誰が何を消したか」は出せない。監査ログがあれば作成者も貢献度も削除も全部出せるため、列を足しても監査ログは要る。逆は成り立たない | 5テーブルに `created_by`・`updated_by` を足す |
+| 削除は行を消す。`active=false` にする「行を残す削除」は採らない | 5つのテーブルに列を足すと、**全部の問い合わせに絞り込みが漏れる**。上の `event.market` の NULL と同じ形の危うさ。監査ログは既存の問い合わせを1つも変えず、`previous_values` から `jsonb_populate_record` の1文で戻せる（→ [監査ログ 設計書 §5.4](2026-08-14-82-multi-editor-audit-design.md)） | 論理削除（`deleted_at` 列・`active` 列） |
+| 監査ログはDBのトリガーではなくアプリで書く | `server/drizzle/` にトリガーが1つも無く、drizzle-kit は生成しない。手書きのSQLが `schema.ts` の外に住むことになる（`event_target` を却下したときと同じ理由）。書き込みの経路は2つしか無く、3つ目が増えたら落ちるテストで固定できる | DBのトリガーで自動記録 |
 | 全テーブルに `created_at` を持つ | 同じ非可逆性。後から足しても過去行は空のまま。`holding.created_at` は将来の集合知機能（「最近買われている銘柄」）の原料そのものであり、障害・問い合わせ調査の最低限の手がかりでもある | 作成日時を持たない |
 
 ## 5. イベントの3種別と表示ルール
