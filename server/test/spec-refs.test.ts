@@ -67,13 +67,15 @@ describe("設計書が指しているコードが実在する", () => {
   // （それが Issue #96 の7件目）、消えたら鳴る場所を1つ持たせている。
   // コード側は宣言の形で見る。名前だけで見ると、`src/db/write.ts` の
   // `// upsertMarketEvents が同じ event の行に重なる` というコメントに当たり、
-  // 宣言を改名しても緑のまま通る（2026-08-15 に実測）
+  // 宣言を改名しても緑のまま通る（2026-08-15 に実測）。
+  // `decl` は名前の次の1文字（`(` か `:`）まで必ず入れる。名前で切ると、
+  // `baseURL` → `baseURLRenamed` のように後ろへ足す改名を素通しする（同日に実測）
   const specRefs = [
     {
       spec: "../../docs/records/specs/2026-08-13-74-deploy-target-design.md",
       code: "../../ios/Ichikabu/APIClient.swift",
       name: "baseURL",
-      decl: "static let baseURL",
+      decl: "static let baseURL:",
       section: "配信先の設計書 §6",
     },
     {
