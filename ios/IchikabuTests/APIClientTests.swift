@@ -63,6 +63,22 @@ struct APIClientTests {
 		#expect(events[0].source?.url == "https://www.stat.go.jp/data/cpi/")
 	}
 
+	@Test("サーバーが返す形の JSON を銘柄に読み取れる")
+	func decodeStocks() throws {
+		let json = Data(
+			"""
+			[{"id":1,"market":"JP","ticker":"7203","name":"トヨタ自動車","themeIds":[10]},\
+			{"id":2,"market":"US","ticker":"NVDA","name":"NVIDIA","themeIds":[]}]
+			""".utf8)
+		let stocks = try APIClient.stocks(from: json, response: response(status: 200))
+		#expect(stocks.count == 2)
+		#expect(stocks[0].market == .JP)
+		#expect(stocks[0].ticker == "7203")
+		// 所属テーマは端末側のテーマイベントの判定に使う（ログイン廃止 設計書 §3.2）
+		#expect(stocks[0].themeIds == [10])
+		#expect(stocks[1].themeIds.isEmpty)
+	}
+
 	@Test("サインインの応答ヘッダからトークンを取り出す")
 	func extractToken() throws {
 		let token = try APIClient.token(

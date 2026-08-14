@@ -59,6 +59,13 @@ struct APIClient {
 		return try Self.events(from: data, response: response)
 	}
 
+	/// 登録されている銘柄を全件取る。認証は要らない（ログイン廃止 設計書 §3.2）
+	func stocks() async throws -> [Stock] {
+		let request = URLRequest(url: Self.baseURL.appending(path: "/api/stocks"))
+		let (data, response) = try await Self.session.data(for: request)
+		return try Self.stocks(from: data, response: response)
+	}
+
 	// 以下は引数だけで動く。通信をせずにテストできるように分けている
 
 	/// 応答ヘッダからトークンを取り出す
@@ -68,6 +75,12 @@ struct APIClient {
 			throw APIError.missingToken
 		}
 		return token
+	}
+
+	/// 応答を銘柄の配列に読み取る
+	static func stocks(from data: Data, response: URLResponse) throws -> [Stock] {
+		_ = try verified(response)
+		return try JSONDecoder().decode([Stock].self, from: data)
 	}
 
 	/// 応答をイベントの配列に読み取る

@@ -8,9 +8,18 @@ struct CalendarView: View {
 	let onUnauthorized: () -> Void
 
 	@State private var events: [Event] = []
+	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
+	@State private var stocks: [Stock] = []
 	@State private var message: String?
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
+
+	/// 選んだ持ち株。端末に保存したものを起動時に読む
+	@State private var holdings: [Int] = HoldingStore().load()
+	/// 持ち株を選ぶ画面を出しているか
+	@State private var isPickingHoldings = false
+
+	private let store = HoldingStore()
 
 	/// ページの基準になる日。`@State` にすることで初期化が1回だけになり、
 	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
@@ -23,12 +32,58 @@ struct CalendarView: View {
 	private static let monthRange = -12...12
 
 	var body: some View {
+		// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（ログイン廃止 設計書 §4）
+		let shown = EventLayout.visible(events, holdings: holdings, stocks: stocks)
+
+		NavigationStack {
+			VStack(spacing: 0) {
+				// 案内は TabView の外に置く。中に入れると前後12ヶ月の25ページに複製される
+				if holdings.isEmpty {
+					holdingsPrompt
+				}
+				grid(shown: shown)
+			}
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				// 常に見える入り口。持ち株を選んだあとも選び直せるようにする
+				ToolbarItem(placement: .topBarTrailing) {
+					Button("持ち株") { isPickingHoldings = true }
+				}
+			}
+		}
+		.sheet(isPresented: $isPickingHoldings) {
+			HoldingsView(stocks: stocks, holdings: savedHoldings)
+		}
+		.task {
+			await load()
+		}
+	}
+
+	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない
+	private var holdingsPrompt: some View {
+		Button { isPickingHoldings = true } label: {
+			HStack {
+				Text("持ち株が未選択です")
+				Spacer()
+				Text("選ぶ").fontWeight(.semibold)
+			}
+			.font(.caption)
+			.padding(.horizontal, 12)
+			.padding(.vertical, 8)
+			.frame(maxWidth: .infinity)
+			.background(Color.yellow.opacity(0.25))
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+	}
+
+	private func grid(shown: [Event]) -> some View {
 		TabView(selection: $monthOffset) {
 			ForEach(Self.monthRange, id: \.self) { offset in
 				MonthPage(
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
-					events: events,
+					events: shown,
 					onSelect: { selectedDay = $0 }
 				)
 				.tag(offset)
@@ -37,7 +92,14 @@ struct CalendarView: View {
 		.tabViewStyle(.page(indexDisplayMode: .never))
 		.overlay {
 			if let message {
-				Text(message).foregroundStyle(.secondary)
+				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
+				// これが無いと復旧はアプリの再起動だけになる
+				Button { Task { await load() } } label: {
+					VStack(spacing: 4) {
+						Text(message).foregroundStyle(.secondary)
+						Text("再試行")
+					}
+				}
 			}
 		}
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
@@ -50,7 +112,7 @@ struct CalendarView: View {
 					DaySheet(
 						date: selectedDay,
 						events: EventLayout.events(
-							on: EventLayout.key(for: selectedDay), from: events)
+							on: EventLayout.key(for: selectedDay), from: shown)
 					)
 				}
 			}
@@ -59,9 +121,6 @@ struct CalendarView: View {
 			// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
-		.task {
-			await load()
-		}
 	}
 
 	/// 日が選ばれていればシートを出す。閉じられたら選択も消す
@@ -69,9 +128,26 @@ struct CalendarView: View {
 		Binding(get: { selectedDay != nil }, set: { if !$0 { selectedDay = nil } })
 	}
 
+	/// 選んだ持ち株。書き込むと同時に端末へ保存する。
+	/// 保存を通らずに持ち株が変わる経路を作らないため、書き込み口はこれ1つにする
+	private var savedHoldings: Binding<[Int]> {
+		Binding(
+			get: { holdings },
+			set: {
+				holdings = $0
+				store.save($0)
+			})
+	}
+
 	private func load() async {
 		do {
-			events = try await APIClient().events(token: token)
+			// 2本を1回で受け取る。片方が失敗すると代入に届かないので、
+			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない
+			async let events = APIClient().events(token: token)
+			async let stocks = APIClient().stocks()
+			(self.events, self.stocks) = try await (events, stocks)
+			// 再試行で取れたら文言を消す
+			message = nil
 		} catch APIError.unauthorized {
 			onUnauthorized()
 		} catch {
