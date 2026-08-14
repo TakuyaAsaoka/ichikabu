@@ -27,15 +27,16 @@ describe("設計書が指しているコードが実在する", () => {
   it("フォームは Server Component で、use client は app/form.tsx にある（イベント登録の設計書 §2・テーマ登録の設計書 §4.3）", () => {
     contains(eventFormSpec, "app/form.tsx");
     contains(themeSpec, "app/form.tsx");
-    // 1行目だけ見る。全文だと「use client は要らない」のような文にも当たる
-    expect(read("../app/event-form.tsx").split("\n")[0]).not.toMatch(
-      /use client/,
-    );
-    expect(read("../app/form.tsx").split("\n")[0]).toMatch(/use client/);
+    // 行頭固定で見る。全文照合だと「use client は要らない」のような文にも当たり、
+    // 1行目だけだと "use client" の前にコメントが入った形を見逃す
+    for (const form of ["event-form", "theme-form", "theme-stock-form"]) {
+      expect(read(`../app/${form}.tsx`)).not.toMatch(/^"use client"/m);
+    }
+    expect(read("../app/form.tsx")).toMatch(/^"use client"/m);
   });
 
   it("イベント登録フォームの対象欄にテーマの選択肢がある（テーマ登録の設計書 §1）", () => {
-    contains(themeSpec, '`<optgroup label="テーマ">`');
+    contains(themeSpec, '<optgroup label="テーマ">');
     contains("../app/event-form.tsx", '<optgroup label="テーマ">');
   });
 });

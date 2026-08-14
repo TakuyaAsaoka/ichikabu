@@ -20,6 +20,8 @@
 
 ## 2. ファイル構成と責務
 
+**この節は着手時点の記録である。以後の変更は追記で示す。** ここに出てくる `src/db/register.ts` と `src/db/register.test.ts` は、後に `src/db/write.ts` と `src/db/write.test.ts` へ改名した（→ [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md) §5.1）。
+
 ```
 server/
 ├── app/
