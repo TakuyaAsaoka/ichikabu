@@ -25,8 +25,21 @@ struct EventLayoutTests {
 			endDate: endDate,
 			time: nil,
 			importance: importance,
-			note: nil
+			note: nil,
+			target: target(for: kind, id: id)
 		)
+	}
+
+	/// 契約は kind と target が食い違う組み合わせも表せるため、
+	/// テストでも kind から作って必ず揃える
+	private func target(for kind: Event.kindPayload, id: Int)
+		-> Components.Schemas.EventTarget
+	{
+		switch kind {
+		case .stock: .stock(.init(_type: .stock, stockId: id))
+		case .theme: .theme(.init(_type: .theme, themeId: id))
+		case .market: .market(.init(_type: .market, market: .GLOBAL))
+		}
 	}
 
 	/// JST の指定日の正午を作る。正午にするのは、

@@ -9,20 +9,32 @@ import { RIGHTS_YEARS, rightsDates } from "../../../src/rights";
 // 契約を変えて実装が追随していなければ typecheck が落ちる（全体設計書 §8）。
 type Event = components["schemas"]["Event"];
 
+/** 市場イベントが取りうる市場。DBの列挙と契約がずれたら呼び出し側で型が落ちる */
+type EventMarket = components["schemas"]["EventMarket"];
+
 /**
- * イベントの種別を導く。
+ * イベントの種別と対象を導く。
  * DBの CHECK 制約で market / themeId / stockId のちょうど1つだけが
- * 非NULLと保証されているため、どの列も埋まっていない場合は考えない。
- * CHECK 制約は型からは見えないので、最後の stock は else 扱いにし、
- * 例外は投げない（イベント取得API設計書 §4）。
+ * 非NULLと保証されている。CHECK 制約は型からは見えないので、
+ * どれも埋まっていない行は null を返し、呼び出し側が落とす。
+ * 例外は投げない（イベント取得API設計書 §4）。同じファイルの rightsEvents は
+ * 空配列で落としており、落とし方は違うが、例外を投げない点は同じ。
+ *
+ * 種別と対象を1つの関数から返すのは、両方が同じ3列から決まるため。
+ * 別々に導くと `kind` と `target.type` が食い違う書き方ができてしまう
  */
-function deriveKind(row: {
-  market: string | null;
+function deriveKindAndTarget(row: {
+  market: EventMarket | null;
   themeId: number | null;
-}): Event["kind"] {
-  if (row.market !== null) return "market";
-  if (row.themeId !== null) return "theme";
-  return "stock";
+  stockId: number | null;
+}): Pick<Event, "kind" | "target"> | null {
+  if (row.market !== null)
+    return { kind: "market", target: { type: "market", market: row.market } };
+  if (row.themeId !== null)
+    return { kind: "theme", target: { type: "theme", themeId: row.themeId } };
+  if (row.stockId !== null)
+    return { kind: "stock", target: { type: "stock", stockId: row.stockId } };
+  return null;
 }
 
 /** `note` に出す日付（`2026-03-31` → `3月31日`） */
@@ -55,6 +67,7 @@ function rightsEvents(
         {
           id: `rights-${id}-${year}`,
           kind: "stock" as const,
+          target: { type: "stock" as const, stockId: id },
           title: `${name} 権利付最終日`,
           shortLabel: `${ticker}権利`,
           startDate: dates.lastDate,
@@ -156,28 +169,33 @@ export async function GET(request: Request): Promise<Response> {
       ),
     );
 
-  const registered = rows.map(
-    (row): Event => ({
-      // 計算した権利日は行IDを持てないため、契約の id は文字列（権利日設計書 §5）
-      id: String(row.id),
-      kind: deriveKind(row),
-      title: row.title,
-      shortLabel: row.shortLabel,
-      startDate: row.startDate,
-      // 値が無いフィールドは null のまま返す（undefined にしない）。
-      // 契約は全フィールド required で、無い値は null と決めている
-      endDate: row.endDate,
-      time: row.time,
-      importance: row.importance,
-      note: row.note,
-      // 出典は名前とURLが揃ったときだけ返す。URLだけの行は運用者向けの記録で、
-      // 画面には出さない（出典表示設計書 §3.1）。名前だけの行は CHECK が防いでいる
-      source:
-        row.sourceName !== null && row.sourceUrl !== null
-          ? { name: row.sourceName, url: row.sourceUrl }
-          : null,
-    }),
-  );
+  const registered = rows
+    .map((row): Event | null => {
+      const kindAndTarget = deriveKindAndTarget(row);
+      // CHECK 制約が禁じている行。ここに来ることは無いが、型からは見えないため落とす
+      if (kindAndTarget === null) return null;
+      return {
+        // 計算した権利日は行IDを持てないため、契約の id は文字列（権利日設計書 §5）
+        id: String(row.id),
+        ...kindAndTarget,
+        title: row.title,
+        shortLabel: row.shortLabel,
+        startDate: row.startDate,
+        // 値が無いフィールドは null のまま返す（undefined にしない）。
+        // 契約は全フィールド required で、無い値は null と決めている
+        endDate: row.endDate,
+        time: row.time,
+        importance: row.importance,
+        note: row.note,
+        // 出典は名前とURLが揃ったときだけ返す。URLだけの行は運用者向けの記録で、
+        // 画面には出さない（出典表示設計書 §3.1）。名前だけの行は CHECK が防いでいる
+        source:
+          row.sourceName !== null && row.sourceUrl !== null
+            ? { name: row.sourceName, url: row.sourceUrl }
+            : null,
+      };
+    })
+    .filter((e) => e !== null);
 
   const body = [...registered, ...rightsEvents(rightsStocks)].sort(
     compareEvents,

@@ -34,11 +34,14 @@ struct APIClientTests {
 			"""
 			[{"id":"1","kind":"market","title":"FOMC 政策金利発表","shortLabel":"FOMC",\
 			"startDate":"2026-09-16","endDate":"2026-09-17","time":"03:00:00",\
-			"importance":3,"note":null,"source":null}]
+			"importance":3,"note":null,"source":null,\
+			"target":{"type":"market","market":"GLOBAL"}}]
 			""".utf8)
 		let events = try APIClient.events(from: json, response: response(status: 200))
 		#expect(events.count == 1)
 		#expect(events[0].kind == .market)
+		// 対象は type で場合分けして読み取る。GLOBAL は全員に出す市場イベント
+		#expect(events[0].target == .market(.init(_type: .market, market: .GLOBAL)))
 		#expect(events[0].title == "FOMC 政策金利発表")
 		#expect(events[0].endDate == "2026-09-17")
 		#expect(events[0].note == nil)
@@ -52,7 +55,8 @@ struct APIClientTests {
 			[{"id":"2","kind":"market","title":"消費者物価指数（2026年8月分）",\
 			"shortLabel":"CPI","startDate":"2026-09-18","endDate":null,"time":null,\
 			"importance":2,"note":null,\
-			"source":{"name":"総務省（PDL1.0）","url":"https://www.stat.go.jp/data/cpi/"}}]
+			"source":{"name":"総務省（PDL1.0）","url":"https://www.stat.go.jp/data/cpi/"},\
+			"target":{"type":"market","market":"JP"}}]
 			""".utf8)
 		let events = try APIClient.events(from: json, response: response(status: 200))
 		#expect(events[0].source?.name == "総務省（PDL1.0）")

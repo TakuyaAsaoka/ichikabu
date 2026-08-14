@@ -195,6 +195,7 @@ describe("GET /api/events", () => {
       {
         id: "1",
         kind: "stock",
+        target: { type: "stock", stockId: toyota.id },
         title: "トヨタ自動車 決算発表",
         shortLabel: "トヨタ決算",
         startDate: "2026-11-05",
@@ -206,6 +207,50 @@ describe("GET /api/events", () => {
       },
     ]);
     expect(await fetchEvents(outsider.token)).toEqual([]);
+  });
+
+  it("イベントの対象は kind と一致し、登録した銘柄・テーマ・市場を指す", async () => {
+    const holder = await createUser("target-holder@example.com");
+    const [toyota] = await db
+      .insert(stock)
+      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
+      .returning();
+    const [car] = await db.insert(theme).values({ name: "自動車" }).returning();
+    await db.insert(themeStock).values({ themeId: car.id, stockId: toyota.id });
+    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
+
+    await db.insert(event).values([
+      {
+        title: "トヨタ自動車 決算発表",
+        shortLabel: "トヨタ決算",
+        startDate: "2026-11-05",
+        importance: 1,
+        stockId: toyota.id,
+      },
+      {
+        title: "ジャパンモビリティショー",
+        shortLabel: "JMS",
+        startDate: "2026-11-06",
+        importance: 1,
+        themeId: car.id,
+      },
+      {
+        title: "日銀金融政策決定会合",
+        shortLabel: "日銀",
+        startDate: "2026-11-07",
+        importance: 1,
+        market: "JP",
+      },
+    ]);
+
+    // 契約は kind と target.type が食い違う組み合わせも表せてしまうため、
+    // 両方が同じ対象を指すことをここで固定する（ログイン廃止 設計書 §3.1）
+    const events = await fetchEvents(holder.token);
+    expect(events.map((e) => [e.kind, e.target])).toEqual([
+      ["stock", { type: "stock", stockId: toyota.id }],
+      ["theme", { type: "theme", themeId: car.id }],
+      ["market", { type: "market", market: "JP" }],
+    ]);
   });
 
   it("出典の名前とURLが揃っているイベントは source が返る", async () => {
@@ -323,6 +368,9 @@ describe("GET /api/events", () => {
     expect(events[1]).toEqual({
       id: `rights-${toyota.id}-2026`,
       kind: "stock",
+      // 計算した権利日も、登録した銘柄イベントと同じ形で対象を持つ。
+      // 端末は両方を同じ式で絞れる（ログイン廃止 設計書 §3.1）
+      target: { type: "stock", stockId: toyota.id },
       title: "トヨタ自動車 権利付最終日",
       shortLabel: "7203権利",
       startDate: "2026-03-27",
