@@ -111,7 +111,7 @@ Node 24 は 2026年8月13日時点の最新のLTS（v24.19.0、Krypton）。26 �
 
 ## 6. iOS の接続先
 
-`ios/Ichikabu/APIClient.swift:19` を書き換える。
+`ios/Ichikabu/APIClient.swift` の `baseURL` を書き換える。
 
 ```swift
 /// 接続先。Debug はローカルの `next dev`、Release は配信先を見る。
