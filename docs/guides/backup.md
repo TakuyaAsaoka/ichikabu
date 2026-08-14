@@ -15,7 +15,7 @@ nvm use
 ```
 
 ```
-接続先: aws-0-ap-northeast-1.pooler.supabase.com:5432
+接続先: postgres://postgres.<プロジェクトID>@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
 backups/2026-08-14-aws-0-ap-northeast-1.pooler.supabase.com-postgres.sql を作成しました
 ```
 
@@ -45,7 +45,7 @@ backups/2026-08-14-aws-0-ap-northeast-1.pooler.supabase.com-postgres.sql   ← �
 **ファイルができるだけでは足りない。** 接続先が空でも `pg_dump` は成功してファイルを作るため、`pnpm db:dump` は `event` の行が1件以上あることまで確かめる。
 
 ```
-event の行が1件も無い。<ホスト> が空か、違うDBを指している。取れたものは backups/....sql.part
+event の行が1件も無い。<接続URL> が空か、違うDBを指している。取れたものは backups/....sql.part
 ```
 
 **このとき取れたものは `.part` のまま残る。** 中身を確かめられるようにするためで、`backups/*.sql` には混ざらない。`.env.deploy.local` の `DATABASE_URL` が別のプロジェクトを指していないか確かめる。

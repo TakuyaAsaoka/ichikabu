@@ -91,6 +91,14 @@ describe("hasEventRows", () => {
     ).toBe(false);
   });
 
+  it("データ行の途中にある同じ文字列を COPY 行と読み違えない", () => {
+    // イベント名やテーマ名に COPY 行と同じ文字列が入っていても、それは
+    // 行の途中にあるので COPY 行ではない
+    const dump = `COPY public.theme (id, name) FROM stdin;\n1\t${copyHeader}\n2\t決算\n\\.\n${copyHeader}\n\\.\n`;
+
+    expect(hasEventRows(dump)).toBe(false);
+  });
+
   it("event_target のような別テーブルの COPY を event と読み違えない", () => {
     expect(
       hasEventRows("COPY public.event_target (id) FROM stdin;\n1\t2\n\\.\n"),
