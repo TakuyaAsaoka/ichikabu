@@ -2,7 +2,7 @@ import Foundation
 import IchikabuAPI
 import SwiftUI
 
-/// 月グリッドの日付計算とイベントの割り当て。
+/// 月グリッドの日付計算と、イベントの割り当て・絞り込み。
 /// 画面から切り離してテストできるように、状態を持たない関数だけを置く
 enum EventLayout {
 	/// 日付の計算はすべてJST・グレゴリオ暦・日曜始まりで行う。

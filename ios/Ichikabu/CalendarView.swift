@@ -51,9 +51,6 @@ struct CalendarView: View {
 				}
 			}
 		}
-		.sheet(isPresented: $isPickingHoldings) {
-			HoldingsView(stocks: stocks, holdings: savedHoldings)
-		}
 		.task {
 			await load()
 		}
@@ -103,12 +100,19 @@ struct CalendarView: View {
 			}
 		}
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
-		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）
+		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）。
+		//
+		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
+		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
+		// 日付のシートを開いたままツールバーの「持ち株」を押せてしまう。
+		// 1枚の中身を入れ替える形にすれば、2枚目を出す要求そのものが起きない
 		.sheet(isPresented: sheetIsShown) {
 			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
 			// nil になった時点で消えていくシートから指定が外れる
 			Group {
-				if let selectedDay {
+				if isPickingHoldings {
+					HoldingsView(stocks: stocks, holdings: savedHoldings)
+				} else if let selectedDay {
 					DaySheet(
 						date: selectedDay,
 						events: EventLayout.events(
@@ -116,16 +120,24 @@ struct CalendarView: View {
 					)
 				}
 			}
-			.presentationDetents([.fraction(0.45), .large])
+			// 持ち株の一覧は 0.45 では狭いので、そのときだけ大きいままにする
+			.presentationDetents(isPickingHoldings ? [.large] : [.fraction(0.45), .large])
 			// 0.45 まで下げている間は裏を操作できる。
 			// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
 	}
 
-	/// 日が選ばれていればシートを出す。閉じられたら選択も消す
+	/// 日が選ばれているか、持ち株を選んでいる間はシートを出す。閉じられたら両方消す
 	private var sheetIsShown: Binding<Bool> {
-		Binding(get: { selectedDay != nil }, set: { if !$0 { selectedDay = nil } })
+		Binding(
+			get: { isPickingHoldings || selectedDay != nil },
+			set: {
+				if !$0 {
+					isPickingHoldings = false
+					selectedDay = nil
+				}
+			})
 	}
 
 	/// 選んだ持ち株。書き込むと同時に端末へ保存する。
@@ -151,7 +163,9 @@ struct CalendarView: View {
 		} catch APIError.unauthorized {
 			onUnauthorized()
 		} catch {
-			message = "イベントを取得できませんでした"
+			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
+			// 文言はイベントに限定しない
+			message = "イベントと銘柄を取得できませんでした"
 		}
 	}
 }

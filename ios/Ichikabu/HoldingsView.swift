@@ -19,7 +19,9 @@ struct HoldingsView: View {
 			.listStyle(.plain)
 			.overlay {
 				if stocks.isEmpty {
-					Text("銘柄がありません").foregroundStyle(.secondary)
+					// 空になるのは「1件も登録が無い」ときと「取得に失敗した」ときの両方。
+					// 前者だと言い切らない文言にする
+					Text("銘柄を取得できていません").foregroundStyle(.secondary)
 				}
 			}
 			.navigationTitle("持ち株")
@@ -40,6 +42,8 @@ struct HoldingsView: View {
 				Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
 			}
 		}
+		// チェックの印は目で見る人にしか伝わらないため、選択の状態を VoiceOver にも渡す
+		.accessibilityAddTraits(holdings.contains(stock.id) ? .isSelected : [])
 		// これが無いと、行の余白（銘柄名の右側）を押しても反応しない
 		.contentShape(Rectangle())
 	}

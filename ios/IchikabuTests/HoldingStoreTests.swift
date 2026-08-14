@@ -7,18 +7,16 @@ import Testing
 struct HoldingStoreTests {
 	/// テスト用の入れ物を作る。`UserDefaults.standard` は使わない。
 	/// シミュレータの標準の入れ物はアプリを消すまで残り、前の実行の値を拾うため
-	private func defaults(_ suiteName: String) -> UserDefaults {
-		guard let defaults = UserDefaults(suiteName: suiteName) else {
-			fatalError("テスト用の UserDefaults を作れない: \(suiteName)")
-		}
+	private func defaults(_ suiteName: String) throws -> UserDefaults {
+		let defaults = try #require(UserDefaults(suiteName: suiteName))
 		defaults.removePersistentDomain(forName: suiteName)
 		return defaults
 	}
 
 	@Test("選んだ持ち株は、アプリを開き直しても残っている")
-	func persists() {
+	func persists() throws {
 		let suiteName = "holding-store-persists"
-		let defaults = defaults(suiteName)
+		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
 		HoldingStore(defaults: defaults).save([7203, 6758])
@@ -28,9 +26,9 @@ struct HoldingStoreTests {
 	}
 
 	@Test("選び直すと前の内容は残らない")
-	func replaces() {
+	func replaces() throws {
 		let suiteName = "holding-store-replaces"
-		let defaults = defaults(suiteName)
+		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
 		let store = HoldingStore(defaults: defaults)
@@ -41,9 +39,9 @@ struct HoldingStoreTests {
 	}
 
 	@Test("一度も選んでいなければ空")
-	func empty() {
+	func empty() throws {
 		let suiteName = "holding-store-empty"
-		let defaults = defaults(suiteName)
+		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
 		#expect(HoldingStore(defaults: defaults).load().isEmpty)
