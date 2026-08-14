@@ -1,5 +1,7 @@
 # 銘柄とテーマの編集・削除 設計書
 
+> **保有に関する記述はもう当たらない。** [ログイン廃止 設計書](2026-08-14-86-no-login-design.md) §5.1 で `holding` テーブルごと消えた。 §2 の表の `holding_stock_id_stock_id_fk` の行と §4.2「保有に登録された銘柄は、この Issue の後も画面から消せない」は、行き止まりごと消えた。銘柄の削除を止めるのは `event_stock_id_stock_id_fk` だけになった。
+
 - 対応 Issue: [#67 銘柄とテーマを管理UIから編集・削除できるようにする](https://github.com/TakuyaAsaoka/ichikabu/issues/67)
 - 根拠: [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md)（§3 画面構成・§4 共通部品・§9 やらないこと）、[管理UI設計書](2026-08-09-6-admin-ui-design.md)（§3 画面構成・§5 登録の失敗の扱い・§12 やらないこと）、[テーマ登録 設計書](2026-08-11-27-theme-registration-design.md)（§3.1 テーマ名の前後の空白）
 

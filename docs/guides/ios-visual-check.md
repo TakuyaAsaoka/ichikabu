@@ -17,7 +17,7 @@ xcrun simctl install booted <パス>/Ichikabu.app
 xcrun simctl launch booted com.takuyaasaoka.ichikabu
 ```
 
-サインインの情報は `server/.env.local` の `SEED_USERS` の1人目。
+サインインは無い。起動するとそのままカレンダーが出る（設計書 §9）。持ち株は右上の「持ち株」から選ぶ。
 
 ## ウィンドウが開かないとき
 
