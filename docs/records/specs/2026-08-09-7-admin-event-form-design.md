@@ -3,6 +3,8 @@
 - 対応 Issue: [#7 管理UI: イベント登録](https://github.com/TakuyaAsaoka/ichikabu/issues/7)
 - 根拠: [全体設計書](2026-08-02-1-ichikabu-design.md)（§4 データモデル・§5 イベントの3種別・§10.2 セル表示の規則・§14 未決事項 #10）、[管理UI（銘柄・保有の登録）設計書](2026-08-09-6-admin-ui-design.md)
 
+**この設計書は着手時点の記録である。以後の変更は追記で示す。** 全体を通して出てくる `src/db/register.ts` と `src/db/register.test.ts` は、後に `src/db/write.ts` と `src/db/write.test.ts` へ改名した（→ [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md) §5.1）。
+
 ## 1. 目的と結論
 
 **イベント（`event`）を画面から登録できるようにする。** 現状イベントを入れる手段は `pnpm db:seed`（`src/db/seed-event.ts`）の固定3件だけで、本来の登録手段が無い。
@@ -19,8 +21,6 @@
 管理UI（銘柄・保有の登録）設計書 §5 の方針をそのまま引き継ぐ。**事前に存在確認せず INSERT し、PostgreSQL が返した制約違反を日本語に訳す。**
 
 ## 2. ファイル構成と責務
-
-**この節は着手時点の記録である。以後の変更は追記で示す。** ここに出てくる `src/db/register.ts` と `src/db/register.test.ts` は、後に `src/db/write.ts` と `src/db/write.test.ts` へ改名した（→ [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md) §5.1）。
 
 ```
 server/
