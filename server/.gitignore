@@ -6,3 +6,6 @@ tsconfig.tsbuildinfo
 
 # openapi-typescript の生成物。品質ゲートで毎回 `pnpm gen` するためコミットしない
 src/generated/
+
+# `pnpm db:dump` の出力。本番のデータがそのまま入るのでコミットしない
+backups/
