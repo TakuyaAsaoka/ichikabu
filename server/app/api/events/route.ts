@@ -10,15 +10,15 @@ import { RIGHTS_YEARS, rightsDates } from "../../../src/rights";
 type Event = components["schemas"]["Event"];
 
 /** 市場イベントが取りうる市場。DBの列挙と契約がずれたら呼び出し側で型が落ちる */
-type EventMarket = Extract<Event["target"], { type: "market" }>["market"];
+type EventMarket = components["schemas"]["EventMarket"];
 
 /**
  * イベントの種別と対象を導く。
  * DBの CHECK 制約で market / themeId / stockId のちょうど1つだけが
  * 非NULLと保証されている。CHECK 制約は型からは見えないので、
  * どれも埋まっていない行は null を返し、呼び出し側が落とす。
- * 例外は投げない（イベント取得API設計書 §4）。同じファイルの rightsEvents が、
- * 型からは見えないNULLを空配列で落としているのと同じ扱いにする。
+ * 例外は投げない（イベント取得API設計書 §4）。同じファイルの rightsEvents は
+ * 空配列で落としており、落とし方は違うが、例外を投げない点は同じ。
  *
  * 種別と対象を1つの関数から返すのは、両方が同じ3列から決まるため。
  * 別々に導くと `kind` と `target.type` が食い違う書き方ができてしまう

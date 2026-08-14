@@ -21,7 +21,8 @@ export * from "./auth-schema";
 // 列挙型だと stock.market と event.market が別の型になり比較できず、
 // §5 の判定 `event.market IN (SELECT stock.market ...)` が実行時エラーになる（設計書 §4.2）。
 const MARKETS = ["JP", "US"] as const;
-const EVENT_MARKETS = ["JP", "US", "GLOBAL"] as const;
+/** 市場イベントの対象。管理UIの選択肢もここから作る（一覧を2箇所に置かない） */
+export const EVENT_MARKETS = ["JP", "US", "GLOBAL"] as const;
 
 /** 作成日時。全テーブルが持つ（設計書 §4.1）。DBのデフォルト値で入るためアプリからは書かない */
 const createdAt = timestamp("created_at", { withTimezone: true })

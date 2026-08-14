@@ -1,3 +1,4 @@
+import { EVENT_MARKETS } from "../src/db/schema";
 import type { EventInput } from "../src/db/write";
 import { type Action, ActionForm, field, fieldLabel } from "./form";
 
@@ -6,9 +7,6 @@ type Stock = { id: number; market: string; ticker: string; name: string };
 
 /** 編集のときの初期値。登録では渡さない（設計書 §4.2） */
 type EventRow = EventInput & { id: number };
-
-/** 市場イベントの対象（全体設計書 §5）。GLOBAL は全員に出る */
-const MARKETS = ["JP", "US", "GLOBAL"];
 
 /** 重要度（★1〜3。全体設計書 §4.1） */
 const IMPORTANCES = [1, 2, 3];
@@ -86,7 +84,7 @@ export function EventForm({
             選んでください
           </option>
           <optgroup label="市場">
-            {MARKETS.map((market) => (
+            {EVENT_MARKETS.map((market) => (
               <option key={market} value={`market:${market}`}>
                 {market}
               </option>
