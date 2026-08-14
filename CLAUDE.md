@@ -73,7 +73,14 @@ iPhone から使う配信先は Netlify（`https://ichikabu.netlify.app`）と S
 
 ## データベース
 
-開発用は Docker の PostgreSQL（`server/compose.yaml`、ポート 5434）。常用は Supabase（→ `docs/guides/deploy.md`）。収益化を前提とした本番のホスティング・DBは Issue #16 で選定する（設計書 §1.1 でプラットフォーム選定は保留）。
+**環境は開発と本番の2つだけ。** 検証用の環境は無い。
+
+| 環境 | 場所 | 読む設定ファイル |
+|---|---|---|
+| 開発 | Docker の PostgreSQL（`server/compose.yaml`、ポート 5434） | `server/.env.local` |
+| 本番 | Supabase 東京（iPhone のアプリが見ている実データ） | `server/.env.deploy.local`（→ `docs/guides/deploy.md`） |
+
+Issue #16 は**環境を増やす話ではなく、本番を今の Netlify + Supabase から別のところへ載せ替えるかの選定**（収益化を前提にしたとき。設計書 §1.1 でプラットフォーム選定は保留）。
 
 | コマンド | 内容 |
 |---|---|

@@ -1,8 +1,8 @@
-# 開発用と実機での常用をまかなう配信先を立てる（Issue #74）
+# 開発用と実機での本番運用をまかなう配信先を立てる（Issue #74）
 
 iOS アプリの接続先は `http://localhost:3000` に固定されていて、実機では自分自身を指すため届かない。Netlify に Next.js を上げ、DBを Supabase に置き、iPhone から使える状態にする。
 
-Issue #16（収益化を前提とした本番のホスティングとDBの選定）は保留のまま。ここは、その判断材料（利用頻度）を取るための足場。
+Issue #16（収益化を前提としたときに、本番をどこに載せるかの選定）は保留のまま。ここは、その判断材料（利用頻度）を取るための足場。
 
 ## 1. 決めたこと
 
@@ -12,14 +12,14 @@ Issue #74 の「残る判断」5件の結論。
 |---|---|---|---|
 | 1 | 配信先DBへのマイグレーション | 手で流す。`( set -a; . ./.env.deploy.local; set +a; pnpm db:migrate )` | コードの変更が要らない。Node の `--env-file` と `process.loadEnvFile` はどちらも既にある環境変数を上書きしないため、シェルで渡した値が `.env.local` より優先される（実測で確認）。デプロイ自体が手動なので、手順が1行増えるだけで済む |
 | 2 | iOS の接続先の切り替え | `#if DEBUG` で2分岐。Debug は `localhost:3000`、Release は配信先 | 追加ファイルなし・ビルド設定の変更なし。切り替えは Xcode の Scheme > Run > Build Configuration で行う |
-| 3 | サイトとDBの数 | Netlify サイト1つ（常用）、Supabase プロジェクト1つ（常用）。開発用DBは今までどおりローカルの Docker | デプロイのクレジット消費が最小。「開発用DBを作り直しても常用DBのデータが残る」はこの形でも満たせる |
-| 4 | 配信先の利用者の投入 | 同じく `.env.deploy.local` を読ませて `pnpm db:seed` | コードの変更が要らない。**`DATABASE_URL` だけを渡してはいけない。** `SEED_USER_EMAIL` と `SEED_USER_PASSWORD` が `.env.local`（開発用）から読まれ、エラーも出ずに常用DBへ開発用の利用者が作られる。サンプルの銘柄・イベントも一緒に入るが、管理UIから消せる（Issue #68） |
+| 3 | サイトとDBの数 | Netlify サイト1つ（本番）、Supabase プロジェクト1つ（本番）。開発用DBは今までどおりローカルの Docker | デプロイのクレジット消費が最小。「開発用DBを作り直しても本番DBのデータが残る」はこの形でも満たせる |
+| 4 | 配信先の利用者の投入 | 同じく `.env.deploy.local` を読ませて `pnpm db:seed` | コードの変更が要らない。**`DATABASE_URL` だけを渡してはいけない。** `SEED_USER_EMAIL` と `SEED_USER_PASSWORD` が `.env.local`（開発用）から読まれ、エラーも出ずに本番DBへ開発用の利用者が作られる。サンプルの銘柄・イベントも一緒に入るが、管理UIから消せる（Issue #68） |
 | 5 | クレジット残量の見方 | `docs/guides/deploy.md` に Netlify の Usage & billing の見方を書く | コードを書く必要がない。50%・75%・100% でメールとアプリ内の通知も届く |
 
 ## 2. 配信の構成
 
 ```
-iPhone ──https──▶ Netlify（Next.js）──▶ Supabase 常用DB（東京）
+iPhone ──https──▶ Netlify（Next.js）──▶ Supabase 本番DB（東京）
 Mac    ──http───▶ next dev          ──▶ Docker 開発用DB（今までどおり）
 ```
 
@@ -133,14 +133,14 @@ static let baseURL: URL = {
 
 `.env.production.local` にしてはいけない。**Next.js が自動で読むファイル名だから。**
 
-`next build` は `NODE_ENV=production` で走り、`.env.production.local` → `.env.local` → `.env.production` → `.env` の順に読む（先に読んだものが勝つ）。つまりこの名前にすると、**ローカルの `pnpm build`（品質ゲート）が常用DBの `DATABASE_URL` を拾う。**
+`next build` は `NODE_ENV=production` で走り、`.env.production.local` → `.env.local` → `.env.production` → `.env` の順に読む（先に読んだものが勝つ）。つまりこの名前にすると、**ローカルの `pnpm build`（品質ゲート）が本番DBの `DATABASE_URL` を拾う。**
 
 実測で確認した。`.env.local` を外して `pnpm build` を実行すると、
 
 - `.env.production.local` という名前のとき: **通る**（配信先の値を読んでいる）
 - `.env.deploy.local` に変えたとき: 落ちる（`DATABASE_URL` の出どころが無い）
 
-今は全ページが動的でビルド中にDBへつながないため実害は出ていないが、静的生成するページを1枚足した時点でローカルのビルドが常用DBを見にいく。`NODE_ENV` が `deploy` になることはないので、この名前なら Next.js は拾わない。
+今は全ページが動的でビルド中にDBへつながないため実害は出ていないが、静的生成するページを1枚足した時点でローカルのビルドが本番DBを見にいく。`NODE_ENV` が `deploy` になることはないので、この名前なら Next.js は拾わない。
 
 ## 7. `docs/guides/deploy.md` に書くこと
 
@@ -178,7 +178,7 @@ netlify-cli は依存に足さない。デプロイのときだけ `pnpm dlx` �
 | 「検証」の手順が「あるべき姿の出力」と一致する | Issue #74 のコマンドを再実行する |
 | `/api/health` が実機の回線から 200 を返す | iPhone のブラウザで `https://<サイト名>.netlify.app/api/health` を開く |
 | iPhone でサインインしてカレンダーにイベントが出る | Mac の `next dev` と Docker を止めた状態で、Release ビルドのアプリを実機で動かす |
-| 開発用DBを作り直しても常用DBのデータが残る | ローカルで `docker compose down -v` してから常用DBを見る |
+| 開発用DBを作り直しても本番DBのデータが残る | ローカルで `docker compose down -v` してから本番DBを見る |
 | デプロイ手順とクレジットの見方が `docs/guides/deploy.md` にある | ファイルを読む |
 | 品質ゲートが全パスする | **Node 24 に切り替えたうえで** `server/` の全コマンドを流す |
 
