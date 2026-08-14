@@ -23,7 +23,7 @@
 ```
 server/
 ├── app/
-│   ├── event-form.tsx   ← 新規。"use client"
+│   ├── event-form.tsx   ← 新規（今は Server Component。"use client" は app/form.tsx にある）
 │   ├── event-input.ts   ← 新規。FormData を createEvent の入力に直す
 │   ├── event-input.test.ts ← 新規
 │   ├── page.tsx         ← 「イベントを登録」と「イベント一覧」を足す
@@ -40,7 +40,7 @@ server/
 | `src/db/register.ts` | INSERT、`short_label` の幅の判定（→ §3）、制約違反の日本語化 |
 | `app/event-input.ts` | FormData を `createEvent` の入力に直す。対象の値の振り分け（→ §4）と空欄の読み替え（→ §5） |
 | `app/actions.ts` | 認証の確認と `revalidatePath` |
-| `app/event-form.tsx` | 入力欄と `useActionState` |
+| `app/event-form.tsx` | 入力欄（`useActionState` は後に `app/form.tsx` へ移した） |
 
 **`app/event-input.ts` は `"use server"` を付けない素のモジュールにする。** 管理UI設計書 §4 は「Vitest のテスト対象は `src/db/register.ts` だけ」としていたが、対象の振り分けと空欄の読み替えを `app/actions.ts` に置くと、そこが `next/headers` を使うため Vitest から読み込めず、**完了条件の「`end_date` を空にすると単日として登録される」の「空にする」部分を自動で確かめる手段が無くなる**。純粋な変換だけを別ファイルに出せば普通にテストできる（→ §8）。`app/actions.ts` に残るのは認証の確認と `revalidatePath` だけになる。
 
