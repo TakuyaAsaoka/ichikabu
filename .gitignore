@@ -6,6 +6,11 @@
 
 .DS_Store
 
+# `pnpm db:dump` の出力。本番のデータと認証の情報がそのまま入るのでコミットしない。
+# 出力先は server/backups/ だが、リポジトリの最上位から実行するとここに出るため、
+# server/.gitignore と両方に書く
+backups/
+
 # netlify-cli がサイトとの紐付けを覚えるファイル。作業する人ごとに作り直す
 # （`netlify link --name ichikabu` → docs/guides/deploy.md）
 .netlify/

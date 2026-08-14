@@ -10,15 +10,15 @@ export function dumpFileName(databaseUrl: string, date: Date): string {
   const { hostname, pathname } = new URL(databaseUrl);
   // pathname は先頭に "/" が付く。そのまま名前に入れるとディレクトリ扱いになる
   const database = pathname.slice(1);
-  // sv-SE の日付表記は YYYY-MM-DD。toISOString() は UTC で切るため、
+  // sv-SE の日付表記は YYYY-MM-DD。時間帯を書かずに UTC で切ると、
   // 朝に取ったバックアップに前日の日付が付く
-  const day = date.toLocaleDateString("sv-SE");
+  const day = date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
   return `${day}-${hostname}-${database}.sql`;
 }
 
-/** COPY 行の直後にデータ行が続くかを見る。データが0件だと次の行がすぐ `\.` になる */
-const eventCopy = /\nCOPY public\.event \(.*\) FROM stdin;\n/;
+/** event の COPY 行。この直後にデータ行が続く。0件だと次の行がすぐ `\.` になる */
+const eventCopy = /^COPY public\.event \(.*\) FROM stdin;\n/m;
 
 /**
  * ダンプに event の行が1件以上入っているか。

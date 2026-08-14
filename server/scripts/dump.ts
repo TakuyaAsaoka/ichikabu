@@ -16,30 +16,44 @@ if (!url) {
 const pgDump = "/opt/homebrew/opt/postgresql@18/bin/pg_dump";
 
 if (!existsSync(pgDump)) {
-  throw new Error(`${pgDump} が無い。\`brew install postgresql@18\` を実行する`);
+  throw new Error(
+    `${pgDump} が無い。\`brew install postgresql@18\` を実行する`,
+  );
 }
 
-const { host } = new URL(url);
+// パスワードは引数ではなく PGPASSWORD で渡す。引数に入れると実行中は ps に見え、
+// pg_dump が失敗したときに Node が出すエラー文（実行したコマンドの全文が入る）に
+// 本番のパスワードがそのまま残る
+const conn = new URL(url);
+const { password } = conn;
+conn.password = "";
+
 const out = `backups/${dumpFileName(url, new Date())}`;
 // 中身を確かめるまでは .part に書く。空のダンプが本番の名前で backups/*.sql に
 // 並ぶと、後から中身を見ずに戻してしまう
 const partial = `${out}.part`;
 
 mkdirSync("backups", { recursive: true });
-console.log(`接続先: ${host}`);
+console.log(`接続先: ${conn.host}`);
 
-// --no-owner / --no-privileges: Supabase にしか無いロールへの GRANT が入ると、
-// そのダンプを別のDBへ戻すときにそこでエラーになる
-execFileSync(pgDump, ["--no-owner", "--no-privileges", "-f", partial, url], {
-  stdio: "inherit",
-});
+// --data-only: テーブルの定義は server/drizzle/ にあり、戻すときは pnpm db:migrate
+//   で作る。定義を入れると、Supabase のプロジェクトへ戻すときに向こうに元からある
+//   ものとぶつかって止まる
+// -n public: Supabase のプロジェクトには auth・storage 等のスキーマが最初から入って
+//   いる。指定しないと、そちらのデータまでダンプに入る
+execFileSync(
+  pgDump,
+  ["--data-only", "-n", "public", "-f", partial, conn.toString()],
+  { env: { ...process.env, PGPASSWORD: password }, stdio: "inherit" },
+);
 
-if (!hasEventRows(readFileSync(partial, "utf8"))) {
+if (hasEventRows(readFileSync(partial, "utf8"))) {
+  renameSync(partial, out);
+  console.log(`${out} を作成しました`);
+} else {
   // 消さずに残す。中身を確かめられるようにするため
-  throw new Error(
-    `event の行が1件も無い。${host} が空か、違うDBを指している。取れたものは ${partial}`,
+  console.error(
+    `event の行が1件も無い。${conn.host} が空か、違うDBを指している。取れたものは ${partial}`,
   );
+  process.exitCode = 1;
 }
-
-renameSync(partial, out);
-console.log(`${out} を作成しました`);

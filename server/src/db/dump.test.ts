@@ -3,7 +3,7 @@ import { dumpFileName, hasEventRows } from "./dump";
 
 /** pg_dump の出力のうち、event の COPY だけを取り出した形（実物から写した） */
 const copyHeader =
-  "COPY public.event (id, title, short_label, start_date, end_date, \"time\", importance, note, source_url, market, theme_id, stock_id, created_at, source_name, active) FROM stdin;";
+  'COPY public.event (id, title, short_label, start_date, end_date, "time", importance, note, source_url, market, theme_id, stock_id, created_at, source_name, active) FROM stdin;';
 
 describe("dumpFileName", () => {
   it("接続先のホストとデータベース名がファイル名に入る", () => {
@@ -26,7 +26,7 @@ describe("dumpFileName", () => {
       date,
     );
 
-    expect(prod).not.toBe(dev);
+    expect(dev).toBe("2026-08-14-localhost-ichikabu.sql");
     expect(prod).toBe(
       "2026-08-14-aws-0-ap-northeast-1.pooler.supabase.com-postgres.sql",
     );
@@ -45,28 +45,28 @@ describe("dumpFileName", () => {
 
 describe("hasEventRows", () => {
   it("データ行があるダンプを通す", () => {
-    const dump = `${copyHeader}\n6\tトヨタ自動車 決算\t7203決算\t2026-08-04\n\\.\n`;
-
-    expect(hasEventRows(`--\n${dump}`)).toBe(true);
+    expect(
+      hasEventRows(
+        `${copyHeader}\n6\tトヨタ自動車 決算\t7203決算\t2026-08-04\n\\.\n`,
+      ),
+    ).toBe(true);
   });
 
   it("event テーブルはあるが0行のダンプを落とす", () => {
     // 接続先を間違えて空のDBを取ったときの形。COPY 行は出るが、次がすぐ `\.`
     // になる。受け入れ条件の `grep -c '^COPY public.event '` はこれでも 1 を返す
-    const dump = `${copyHeader}\n\\.\n`;
-
-    expect(hasEventRows(`--\n${dump}`)).toBe(false);
+    expect(hasEventRows(`${copyHeader}\n\\.\n`)).toBe(false);
   });
 
   it("event テーブルが無いダンプを落とす", () => {
-    expect(hasEventRows("COPY public.stock (id) FROM stdin;\n1\tトヨタ\n\\.\n")).toBe(
-      false,
-    );
+    expect(
+      hasEventRows("COPY public.stock (id) FROM stdin;\n1\tトヨタ\n\\.\n"),
+    ).toBe(false);
   });
 
   it("event_target のような別テーブルの COPY を event と読み違えない", () => {
-    const dump = "COPY public.event_target (id) FROM stdin;\n1\t2\n\\.\n";
-
-    expect(hasEventRows(`--\n${dump}`)).toBe(false);
+    expect(
+      hasEventRows("COPY public.event_target (id) FROM stdin;\n1\t2\n\\.\n"),
+    ).toBe(false);
   });
 });
