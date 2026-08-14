@@ -106,7 +106,7 @@ themeStocks  … theme_stock に stock を内部結合、市場・ティッカ�
 
 ### 4.3 フォーム
 
-`useActionState` を使うため、どちらも `"use client"` の別ファイルに切り出す（管理UI設計書 §4 と同じ理由）。
+`useActionState` を使うため、どちらも `"use client"` の別ファイルに切り出す（管理UI設計書 §4 と同じ理由）。**後に `useActionState` は `app/form.tsx` へ移り、この2つは Server Component になった**（→ [イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md) §4.1）。
 
 | ファイル | 入力欄 |
 |---|---|
