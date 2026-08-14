@@ -57,14 +57,16 @@ describe("GET /api/stocks", () => {
 
     // 端末はこの一覧から「持っている銘柄が覆うテーマ」を作り、
     // テーマイベントを出すかどうかを決める（ログイン廃止 設計書 §3.1）
+    // 並び順は契約で決めていないので、比べる前に揃える
+    const ascending = (a: number, b: number): number => a - b;
     const stocks = await fetchStocks();
-    expect(stocks.map((s) => [s.id, [...s.themeIds].sort()])).toEqual([
+    expect(stocks.map((s) => [s.id, [...s.themeIds].sort(ascending)])).toEqual([
       [toyota.id, []],
-      [nvidia.id, [ai.id, semiconductor.id].sort()],
+      [nvidia.id, [ai.id, semiconductor.id].sort(ascending)],
     ]);
   });
 
-  it("組み立てを固定する", async () => {
+  it("決算月は返さず、欄は id・市場・ティッカー・銘柄名・所属テーマの5つになる", async () => {
     const [toyota] = await db
       .insert(stock)
       .values({

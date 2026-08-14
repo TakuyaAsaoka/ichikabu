@@ -52,8 +52,7 @@ paths:
         登録されている銘柄を全件返す。絞り込みパラメータは持たない。
 
         認証は要らない。返すのは運用者が登録した銘柄の一覧だけで、
-        誰が何を持っているかは含まない。イベント取得側も段階3で認証を外すため、
-        ここで付けると2つ先で外すことになる（ログイン廃止 設計書 §3.2・§5.1）。
+        誰が何を持っているかは含まない（ログイン廃止 設計書 §3.2）。
       responses:
         "200":
           description: |
@@ -94,6 +93,25 @@ components:
         このイベントが誰に出るかを決める対象。ちょうど1つを持つ（全体設計書 §5）。
         `type` で場合分けすると、市場・テーマ・銘柄それぞれの持ち物が取り出せる。
         `kind` と同じ区分だが、`kind` は色分けに使う区分で、こちらは表示対象の判定に使う。
+    Market:
+      type: string
+      enum:
+        - JP
+        - US
+      description: |
+        銘柄が上場している市場。`EventMarket` から `GLOBAL` を除いたもの。
+        片方に市場を足すときは、もう片方も見ること
+    EventMarket:
+      type: string
+      enum:
+        - JP
+        - US
+        - GLOBAL
+      description: |
+        市場イベントを出す相手。`GLOBAL` は全員に出し、
+        `JP` と `US` はその市場の銘柄を1つでも持つ人に出す。
+        `Market` に `GLOBAL` を足したもので、値の集合が違うため別の型になる。
+        端末で `Stock.market` と比べるときは、文字列に直して比べる
     MarketTarget:
       type: object
       required:
@@ -105,13 +123,7 @@ components:
           enum:
             - market
         market:
-          type: string
-          enum:
-            - JP
-            - US
-            - GLOBAL
-          description: |
-            GLOBAL は全員に出す。JP と US は、その市場の銘柄を1つでも持つ人に出す。
+          $ref: "#/components/schemas/EventMarket"
     ThemeTarget:
       type: object
       required:
@@ -145,7 +157,6 @@ components:
       required:
         - id
         - kind
-        - target
         - title
         - shortLabel
         - startDate
@@ -154,6 +165,7 @@ components:
         - importance
         - note
         - source
+        - target
       properties:
         id:
           type: string
@@ -234,11 +246,7 @@ components:
           type: integer
           description: 銘柄のID。`Event` の `StockTarget.stockId` と同じ値
         market:
-          type: string
-          enum:
-            - JP
-            - US
-          description: 市場。市場イベントを出すかどうかの判定に使う
+          $ref: "#/components/schemas/Market"
         ticker:
           type: string
           description: ティッカー（`7203`・`NVDA` 等）
@@ -252,5 +260,5 @@ components:
           description: |
             この銘柄が属するテーマのIDの一覧。属していなければ空の配列。
             テーマイベントは、そのテーマに属する銘柄を1つでも持つ人に出すため、
-            端末側の判定にこの一覧が要る（全体設計書 §5）。
+            端末側の判定にこの一覧が要る（全体設計書 §5）。並び順は決めない。
             テーマの名前は返さない。テーマを画面に出す要件が無いため

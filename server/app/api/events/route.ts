@@ -23,7 +23,7 @@ type EventMarket = Extract<Event["target"], { type: "market" }>["market"];
  * 種別と対象を1つの関数から返すのは、両方が同じ3列から決まるため。
  * 別々に導くと `kind` と `target.type` が食い違う書き方ができてしまう
  */
-function deriveTarget(row: {
+function deriveKindAndTarget(row: {
   market: EventMarket | null;
   themeId: number | null;
   stockId: number | null;
@@ -169,12 +169,12 @@ export async function GET(request: Request): Promise<Response> {
       ),
     );
 
-  const registered = rows.flatMap((row): Event[] => {
-    const kindAndTarget = deriveTarget(row);
-    // CHECK 制約が禁じている行。ここに来ることは無いが、型からは見えないため落とす
-    if (kindAndTarget === null) return [];
-    return [
-      {
+  const registered = rows
+    .map((row): Event | null => {
+      const kindAndTarget = deriveKindAndTarget(row);
+      // CHECK 制約が禁じている行。ここに来ることは無いが、型からは見えないため落とす
+      if (kindAndTarget === null) return null;
+      return {
         // 計算した権利日は行IDを持てないため、契約の id は文字列（権利日設計書 §5）
         id: String(row.id),
         ...kindAndTarget,
@@ -193,9 +193,9 @@ export async function GET(request: Request): Promise<Response> {
           row.sourceName !== null && row.sourceUrl !== null
             ? { name: row.sourceName, url: row.sourceUrl }
             : null,
-      },
-    ];
-  });
+      };
+    })
+    .filter((e) => e !== null);
 
   const body = [...registered, ...rightsEvents(rightsStocks)].sort(
     compareEvents,
