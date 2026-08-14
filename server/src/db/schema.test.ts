@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { event, stock, theme, themeStock } from "./schema";
+import { AUDIT_RESOURCES, event, stock, theme, themeStock } from "./schema";
 
 beforeEach(resetDatabase);
 
@@ -275,6 +275,19 @@ describe("theme の一意性", () => {
       db.insert(theme).values({ name: "ドローン" }),
     );
     expect(violated).toBe("theme_name_unique");
+  });
+});
+
+describe("AUDIT_RESOURCES", () => {
+  // 値は audit_log.resource_type の型そのもので、書き込みだけでなく読み出しの型も
+  // これで決まる。実在しないテーブル名が混ざっていても TypeScript は気づけないため、
+  // DBに問い合わせて確かめる（Issue #98）
+  it("並んでいる値はすべてDBに実在するテーブル名である", async () => {
+    const { rows } = await db.execute<{ tablename: string }>(sql`
+      SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    `);
+    const tables = new Set(rows.map((row) => row.tablename));
+    expect(AUDIT_RESOURCES.filter((name) => !tables.has(name))).toEqual([]);
   });
 });
 

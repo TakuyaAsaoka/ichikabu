@@ -32,18 +32,15 @@ export const EVENT_MARKETS = ["JP", "US", "GLOBAL"] as const;
  */
 export const AUDIT_ACTIONS = ["create", "update", "delete"] as const;
 /**
- * 記録の対象。値はDBのテーブル名そのもの。
- *
- * `holding` はテーブルごと消えたが（ログイン廃止 設計書 §5.1）、値は残す。
- * この表は過去の事実の記録で、消す前に書かれた行が `resource_type='holding'` を
- * 持っている。値を落とすと、実際にDBに在る文字列を型が「ありえない」と言い切る。
- * 本番の `audit_log` にその行が1件も無いと確認できたら消してよい（→ Issue #98）
+ * 記録の対象。値はDBのテーブル名そのもので、実在するテーブルだけを並べる。
+ * この列は書き込みだけでなく読み出しの型も決めるため、DBに在る文字列を
+ * 落とすと、その行を読んだときに型が嘘をつく。
+ * 実在するかは `src/db/schema.test.ts` がDBに問い合わせて確かめている
  */
 export const AUDIT_RESOURCES = [
   "stock",
   "theme",
   "event",
-  "holding",
   "theme_stock",
 ] as const;
 
