@@ -111,7 +111,7 @@ Node 24 は 2026年8月13日時点の最新のLTS（v24.19.0、Krypton）。26 �
 
 ## 6. iOS の接続先
 
-`ios/Ichikabu/APIClient.swift:19` を書き換える。
+`ios/Ichikabu/APIClient.swift` の `baseURL` を書き換える。
 
 ```swift
 /// 接続先。Debug はローカルの `next dev`、Release は配信先を見る。
@@ -127,7 +127,7 @@ static let baseURL: URL = {
 
 `openapi.yaml` の `servers` は変えない。iOS は生成された型だけを使い、通信は手で書いているため、`servers` の値はどこからも読まれない。
 
-`server/.env.example` には**値を足さない**。配信先の値は Netlify の環境変数と `.env.deploy.local` に入れるので、リポジトリには入らない。ただし置き場所が分かるように、末尾に案内を追記する。**Issue #74 の検証が見る9行目（`BETTER_AUTH_URL`）を動かさないよう、追記は末尾に置く。**
+`server/.env.example` には**値を足さない**。配信先の値は Netlify の環境変数と `.env.deploy.local` に入れるので、リポジトリには入らない。ただし置き場所が分かるように、末尾に案内を追記する。**Issue #74 の検証が見る `BETTER_AUTH_URL` の行を動かさないよう、追記は末尾に置く。**
 
 ### 配信先の値を置くファイル名は `.env.deploy.local`
 

@@ -44,7 +44,7 @@
 - Test: `server/app/bulk-event-input.test.ts`
 
 **Interfaces:**
-- Consumes: `EventInput`（`server/src/db/write.ts:136`）
+- Consumes: `EventInput`（`server/src/db/write.ts`）
 - Produces:
   - `type Lookup = { stocks: { id: number; market: string; ticker: string }[]; themes: { id: number; name: string }[] }`
   - `function toEventInputs(text: string, lookup: Lookup): EventInput[] | string` — 成功で `EventInput[]`、失敗で日本語のエラー文
@@ -691,7 +691,7 @@ import に足す。
 import { BulkEventForm } from "./bulk-event-form";
 ```
 
-「イベントを登録」のセクション（`app/page.tsx:167-175`）の直後に足す。
+`app/page.tsx` の `EventForm` を置いたセクションの直後に足す。
 
 ```tsx
       <section className="flex flex-col gap-3">
