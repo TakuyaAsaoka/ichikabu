@@ -8,9 +8,18 @@ struct CalendarView: View {
 	let onUnauthorized: () -> Void
 
 	@State private var events: [Event] = []
+	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
+	@State private var stocks: [Stock] = []
 	@State private var message: String?
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
+
+	/// 選んだ持ち株。端末に保存したものを起動時に読む
+	@State private var holdings: [Int] = HoldingStore().load()
+	/// 持ち株を選ぶ画面を出しているか
+	@State private var isPickingHoldings = false
+
+	private let store = HoldingStore()
 
 	/// ページの基準になる日。`@State` にすることで初期化が1回だけになり、
 	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
@@ -19,17 +28,79 @@ struct CalendarView: View {
 	/// タップされた日。nil の間はシートを出さない
 	@State private var selectedDay: Date?
 
+	/// シートの高さ。日付は 0.45、持ち株の一覧は狭いので `.large` で開く。
+	/// 高さの候補（`presentationDetents` に渡す集合）は変えずに、選ぶほうだけを変える。
+	/// 集合を出し分けると、閉じている最中に候補が入れ替わることになる
+	@State private var sheetHeight: PresentationDetent = .fraction(0.45)
+
 	/// 起動月の前後12ヶ月（設計書 §2 判断5）
 	private static let monthRange = -12...12
 
 	var body: some View {
+		// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（ログイン廃止 設計書 §4）
+		let shown = EventLayout.visible(events, holdings: holdings, stocks: stocks)
+
+		NavigationStack {
+			VStack(spacing: 0) {
+				// 案内は TabView の外に置く。中に入れると前後12ヶ月の25ページに複製される
+				if holdings.isEmpty {
+					holdingsPrompt
+				}
+				grid(shown: shown)
+			}
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				// 常に見える入り口。持ち株を選んだあとも選び直せるようにする
+				ToolbarItem(placement: .topBarTrailing) {
+					Button("持ち株") { showHoldings() }
+				}
+			}
+		}
+		.task {
+			await load()
+		}
+	}
+
+	/// 持ち株を選ぶ画面を出す
+	private func showHoldings() {
+		sheetHeight = .large
+		isPickingHoldings = true
+	}
+
+	/// その日のイベントのシートを出す。
+	/// 高さを 0.45 に戻すのは、持ち株の一覧で `.large` にしたまま日付を開くと
+	/// カレンダーが隠れ、続けて別の日付をタップできなくなるため（設計書 §3）
+	private func showDay(_ day: Date) {
+		sheetHeight = .fraction(0.45)
+		selectedDay = day
+	}
+
+	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない
+	private var holdingsPrompt: some View {
+		Button { showHoldings() } label: {
+			HStack {
+				Text("持ち株が未選択です")
+				Spacer()
+				Text("選ぶ").fontWeight(.semibold)
+			}
+			.font(.caption)
+			.padding(.horizontal, 12)
+			.padding(.vertical, 8)
+			.frame(maxWidth: .infinity)
+			.background(Color.yellow.opacity(0.25))
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+	}
+
+	private func grid(shown: [Event]) -> some View {
 		TabView(selection: $monthOffset) {
 			ForEach(Self.monthRange, id: \.self) { offset in
 				MonthPage(
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
-					events: events,
-					onSelect: { selectedDay = $0 }
+					events: shown,
+					onSelect: { showDay($0) }
 				)
 				.tag(offset)
 			}
@@ -37,45 +108,82 @@ struct CalendarView: View {
 		.tabViewStyle(.page(indexDisplayMode: .never))
 		.overlay {
 			if let message {
-				Text(message).foregroundStyle(.secondary)
+				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
+				// これが無いと復旧はアプリの再起動だけになる
+				Button { Task { await load() } } label: {
+					VStack(spacing: 4) {
+						Text(message).foregroundStyle(.secondary)
+						Text("再試行")
+					}
+				}
 			}
 		}
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
-		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）
+		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）。
+		//
+		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
+		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
+		// 日付のシートを開いたままツールバーの「持ち株」を押せてしまう。
+		// 1枚の中身を入れ替える形にすれば、2枚目を出す要求そのものが起きない
 		.sheet(isPresented: sheetIsShown) {
 			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
 			// nil になった時点で消えていくシートから指定が外れる
 			Group {
-				if let selectedDay {
+				if isPickingHoldings {
+					HoldingsView(stocks: stocks, holdings: savedHoldings)
+				} else if let selectedDay {
 					DaySheet(
 						date: selectedDay,
 						events: EventLayout.events(
-							on: EventLayout.key(for: selectedDay), from: events)
+							on: EventLayout.key(for: selectedDay), from: shown)
 					)
 				}
 			}
-			.presentationDetents([.fraction(0.45), .large])
+			.presentationDetents([.fraction(0.45), .large], selection: $sheetHeight)
 			// 0.45 まで下げている間は裏を操作できる。
 			// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
-		.task {
-			await load()
-		}
 	}
 
-	/// 日が選ばれていればシートを出す。閉じられたら選択も消す
+	/// 日が選ばれているか、持ち株を選んでいる間はシートを出す。閉じられたら両方消す
 	private var sheetIsShown: Binding<Bool> {
-		Binding(get: { selectedDay != nil }, set: { if !$0 { selectedDay = nil } })
+		Binding(
+			get: { isPickingHoldings || selectedDay != nil },
+			set: {
+				if !$0 {
+					isPickingHoldings = false
+					selectedDay = nil
+				}
+			})
+	}
+
+	/// 選んだ持ち株。書き込むと同時に端末へ保存する。
+	/// 保存を通らずに持ち株が変わる経路を作らないため、書き込み口はこれ1つにする
+	private var savedHoldings: Binding<[Int]> {
+		Binding(
+			get: { holdings },
+			set: {
+				holdings = $0
+				store.save($0)
+			})
 	}
 
 	private func load() async {
 		do {
-			events = try await APIClient().events(token: token)
+			// 2本を1回で受け取る。片方が失敗すると代入に届かないので、
+			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない
+			async let events = APIClient().events(token: token)
+			async let stocks = APIClient().stocks()
+			(self.events, self.stocks) = try await (events, stocks)
+			// 再試行で取れたら文言を消す
+			message = nil
 		} catch APIError.unauthorized {
 			onUnauthorized()
 		} catch {
-			message = "イベントを取得できませんでした"
+			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
+			// 文言はイベントに限定しない
+			message = "イベントと銘柄を取得できませんでした"
 		}
 	}
 }
