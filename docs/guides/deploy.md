@@ -142,7 +142,7 @@ Supabase のダッシュボード上部の **Connect** に3つ並んでいる。
 
 配信先のDBに `SEED_USERS` に書いた人数ぶん利用者を作る。このアプリには新規登録の画面が無い（`server/src/auth.ts` の `disableSignUp: true`）。
 
-> ⚠️ **`.env.deploy.local` に `SEED_USERS` が無いと、開発用の利用者が本番DBに作られる。** シェルに `SEED_USERS` が無ければ `pnpm db:seed` は `.env.local`（開発用）の値を読み、エラーも出さずに本番DBへ入れてしまう。次の §3 のとおり書き換えてあることを、実行前に必ず確かめる。
+> ⚠️ **`.env.deploy.local` に `SEED_USERS` が無いと、開発用の利用者が本番DBに作られる。** シェルに `SEED_USERS` が無ければ `pnpm db:seed` は `.env.local`（開発用）の値を読み、エラーも出さずに本番DBへ入れてしまう。§3 のとおり書き換えてあることを、実行前に必ず確かめる。
 
 ```bash
 cd server
