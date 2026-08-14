@@ -4,6 +4,7 @@ import {
   toStatEvents,
 } from "../app/stat-schedule";
 import { db } from "../src/db";
+import { record } from "../src/db/audit";
 import { upsertMarketEvents } from "../src/db/write";
 
 /**
@@ -22,10 +23,19 @@ if (events.length === 0) {
 }
 console.log(`公表予定から ${events.length} 件を読んだ`);
 
-const { created, changed, deactivated } = await upsertMarketEvents(
+const { created, changed, deactivated, entries } = await upsertMarketEvents(
   events,
   STAT_TITLE_PATTERN,
 );
+
+// 利用者IDは空。人ではなく取り込みが書いたことを表す（監査ログ 設計書 §5.2）。
+// この経路は app/actions.ts を通らないので、ここで記録しないと実データの
+// ほとんどが残らない。失敗は黙って進めず投げる。上の「1件も取れなかった」と
+// 同じ理由で、黙って成功させると記録できていないことに気づけない
+const failure = await record(null, entries);
+if (failure) {
+  throw new Error(failure);
+}
 
 console.log(`登録した: ${created.length} 件`);
 for (const title of created) {

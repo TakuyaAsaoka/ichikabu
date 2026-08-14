@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../test/helpers";
 
@@ -27,9 +28,8 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 const { auth } = await import("../src/auth");
 const { db } = await import("../src/db");
-const { event, holding, stock, theme, themeStock } = await import(
-  "../src/db/schema"
-);
+const { auditLog, event, holding, stock, theme, themeStock, user } =
+  await import("../src/db/schema");
 const { seedUser } = await import("../src/db/seed-user");
 const {
   addEvent,
@@ -155,6 +155,32 @@ describe("管理者ではない入力者", () => {
       ),
     ).toBeNull();
     expect(await db.select().from(event)).toHaveLength(2);
+  });
+
+  it("イベントを登録すると記録が残り、利用者IDがその入力者を指す", async () => {
+    // 記録が残る経路は2つあり、こちらが画面の側（設計書 §5.2）。
+    // 利用者IDは、テストが渡した文字列ではなく DB の user の行と突き合わせる
+    const [{ id: editorId }] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, EDITOR));
+
+    await addEvent(
+      null,
+      form({
+        title: "決算発表",
+        shortLabel: "7203決算",
+        startDate: "2026-05-08",
+        importance: "3",
+        target: "stock:1",
+      }),
+    );
+
+    const rows = await db.select().from(auditLog);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].userId).toBe(editorId);
+    expect(rows[0].action).toBe("create");
+    expect(rows[0].resourceType).toBe("event");
   });
 
   it("イベントを編集できる", async () => {

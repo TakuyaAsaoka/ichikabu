@@ -1,5 +1,11 @@
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
+import {
+  type AuditEntry,
+  createdEntry,
+  deletedEntry,
+  updatedEntry,
+} from "./audit";
 import { pgError } from "./pg-error";
 import { event, holding, stock, theme, themeStock } from "./schema";
 
@@ -85,13 +91,28 @@ const RESTRICT_VIOLATION = "23001";
 const INVALID_VALUE_CLASS = "22";
 
 /**
+ * 書き込みの結果。失敗なら画面に出す日本語のエラー文、
+ * 成功なら監査ログに渡す記録（設計書 §5.3）。
+ *
+ * 成功を `null` ではなく記録の並びにしてある。`null` のままだと、
+ * 何を書き込んだのかがこの層から出ていかず、`resource_id` も
+ * `previous_values` も書けない。0件更新・0件削除では空の並びになる
+ */
+export type WriteResult = string | AuditEntry[];
+
+/**
  * 書き込みを実行し、上の表にある制約違反なら日本語のエラー文を返す。
  * 列に入らない値も日本語のエラー文にする。それ以外のエラーは投げ直す。
- * 握りつぶすと、理由が出ないまま失敗する画面になる
+ * 握りつぶすと、理由が出ないまま失敗する画面になる。
+ *
+ * 引数は問い合わせではなく関数にしてある。問い合わせを直接受け取ると、
+ * 呼ぶ側が `.returning()` の結果を取り出せず、記録の中身を作れない
  */
-async function run(operation: Promise<unknown>): Promise<string | null> {
+async function run(
+  operation: () => Promise<AuditEntry[]>,
+): Promise<WriteResult> {
   try {
-    await operation;
+    return await operation();
   } catch (error) {
     const { code, constraint } = pgError(error);
     // 削除で参照が残っているときだけ別の表を引く。制約名は登録・更新と同じものが
@@ -108,7 +129,6 @@ async function run(operation: Promise<unknown>): Promise<string | null> {
     }
     throw error;
   }
-  return null;
 }
 
 /**
@@ -145,39 +165,70 @@ function stockValues(input: StockInput, name: string) {
   return { ...input, name, market: sql`${input.market}` };
 }
 
-/** 銘柄を登録する。成功で null、制約違反で日本語のエラー文を返す */
-export async function createStock(input: StockInput): Promise<string | null> {
+/** 複合主キーの `resource_id`。列の値を ":" でつなぐ（設計書 §5.1） */
+function compositeId(...values: (string | number)[]): string {
+  return values.join(":");
+}
+
+/** 銘柄を登録する。成功で記録、制約違反で日本語のエラー文を返す */
+export async function createStock(input: StockInput): Promise<WriteResult> {
   const name = trimmedName(input.name);
   return name === null
     ? "銘柄名を入れる"
-    : run(db.insert(stock).values(stockValues(input, name)));
+    : run(async () => {
+        const [row] = await db
+          .insert(stock)
+          .values(stockValues(input, name))
+          .returning();
+        return [createdEntry(stock, String(row.id), row)];
+      });
 }
 
 /**
- * 保有を登録する。成功で null、制約違反で日本語のエラー文を返す。
+ * 保有を登録する。成功で記録、制約違反で日本語のエラー文を返す。
  * userId はセッションから渡す。この関数はセッションを読まない（設計書 §4）
  */
 export function createHolding(
   userId: string,
   stockId: number,
-): Promise<string | null> {
-  return run(db.insert(holding).values({ userId, stockId }));
+): Promise<WriteResult> {
+  return run(async () => {
+    const [row] = await db
+      .insert(holding)
+      .values({ userId, stockId })
+      .returning();
+    return [createdEntry(holding, compositeId(row.userId, row.stockId), row)];
+  });
 }
 
-/** テーマを登録する。成功で null、失敗で日本語のエラー文を返す */
-export async function createTheme(name: string): Promise<string | null> {
+/** テーマを登録する。成功で記録、失敗で日本語のエラー文を返す */
+export async function createTheme(name: string): Promise<WriteResult> {
   const trimmed = trimmedName(name);
   return trimmed === null
     ? "テーマ名を入れる"
-    : run(db.insert(theme).values({ name: trimmed }));
+    : run(async () => {
+        const [row] = await db
+          .insert(theme)
+          .values({ name: trimmed })
+          .returning();
+        return [createdEntry(theme, String(row.id), row)];
+      });
 }
 
-/** テーマ所属を登録する。成功で null、制約違反で日本語のエラー文を返す */
+/** テーマ所属を登録する。成功で記録、制約違反で日本語のエラー文を返す */
 export function createThemeStock(
   themeId: number,
   stockId: number,
-): Promise<string | null> {
-  return run(db.insert(themeStock).values({ themeId, stockId }));
+): Promise<WriteResult> {
+  return run(async () => {
+    const [row] = await db
+      .insert(themeStock)
+      .values({ themeId, stockId })
+      .returning();
+    return [
+      createdEntry(themeStock, compositeId(row.themeId, row.stockId), row),
+    ];
+  });
 }
 
 export type EventInput = {
@@ -231,11 +282,17 @@ function eventValues(input: EventInput) {
   return { ...input, market: sql`${input.market}` };
 }
 
-/** イベントを登録する。成功で null、失敗で日本語のエラー文を返す */
-export async function createEvent(input: EventInput): Promise<string | null> {
+/** イベントを登録する。成功で記録、失敗で日本語のエラー文を返す */
+export async function createEvent(input: EventInput): Promise<WriteResult> {
   return (
     tooLongLabel(input.shortLabel) ??
-    run(db.insert(event).values(eventValues(input)))
+    run(async () => {
+      const [row] = await db
+        .insert(event)
+        .values(eventValues(input))
+        .returning();
+      return [createdEntry(event, String(row.id), row)];
+    })
   );
 }
 
@@ -262,8 +319,8 @@ function invalidId(id: number, label: string): string | null {
 }
 
 /**
- * 銘柄を更新する。成功で null、失敗で日本語のエラー文を返す。
- * 該当するIDが無ければ0件更新になり、成功として null を返す。
+ * 銘柄を更新する。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として空の記録を返す。
  *
  * 市場とティッカーも変えられる。参照しているイベント・保有・テーマ所属は
  * stock.id で紐づいているため、変えても参照は外れない（設計書 §4）
@@ -271,61 +328,133 @@ function invalidId(id: number, label: string): string | null {
 export async function updateStock(
   id: number,
   input: StockInput,
-): Promise<string | null> {
+): Promise<WriteResult> {
   const name = trimmedName(input.name);
   return (
     invalidId(id, "銘柄") ??
     (name === null
       ? "銘柄名を入れる"
-      : run(
-          db
-            .update(stock)
-            .set(stockValues(input, name))
-            .where(eq(stock.id, id)),
+      : run(() =>
+          db.transaction(async (tx) => {
+            // 変更前の行は UPDATE の RETURNING では取れない（返るのは変更後）。
+            // 取り引きの中で先に読む。外で読むと、間に別の更新が入ったとき
+            // 「変更前」として記録される行が実際の変更前と食い違う
+            const [before] = await tx
+              .select()
+              .from(stock)
+              .where(eq(stock.id, id));
+            const [after] = await tx
+              .update(stock)
+              .set(stockValues(input, name))
+              .where(eq(stock.id, id))
+              .returning();
+            // 該当するIDが無ければ0件更新。記録することが無い
+            return after
+              ? [updatedEntry(stock, String(after.id), before, after)]
+              : [];
+          }),
         ))
   );
 }
 
-/**
- * 銘柄を削除する。成功で null、失敗で日本語のエラー文を返す。
- * 該当するIDが無ければ0件削除になり、成功として null を返す。
- * イベント・保有から参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）
- */
-export async function deleteStock(id: number): Promise<string | null> {
-  return invalidId(id, "銘柄") ?? run(db.delete(stock).where(eq(stock.id, id)));
+/** 消したテーマ所属の記録に直す */
+function themeStockEntries(
+  rows: { themeId: number; stockId: number }[],
+): AuditEntry[] {
+  return rows.map((row) =>
+    deletedEntry(themeStock, compositeId(row.themeId, row.stockId), row),
+  );
 }
 
 /**
- * テーマを更新する。成功で null、失敗で日本語のエラー文を返す。
- * 該当するIDが無ければ0件更新になり、成功として null を返す
+ * 銘柄を削除する。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件削除になり、成功として空の記録を返す。
+ * イベント・保有から参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）。
+ *
+ * テーマ所属は CASCADE に任せず、同じ取り引きの中で先に自分で消す。
+ * DBに任せると消えた行を受け取る機会が無く、記録に残せない（監査ログ 設計書 §5.4）。
+ * 銘柄の削除が参照に阻まれれば、こちらの削除も一緒に巻き戻る
+ */
+export async function deleteStock(id: number): Promise<WriteResult> {
+  return (
+    invalidId(id, "銘柄") ??
+    run(() =>
+      db.transaction(async (tx) => {
+        const links = await tx
+          .delete(themeStock)
+          .where(eq(themeStock.stockId, id))
+          .returning();
+        const rows = await tx.delete(stock).where(eq(stock.id, id)).returning();
+        return [
+          ...themeStockEntries(links),
+          ...rows.map((row) => deletedEntry(stock, String(row.id), row)),
+        ];
+      }),
+    )
+  );
+}
+
+/**
+ * テーマを更新する。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として空の記録を返す
  */
 export async function updateTheme(
   id: number,
   name: string,
-): Promise<string | null> {
+): Promise<WriteResult> {
   const trimmed = trimmedName(name);
   return (
     invalidId(id, "テーマ") ??
     (trimmed === null
       ? "テーマ名を入れる"
-      : run(db.update(theme).set({ name: trimmed }).where(eq(theme.id, id))))
+      : run(() =>
+          db.transaction(async (tx) => {
+            const [before] = await tx
+              .select()
+              .from(theme)
+              .where(eq(theme.id, id));
+            const [after] = await tx
+              .update(theme)
+              .set({ name: trimmed })
+              .where(eq(theme.id, id))
+              .returning();
+            return after
+              ? [updatedEntry(theme, String(after.id), before, after)]
+              : [];
+          }),
+        ))
   );
 }
 
 /**
- * テーマを削除する。成功で null、失敗で日本語のエラー文を返す。
- * 該当するIDが無ければ0件削除になり、成功として null を返す。
- * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）
+ * テーマを削除する。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件削除になり、成功として空の記録を返す。
+ * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）。
+ *
+ * テーマ所属を先に自分で消す理由は `deleteStock` と同じ
  */
-export async function deleteTheme(id: number): Promise<string | null> {
+export async function deleteTheme(id: number): Promise<WriteResult> {
   return (
-    invalidId(id, "テーマ") ?? run(db.delete(theme).where(eq(theme.id, id)))
+    invalidId(id, "テーマ") ??
+    run(() =>
+      db.transaction(async (tx) => {
+        const links = await tx
+          .delete(themeStock)
+          .where(eq(themeStock.themeId, id))
+          .returning();
+        const rows = await tx.delete(theme).where(eq(theme.id, id)).returning();
+        return [
+          ...themeStockEntries(links),
+          ...rows.map((row) => deletedEntry(theme, String(row.id), row)),
+        ];
+      }),
+    )
   );
 }
 
 /**
- * 保有を消す。成功で null、失敗で日本語のエラー文を返す。
- * 該当する行が無ければ0件削除になり、成功として null を返す。
+ * 保有を消す。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当する行が無ければ0件削除になり、成功として空の記録を返す。
  *
  * userId はセッションから渡す。この関数はセッションを読まない（管理UI設計書 §3）。
  * 主キーの2列とも条件に入れる。stockId だけで消すと他人の保有まで消える
@@ -333,20 +462,24 @@ export async function deleteTheme(id: number): Promise<string | null> {
 export async function deleteHolding(
   userId: string,
   stockId: number,
-): Promise<string | null> {
+): Promise<WriteResult> {
   return (
     invalidId(stockId, "銘柄") ??
-    run(
-      db
+    run(async () => {
+      const rows = await db
         .delete(holding)
-        .where(and(eq(holding.userId, userId), eq(holding.stockId, stockId))),
-    )
+        .where(and(eq(holding.userId, userId), eq(holding.stockId, stockId)))
+        .returning();
+      return rows.map((row) =>
+        deletedEntry(holding, compositeId(row.userId, row.stockId), row),
+      );
+    })
   );
 }
 
 /**
- * テーマ所属を消す。成功で null、失敗で日本語のエラー文を返す。
- * 該当する行が無ければ0件削除になり、成功として null を返す。
+ * テーマ所属を消す。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当する行が無ければ0件削除になり、成功として空の記録を返す。
  *
  * theme_stock は他のテーブルから参照されないため、外部キー違反は起きない。
  * 消えるのは所属だけで、テーマも銘柄も残る
@@ -354,42 +487,77 @@ export async function deleteHolding(
 export async function deleteThemeStock(
   themeId: number,
   stockId: number,
-): Promise<string | null> {
+): Promise<WriteResult> {
   return (
     invalidId(themeId, "テーマ") ??
     invalidId(stockId, "銘柄") ??
-    run(
-      db
-        .delete(themeStock)
-        .where(
-          and(eq(themeStock.themeId, themeId), eq(themeStock.stockId, stockId)),
-        ),
+    run(async () =>
+      themeStockEntries(
+        await db
+          .delete(themeStock)
+          .where(
+            and(
+              eq(themeStock.themeId, themeId),
+              eq(themeStock.stockId, stockId),
+            ),
+          )
+          .returning(),
+      ),
     )
   );
 }
 
 /**
- * イベントを更新する。成功で null、失敗で日本語のエラー文を返す。
- * 該当するIDが無ければ0件更新になり、成功として null を返す
+ * イベントを更新する。成功で記録、失敗で日本語のエラー文を返す。
+ * 該当するIDが無ければ0件更新になり、成功として空の記録を返す
  */
 export async function updateEvent(
   id: number,
   input: EventInput,
-): Promise<string | null> {
+): Promise<WriteResult> {
   return (
     invalidId(id, "イベント") ??
     tooLongLabel(input.shortLabel) ??
-    run(db.update(event).set(eventValues(input)).where(eq(event.id, id)))
+    run(() =>
+      db.transaction(async (tx) => {
+        const [before] = await tx.select().from(event).where(eq(event.id, id));
+        const [after] = await tx
+          .update(event)
+          .set(eventValues(input))
+          .where(eq(event.id, id))
+          .returning();
+        return after
+          ? [updatedEntry(event, String(after.id), before, after)]
+          : [];
+      }),
+    )
   );
 }
 
 /**
- * イベントを削除する。成功で null、失敗で日本語のエラー文を返す。
+ * イベントを削除する。成功で記録、失敗で日本語のエラー文を返す。
  * event は他のテーブルから参照されないため、外部キー違反は起きない（設計書 §3.2）
  */
-export async function deleteEvent(id: number): Promise<string | null> {
+export async function deleteEvent(id: number): Promise<WriteResult> {
   return (
-    invalidId(id, "イベント") ?? run(db.delete(event).where(eq(event.id, id)))
+    invalidId(id, "イベント") ??
+    run(async () => {
+      const rows = await db.delete(event).where(eq(event.id, id)).returning();
+      return rows.map((row) => deletedEntry(event, String(row.id), row));
+    })
+  );
+}
+
+/**
+ * `active` を切り替えたイベントの記録に直す。
+ *
+ * 変更前の行は読み直さずに `active` を裏返して作る。書き換えたのはこの1列だけで、
+ * どちらの更新も `where` で切り替え前の値を絞っているため、裏返した行が
+ * 変更前の行と一致する。読み直すと問い合わせが1本増えるだけになる
+ */
+function activeEntries(rows: { id: number; active: boolean }[]): AuditEntry[] {
+  return rows.map((row) =>
+    updatedEntry(event, String(row.id), { ...row, active: !row.active }, row),
   );
 }
 
@@ -408,6 +576,11 @@ export type UpsertResult = {
   created: string[];
   changed: ScheduleChange[];
   deactivated: string[];
+  /**
+   * 監査ログに渡す記録。**この経路は `app/actions.ts` を通らないため、
+   * ここで返さないと取り込みの書き込みが1件も記録に残らない**（設計書 §5.2）
+   */
+  entries: AuditEntry[];
 };
 
 /**
@@ -443,20 +616,17 @@ export async function upsertMarketEvents(
   const created: string[] = [];
   const changed: ScheduleChange[] = [];
   const deactivated: string[] = [];
+  const entries: AuditEntry[] = [];
   // 0件のときは何もしない。ここで非アクティブ化まで走ると、XML の形が変わって
   // 1件も読めなかったときに取り込み済みの回が全部消える
   if (inputs.length === 0) {
-    return { created, changed, deactivated };
+    return { created, changed, deactivated, entries };
   }
 
   await db.transaction(async (tx) => {
+    // 列を絞らず行ごと読む。絞ると `previous_values` に入れる中身が欠ける
     const existing = await tx
-      .select({
-        id: event.id,
-        title: event.title,
-        startDate: event.startDate,
-        time: event.time,
-      })
+      .select()
       .from(event)
       .where(
         inArray(
@@ -472,15 +642,11 @@ export async function upsertMarketEvents(
         const [inserted] = await tx
           .insert(event)
           .values(eventValues(input))
-          .returning({
-            id: event.id,
-            title: event.title,
-            startDate: event.startDate,
-            time: event.time,
-          });
+          .returning();
         // 入れた行を控える。同じ名称が1回の入力に2つあると、控えないと2件入る
         found.set(inserted.title, inserted);
         created.push(input.title);
+        entries.push(createdEntry(event, String(inserted.id), inserted));
         continue;
       }
       // 違うかどうかの判定はDBに任せる。time 列は '08:30' を入れると '08:30:00' で
@@ -494,7 +660,7 @@ export async function upsertMarketEvents(
             sql`(${event.startDate}, ${event.time}) IS DISTINCT FROM (${input.startDate}::date, ${input.time}::time)`,
           ),
         )
-        .returning({ startDate: event.startDate, time: event.time });
+        .returning();
       // 更新後の値もDBから受け取る。入力の '08:30' をそのまま使うと、
       // 前後で時刻の書き方が変わって「08:30:00 → 08:30」と出る
       const [after] = updated;
@@ -502,8 +668,9 @@ export async function upsertMarketEvents(
         changed.push({
           title: input.title,
           from: { startDate: row.startDate, time: row.time },
-          to: after,
+          to: { startDate: after.startDate, time: after.time },
         });
+        entries.push(updatedEntry(event, String(after.id), row, after));
       }
     }
 
@@ -512,10 +679,15 @@ export async function upsertMarketEvents(
     // 公表予定にまた載った回はアクティブに戻す。上の更新に混ぜないのは、
     // あちらが公表日時の変わった行だけを返す形になっているため。日時が
     // 変わらないまま戻ってきた回を混ぜると、前後が同じ「変更」が出る
-    await tx
-      .update(event)
-      .set({ active: true })
-      .where(and(eq(event.active, false), inArray(event.title, titles)));
+    entries.push(
+      ...activeEntries(
+        await tx
+          .update(event)
+          .set({ active: true })
+          .where(and(eq(event.active, false), inArray(event.title, titles)))
+          .returning(),
+      ),
+    );
 
     // 公表予定から消えたこれからの回を非アクティブにする。
     // 今日は日本時間で決める。DBの時間帯そのままの CURRENT_DATE だと、
@@ -523,24 +695,22 @@ export async function upsertMarketEvents(
     // 日付だけで見るため、今日の朝に公表を終えた回は「これから」に入る。
     // 時刻まで見て守ることもできるが、その回が公表予定から落ちるのは
     // 公表当日の1日だけで、翌日には公表済みとして守られる
-    deactivated.push(
-      ...(
-        await tx
-          .update(event)
-          .set({ active: false })
-          .where(
-            and(
-              eq(event.active, true),
-              sql`${event.title} ~ ${ownedTitlePattern}`,
-              sql`${event.startDate} >= (now() AT TIME ZONE 'Asia/Tokyo')::date`,
-              notInArray(event.title, titles),
-            ),
-          )
-          .returning({ title: event.title })
-      ).map((row) => row.title),
-    );
+    const turnedOff = await tx
+      .update(event)
+      .set({ active: false })
+      .where(
+        and(
+          eq(event.active, true),
+          sql`${event.title} ~ ${ownedTitlePattern}`,
+          sql`${event.startDate} >= (now() AT TIME ZONE 'Asia/Tokyo')::date`,
+          notInArray(event.title, titles),
+        ),
+      )
+      .returning();
+    deactivated.push(...turnedOff.map((row) => row.title));
+    entries.push(...activeEntries(turnedOff));
   });
-  return { created, changed, deactivated };
+  return { created, changed, deactivated, entries };
 }
 
 /**
@@ -550,7 +720,7 @@ export async function upsertMarketEvents(
 class BulkFailure extends Error {}
 
 /**
- * イベントをまとめて登録する。成功で null、失敗で行番号付きの日本語のエラー文を返す。
+ * イベントをまとめて登録する。成功で記録、失敗で行番号付きの日本語のエラー文を返す。
  *
  * **1行でも失敗したら1件も入れない**（設計書 §4）。一部だけ入った状態は、
  * 何が入って何が入らなかったのかを運用者が確かめられず、貼り直すと二重に入る。
@@ -558,19 +728,28 @@ class BulkFailure extends Error {}
  * 1行ずつ INSERT する。まとめて1回の INSERT にすると、どの行が失敗したかが
  * 分からず行番号を出せない。貼り付ける行数はせいぜい数十で、1行ずつでも問題にならない
  */
-export async function createEvents(
-  inputs: EventInput[],
-): Promise<string | null> {
+export async function createEvents(inputs: EventInput[]): Promise<WriteResult> {
   try {
-    await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
+      const entries: AuditEntry[] = [];
       for (const [index, input] of inputs.entries()) {
-        const message =
-          tooLongLabel(input.shortLabel) ??
-          (await run(tx.insert(event).values(eventValues(input))));
-        if (message) {
-          throw new BulkFailure(`${index + 1}行目: ${message}`);
+        const tooLong = tooLongLabel(input.shortLabel);
+        if (tooLong) {
+          throw new BulkFailure(`${index + 1}行目: ${tooLong}`);
         }
+        const result = await run(async () => {
+          const [row] = await tx
+            .insert(event)
+            .values(eventValues(input))
+            .returning();
+          return [createdEntry(event, String(row.id), row)];
+        });
+        if (typeof result === "string") {
+          throw new BulkFailure(`${index + 1}行目: ${result}`);
+        }
+        entries.push(...result);
       }
+      return entries;
     });
   } catch (error) {
     // 途中で失敗したときの文言はここで取り出す。それ以外の例外は投げ直す
@@ -579,5 +758,4 @@ export async function createEvents(
     }
     throw error;
   }
-  return null;
 }

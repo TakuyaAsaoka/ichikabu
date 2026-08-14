@@ -31,11 +31,18 @@ const TOYOTA = {
   fiscalMonth: 3,
 } as const;
 
+/**
+ * 書き込みが成功したことの判定。失敗すると日本語のエラー文（文字列）が返り、
+ * 成功すると監査ログに渡す記録の並びが返る（`WriteResult`）。
+ * 記録の中身そのものは `src/db/audit.test.ts` が判定する
+ */
+const succeeded = expect.any(Array);
+
 beforeEach(resetDatabase);
 
 describe("createStock", () => {
   it("銘柄を登録するとDBに行が入る", async () => {
-    expect(await createStock({ ...TOYOTA })).toBeNull();
+    expect(await createStock({ ...TOYOTA })).toEqual(succeeded);
 
     const rows = await db.select().from(stock);
     expect(rows).toHaveLength(1);
@@ -61,7 +68,7 @@ describe("createStock", () => {
         name: "英字入りティッカーの銘柄",
         fiscalMonth: 12,
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
   });
 
   it("全角のティッカーはエラー文が返る", async () => {
@@ -104,7 +111,7 @@ describe("createStock", () => {
         name: "Apple",
         fiscalMonth: null,
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
   });
 
   it("空白だけの銘柄名はエラー文が返る", async () => {
@@ -116,7 +123,9 @@ describe("createStock", () => {
   });
 
   it("前後に空白のある銘柄名は空白を落として登録される", async () => {
-    expect(await createStock({ ...TOYOTA, name: " トヨタ自動車 " })).toBeNull();
+    expect(await createStock({ ...TOYOTA, name: " トヨタ自動車 " })).toEqual(
+      succeeded,
+    );
 
     const [row] = await db.select().from(stock);
     expect(row.name).toBe("トヨタ自動車");
@@ -143,7 +152,7 @@ describe("createHolding", () => {
   });
 
   it("保有を登録するとDBに行が入る", async () => {
-    expect(await createHolding(userId, stockId)).toBeNull();
+    expect(await createHolding(userId, stockId)).toEqual(succeeded);
 
     const rows = await db.select().from(holding);
     expect(rows).toHaveLength(1);
@@ -163,7 +172,7 @@ describe("createHolding", () => {
 
 describe("createTheme", () => {
   it("テーマを登録するとDBに行が入る", async () => {
-    expect(await createTheme("半導体")).toBeNull();
+    expect(await createTheme("半導体")).toEqual(succeeded);
 
     const rows = await db.select().from(theme);
     expect(rows).toHaveLength(1);
@@ -203,7 +212,7 @@ describe("createThemeStock", () => {
   });
 
   it("テーマ所属を登録するとDBに行が入る", async () => {
-    expect(await createThemeStock(themeId, stockId)).toBeNull();
+    expect(await createThemeStock(themeId, stockId)).toEqual(succeeded);
 
     const rows = await db.select().from(themeStock);
     expect(rows).toHaveLength(1);
@@ -249,7 +258,7 @@ async function onlyEvent() {
 
 describe("createEvent", () => {
   it("市場イベントを登録するとDBに行が入る", async () => {
-    expect(await createEvent({ ...BASE, market: "GLOBAL" })).toBeNull();
+    expect(await createEvent({ ...BASE, market: "GLOBAL" })).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.market).toBe("GLOBAL");
@@ -261,7 +270,7 @@ describe("createEvent", () => {
     await createTheme("半導体");
     const [{ id: themeId }] = await db.select({ id: theme.id }).from(theme);
 
-    expect(await createEvent({ ...BASE, themeId })).toBeNull();
+    expect(await createEvent({ ...BASE, themeId })).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.themeId).toBe(themeId);
@@ -276,7 +285,7 @@ describe("createEvent", () => {
       .from(stock)
       .where(eq(stock.ticker, TOYOTA.ticker));
 
-    expect(await createEvent({ ...BASE, stockId })).toBeNull();
+    expect(await createEvent({ ...BASE, stockId })).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.stockId).toBe(stockId);
@@ -324,20 +333,20 @@ describe("createEvent", () => {
     // 幅10。境界を1文字ぶん間違えるとここが落ちる
     expect(
       await createEvent({ ...BASE, market: "JP", shortLabel: "決算発表日" }),
-    ).toBeNull();
+    ).toEqual(succeeded);
   });
 
   it("半角と全角が混じった短縮ラベルを登録できる", async () => {
     // 「7203決算」は6文字だが全角換算では4文字（幅8）。文字数で数えていないことの検証
     expect(
       await createEvent({ ...BASE, market: "JP", shortLabel: "7203決算" }),
-    ).toBeNull();
+    ).toEqual(succeeded);
   });
 
   it("終了日を空にすると単日として登録される", async () => {
-    expect(
-      await createEvent({ ...BASE, market: "JP", endDate: null }),
-    ).toBeNull();
+    expect(await createEvent({ ...BASE, market: "JP", endDate: null })).toEqual(
+      succeeded,
+    );
 
     expect((await onlyEvent()).endDate).toBeNull();
   });
@@ -362,7 +371,7 @@ describe("createEvent", () => {
         sourceName: "内閣府（PDL1.0）",
         sourceUrl: "https://www.cao.go.jp/",
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.sourceName).toBe("内閣府（PDL1.0）");
@@ -385,7 +394,7 @@ describe("createEvent", () => {
         market: "JP",
         sourceUrl: "https://global.toyota/jp/ir/",
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.sourceName).toBeNull();
@@ -422,7 +431,7 @@ describe("updateEvent", () => {
         importance: 2,
         note: "日本時間の未明",
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.title).toBe("米連邦公開市場委員会");
@@ -453,7 +462,7 @@ describe("updateEvent", () => {
         sourceName: "内閣府（PDL1.0）",
         sourceUrl: "https://www.cao.go.jp/",
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     const row = await onlyEvent();
     expect(row.sourceName).toBe("内閣府（PDL1.0）");
@@ -476,7 +485,9 @@ describe("updateEvent", () => {
   it("存在しないIDの更新は何も起きない", async () => {
     await registerEvent();
 
-    expect(await updateEvent(999999, { ...BASE, market: "US" })).toBeNull();
+    expect(await updateEvent(999999, { ...BASE, market: "US" })).toEqual(
+      succeeded,
+    );
     expect((await onlyEvent()).market).toBe("JP");
   });
 
@@ -506,14 +517,14 @@ describe("deleteEvent", () => {
     await createEvent({ ...BASE, market: "JP" });
     const { id } = await onlyEvent();
 
-    expect(await deleteEvent(id)).toBeNull();
+    expect(await deleteEvent(id)).toEqual(succeeded);
     expect(await db.select().from(event)).toHaveLength(0);
   });
 
   it("存在しないIDの削除は何も起きない", async () => {
     await createEvent({ ...BASE, market: "JP" });
 
-    expect(await deleteEvent(999999)).toBeNull();
+    expect(await deleteEvent(999999)).toEqual(succeeded);
     expect(await db.select().from(event)).toHaveLength(1);
   });
 
@@ -565,7 +576,7 @@ describe("updateStock", () => {
         name: "Apple",
         fiscalMonth: null,
       }),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     const [row] = await db.select().from(stock);
     expect(row.market).toBe("US");
@@ -579,9 +590,9 @@ describe("updateStock", () => {
     const stockId = await onlyStockId();
     await createEvent({ ...BASE, stockId });
 
-    expect(
-      await updateStock(stockId, { ...TOYOTA, ticker: "7204" }),
-    ).toBeNull();
+    expect(await updateStock(stockId, { ...TOYOTA, ticker: "7204" })).toEqual(
+      succeeded,
+    );
 
     expect((await onlyEvent()).stockId).toBe(stockId);
     const [row] = await db.select().from(stock);
@@ -612,7 +623,7 @@ describe("updateStock", () => {
 
     expect(
       await updateStock(id, { ...TOYOTA, name: " トヨタ自動車 " }),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     const [row] = await db.select().from(stock);
     expect(row.name).toBe("トヨタ自動車");
@@ -631,7 +642,9 @@ describe("updateStock", () => {
   it("存在しないIDの更新は何も起きない", async () => {
     await onlyStockId();
 
-    expect(await updateStock(999999, { ...TOYOTA, name: "別名" })).toBeNull();
+    expect(await updateStock(999999, { ...TOYOTA, name: "別名" })).toEqual(
+      succeeded,
+    );
     const [row] = await db.select().from(stock);
     expect(row.name).toBe("トヨタ自動車");
   });
@@ -649,7 +662,7 @@ describe("deleteStock", () => {
   it("どこからも参照されていない銘柄は消える", async () => {
     const id = await onlyStockId();
 
-    expect(await deleteStock(id)).toBeNull();
+    expect(await deleteStock(id)).toEqual(succeeded);
     expect(await db.select().from(stock)).toHaveLength(0);
   });
 
@@ -659,7 +672,7 @@ describe("deleteStock", () => {
     const themeId = await onlyThemeId();
     await createThemeStock(themeId, stockId);
 
-    expect(await deleteStock(stockId)).toBeNull();
+    expect(await deleteStock(stockId)).toEqual(succeeded);
     expect(await db.select().from(themeStock)).toHaveLength(0);
     expect(await db.select().from(theme)).toHaveLength(1);
   });
@@ -710,14 +723,14 @@ describe("deleteStock", () => {
     );
 
     await db.delete(holding);
-    expect(await deleteStock(stockId)).toBeNull();
+    expect(await deleteStock(stockId)).toEqual(succeeded);
     expect(await db.select().from(stock)).toHaveLength(0);
   });
 
   it("存在しないIDの削除は何も起きない", async () => {
     await onlyStockId();
 
-    expect(await deleteStock(999999)).toBeNull();
+    expect(await deleteStock(999999)).toEqual(succeeded);
     expect(await db.select().from(stock)).toHaveLength(1);
   });
 
@@ -732,7 +745,7 @@ describe("updateTheme", () => {
   it("テーマ名を更新するとDBの行が変わる", async () => {
     const id = await onlyThemeId();
 
-    expect(await updateTheme(id, "生成AI")).toBeNull();
+    expect(await updateTheme(id, "生成AI")).toEqual(succeeded);
 
     const [row] = await db.select().from(theme);
     expect(row.name).toBe("生成AI");
@@ -741,7 +754,7 @@ describe("updateTheme", () => {
   it("前後の空白は落として更新される", async () => {
     const id = await onlyThemeId();
 
-    expect(await updateTheme(id, " 生成AI ")).toBeNull();
+    expect(await updateTheme(id, " 生成AI ")).toEqual(succeeded);
 
     const [row] = await db.select().from(theme);
     expect(row.name).toBe("生成AI");
@@ -776,7 +789,7 @@ describe("deleteTheme", () => {
     const stockId = await onlyStockId();
     await createThemeStock(themeId, stockId);
 
-    expect(await deleteTheme(themeId)).toBeNull();
+    expect(await deleteTheme(themeId)).toEqual(succeeded);
     expect(await db.select().from(theme)).toHaveLength(0);
     expect(await db.select().from(themeStock)).toHaveLength(0);
     expect(await db.select().from(stock)).toHaveLength(1);
@@ -795,7 +808,7 @@ describe("deleteTheme", () => {
   it("存在しないIDの削除は何も起きない", async () => {
     await onlyThemeId();
 
-    expect(await deleteTheme(999999)).toBeNull();
+    expect(await deleteTheme(999999)).toEqual(succeeded);
     expect(await db.select().from(theme)).toHaveLength(1);
   });
 
@@ -820,7 +833,7 @@ describe("deleteHolding", () => {
   });
 
   it("保有を消しても銘柄は消えない", async () => {
-    expect(await deleteHolding(userId, stockId)).toBeNull();
+    expect(await deleteHolding(userId, stockId)).toEqual(succeeded);
     expect(await db.select().from(holding)).toHaveLength(0);
     expect(await db.select().from(stock)).toHaveLength(1);
   });
@@ -833,14 +846,14 @@ describe("deleteHolding", () => {
     );
     await createHolding(otherId, stockId);
 
-    expect(await deleteHolding(userId, stockId)).toBeNull();
+    expect(await deleteHolding(userId, stockId)).toEqual(succeeded);
     const rows = await db.select().from(holding);
     expect(rows).toHaveLength(1);
     expect(rows[0].userId).toBe(otherId);
   });
 
   it("存在しない組の削除は何も起きない", async () => {
-    expect(await deleteHolding(userId, 999999)).toBeNull();
+    expect(await deleteHolding(userId, 999999)).toEqual(succeeded);
     expect(await db.select().from(holding)).toHaveLength(1);
   });
 
@@ -863,7 +876,7 @@ describe("deleteThemeStock", () => {
   });
 
   it("所属を消してもテーマも銘柄も消えない", async () => {
-    expect(await deleteThemeStock(themeId, stockId)).toBeNull();
+    expect(await deleteThemeStock(themeId, stockId)).toEqual(succeeded);
     expect(await db.select().from(themeStock)).toHaveLength(0);
     expect(await db.select().from(theme)).toHaveLength(1);
     expect(await db.select().from(stock)).toHaveLength(1);
@@ -878,14 +891,14 @@ describe("deleteThemeStock", () => {
       .where(eq(theme.name, "自動車"));
     await createThemeStock(otherThemeId, stockId);
 
-    expect(await deleteThemeStock(themeId, stockId)).toBeNull();
+    expect(await deleteThemeStock(themeId, stockId)).toEqual(succeeded);
     const rows = await db.select().from(themeStock);
     expect(rows).toHaveLength(1);
     expect(rows[0].themeId).toBe(otherThemeId);
   });
 
   it("存在しない組の削除は何も起きない", async () => {
-    expect(await deleteThemeStock(themeId, 999999)).toBeNull();
+    expect(await deleteThemeStock(themeId, 999999)).toEqual(succeeded);
     expect(await db.select().from(themeStock)).toHaveLength(1);
   });
 
@@ -1075,7 +1088,7 @@ describe("createEvents", () => {
           startDate: "2026-09-04",
         }),
       ]),
-    ).toBeNull();
+    ).toEqual(succeeded);
 
     expect(await db.select().from(event)).toHaveLength(2);
   });
@@ -1139,6 +1152,7 @@ describe("upsertMarketEvents", () => {
         created: ["消費者物価指数（2026年1月分）"],
         changed: [],
         deactivated: [],
+        entries: [expect.objectContaining({ action: "create" })],
       },
     );
 
@@ -1158,6 +1172,7 @@ describe("upsertMarketEvents", () => {
         created: [],
         changed: [],
         deactivated: [],
+        entries: [],
       },
     );
     expect(await db.select().from(event)).toHaveLength(1);
@@ -1182,6 +1197,7 @@ describe("upsertMarketEvents", () => {
         },
       ],
       deactivated: [],
+      entries: [expect.objectContaining({ action: "update" })],
     });
 
     const rows = await db.select().from(event);
@@ -1282,6 +1298,7 @@ describe("upsertMarketEvents", () => {
       created: [],
       changed: [],
       deactivated: [],
+      entries: [],
     });
 
     const rows = await db.select().from(event);
