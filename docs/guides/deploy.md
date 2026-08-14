@@ -1,10 +1,10 @@
 # 配信先へのデプロイ
 
-iPhone から使う配信先は Netlify（Next.js）と Supabase（PostgreSQL・東京）。
+iPhone から使う配信先（＝本番）は Netlify（Next.js）と Supabase（PostgreSQL・東京）。
 設計は `docs/records/specs/2026-08-13-74-deploy-target-design.md`。
 
 ```
-iPhone ──https──▶ https://ichikabu.netlify.app ──▶ Supabase 常用DB（東京）
+iPhone ──https──▶ https://ichikabu.netlify.app ──▶ Supabase 本番DB（東京）
 Mac    ──http───▶ next dev                     ──▶ Docker 開発用DB
 ```
 
@@ -44,7 +44,7 @@ pnpm --package=netlify-cli dlx netlify deploy --build --prod
 | **先に `nvm use` する** | `.nvmrc`（Node 24）は `nvm use` を実行しないと効かない。ビルドするのはこのMacなので、切り替え忘れると別のバージョンでビルドした成果物が上がる |
 | **先に `pnpm install` する** | Netlify のCIは依存を自動で入れるが、`netlify deploy --build` は入れない。無いと `openapi-typescript: command not found` で止まる |
 | **`server/.env.local` も要る** | `pnpm db:migrate` と `pnpm db:seed` は `.env.local` を必ず読む。無いと例外で止まる。配信先の値はシェルから渡すので中身は開発用のままでよい |
-| **配信先の値をシェルに残さない** | 上の手順が `( ... )` でくくってあるのは、常用DBの `DATABASE_URL` をそのシェルに残さないため。残すと、同じターミナルで続けて `pnpm dev` を実行したときに開発のつもりで常用DBを触る（シェルの値が `.env.local` より優先される） |
+| **配信先の値をシェルに残さない** | 上の手順が `( ... )` でくくってあるのは、本番DBの `DATABASE_URL` をそのシェルに残さないため。残すと、同じターミナルで続けて `pnpm dev` を実行したときに開発のつもりで本番DBを触る（シェルの値が `.env.local` より優先される） |
 
 初回だけ、ブラウザ認証とサイトの紐付けが要る。
 
@@ -98,7 +98,7 @@ SEED_USER_PASSWORD='<サインインに使うパスワード>'
 
 ### 名前を `.env.production.local` にしないこと
 
-**Next.js が自動で読むファイル名だから。** `next build` は `NODE_ENV=production` で走り、`.env.production.local` を `.env.local` より先に読む。この名前にすると、ローカルの `pnpm build`（品質ゲート）が常用DBの `DATABASE_URL` を拾う。`NODE_ENV` が `deploy` になることはないので、`.env.deploy.local` なら拾われない。
+**Next.js が自動で読むファイル名だから。** `next build` は `NODE_ENV=production` で走り、`.env.production.local` を `.env.local` より先に読む。この名前にすると、ローカルの `pnpm build`（品質ゲート）が本番DBの `DATABASE_URL` を拾う。`NODE_ENV` が `deploy` になることはないので、`.env.deploy.local` なら拾われない。
 
 ## 4. Supabase の接続URLは用途で使い分ける
 
@@ -146,7 +146,7 @@ nvm use
 ( set -a; . ./.env.deploy.local; set +a; pnpm db:migrate && pnpm db:seed )
 ```
 
-`( )` でくくるのは §1.1 と同じ理由。常用DBの `DATABASE_URL` をシェルに残さない。
+`( )` でくくるのは §1.1 と同じ理由。本番DBの `DATABASE_URL` をシェルに残さない。
 
 サンプルの銘柄・イベントも一緒に入る。要らなければ管理UI（`https://ichikabu.netlify.app`）から消す。
 
@@ -178,12 +178,13 @@ Netlify の無料プランは**月300クレジット**。**使い切るとサイ
 
 **1日1回開く使い方では、デプロイ以外はほぼ減らない。** 実質、月20回のデプロイが上限になる。まとめて実行する。
 
-## 8. 開発用DBと常用DBは別
+## 8. 開発用DBと本番DBは別
 
-| | 開発用 | 常用 |
+| | 開発用 | 本番 |
 |---|---|---|
 | 場所 | Mac の Docker（`server/compose.yaml`・ポート5434） | Supabase（東京） |
-| 読む設定ファイル | `.env.local` | `.env.deploy.local` |
+| 動いているアプリが読む設定 | `.env.local` | Netlify の環境変数（§2） |
+| Mac から触るときに読む設定 | `.env.local` | `.env.deploy.local`（§3）。あわせて `.env.local` の存在も要る（§1.1） |
 | 作り直し | `docker compose down -v` していつでも | しない |
 
-開発用を作り直しても常用のデータは残る。Netlify のサイトは1つで、常に常用DBだけを見る。
+開発用を作り直しても本番のデータは残る。Netlify のサイトは1つで、常に本番DBだけを見る。
