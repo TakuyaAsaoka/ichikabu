@@ -645,7 +645,12 @@ export async function upsertMarketEvents(
     // 錠を掛ける理由は updateStock と同じで、ここで読んだ行がそのまま
     // 記録の「変更前」になる。取り込みの実行中は当たった名称の行が
     // 錠で待たされるが、手で月1回叩くだけなので画面が止まる場面は無い。
-    // 待ちが輪になることも無い（画面の取り引きが同時に握る event の行は1つ）
+    //
+    // 待ちが輪にならない根拠は制約のほうにある。ここが錠を掛けるのは
+    // 取り込みが名づけた市場イベントだけで、その行は market が入っていて
+    // theme_id・stock_id は NULL（event_target_exclusive_check）。
+    // 一方、銘柄・テーマの削除が巻き込む event の行は theme_id か stock_id が
+    // 入っているものだけなので、2つの集まりは重ならない
     const existing = await tx
       .select()
       .from(event)

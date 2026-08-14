@@ -53,12 +53,16 @@ const WRITE_IMPORT = /import\s+([^"]*?)\s+from\s+"[^"]*db\/write"/g;
  * 整形で `db` と `.insert(` の間に改行が入るため、空白をまたいで拾う。
  * `execute` も入れる。生のSQLは insert・update・delete の抜け道になる。
  *
+ * 名前の後ろに `(` を求めない。`db.execute<{ conname: string }>(sql`...`)` の
+ * ように型を書く形がこのリポジトリの書き方で（`src/db/schema.test.ts`）、
+ * `(` を求めると素通りする。これらの名前は呼び出す以外に使い道が無い。
+ *
  * **拾えるのは `db` か `tx` に直に書いた形だけ。** 別名に付け替える、
  * 取り引きの引数を `tx` 以外の名前にする、といった避け方は見ていない。
  * **うっかり増えた3つ目の経路を鳴らすためのもの**で、意図して避ける相手を
  * 止めるものではない
  */
-const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\(/;
+const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 
 /**
  * 1つの import 文が書き込み関数を値として読み込んでいるかを判定する。
@@ -91,7 +95,7 @@ function trackedSources(): Map<string, string> {
     .split("\n")
     .filter(
       (path) =>
-        path !== "" && !path.endsWith(".test.ts") && !path.startsWith("test/"),
+        path !== "" && !/\.test\.tsx?$/.test(path) && !path.startsWith("test/"),
     );
   return new Map(
     paths.map((path) => [path, readFileSync(`${root}/${path}`, "utf8")]),
