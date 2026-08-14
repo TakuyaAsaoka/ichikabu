@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 //
 // 「改名すれば typecheck が落ちるから、ここで見るのは重複」ではない。呼び出し元まで
 // 揃えて改名すると typecheck は緑のまま通り、設計書だけが嘘になる（2026-08-15 実測）。
-// 落ちるのはここだけである。
 //
 // 対象ファイルの隣に置けない検査（docs/ を見る）のため test/ に置いている。
 // vitest の globalSetup を通るので、単体で流すときも開発用DBの起動が要る。
@@ -23,8 +22,9 @@ const read = (path: string) =>
 const contains = (path: string, needle: string) =>
   expect(read(path).includes(needle), `${path} に ${needle} が無い`).toBe(true);
 
-// 識別子は前後の区切りまで見る。部分一致だと `upsertMarketEvents` を
-// `upsertMarketEventsRenamed` に改名しても緑のまま通る（2026-08-15 に実測）
+// 設計書の側は、識別子の前後が英数字・アンダースコアでないことまで見る。
+// 部分一致だと `upsertMarketEvents` を `upsertMarketEventsRenamed` に書き換えても
+// 緑のまま通る（2026-08-15 に実測）
 const hasIdentifier = (path: string, name: string) =>
   expect(
     new RegExp(`\\b${name}\\b`).test(read(path)),
@@ -65,31 +65,37 @@ describe("設計書が指しているコードが実在する", () => {
   // iOS の Swift を server のテストが読んでいる。docs/ を見る検査がここにしか無く、
   // かつ #99 が `TokenStore.swift` を消したとき設計書は誰にも直されなかったため
   // （それが Issue #96 の7件目）、消えたら鳴る場所を1つ持たせている。
+  // コード側は宣言の形で見る。名前だけで見ると、`src/db/write.ts` の
+  // `// upsertMarketEvents が同じ event の行に重なる` というコメントに当たり、
+  // 宣言を改名しても緑のまま通る（2026-08-15 に実測）
   const specRefs = [
     {
       spec: "../../docs/records/specs/2026-08-13-74-deploy-target-design.md",
       code: "../../ios/Ichikabu/APIClient.swift",
       name: "baseURL",
+      decl: "static let baseURL",
       section: "配信先の設計書 §6",
     },
     {
       spec: "../../docs/records/specs/2026-08-14-82-multi-editor-audit-design.md",
       code: "../src/db/write.ts",
       name: "upsertMarketEvents",
+      decl: "export async function upsertMarketEvents(",
       section: "監査ログの設計書 §5.2",
     },
     {
       spec: "../../docs/records/specs/2026-08-14-82-multi-editor-audit-design.md",
       code: "../app/actions.ts",
       name: "requireSession",
-      section: "監査ログの設計書 §3",
+      decl: "async function requireSession(",
+      section: "監査ログの設計書 §4",
     },
   ];
 
-  for (const { spec, code, name, section } of specRefs) {
+  for (const { spec, code, name, decl, section } of specRefs) {
     it(`設計書が名指しする ${name} が ${code.split("/").pop()} にある（${section}）`, () => {
       hasIdentifier(spec, name);
-      hasIdentifier(code, name);
+      contains(code, decl);
     });
   }
 });

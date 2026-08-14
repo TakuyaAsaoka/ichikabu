@@ -108,8 +108,6 @@
 
 参考にした kabu-legends は、各操作が記録の関数を自分で呼ぶ形で、呼び忘れがそのまま漏れになる（別リポジトリ kabu-legends の `packages/api/src/index.ts` の `auditedProcedure`。記録するかどうかは各操作が呼ぶ `ctx.audit.setCreated` 等で決まる。2026-08-15 に実測）。この境界のテストは、その形を採らないためのものである。
 
-> 上の kabu-legends の記述だけは、このリポジトリの品質ゲートで確かめられない（別リポジトリのため）。実測日を書いて、読み手が向こうを開いて確かめられる形にしてある。
-
 ### 5.3 行を返すようにする
 
 `server/src/db/write.ts` の作成・更新・削除の関数は、どれも**行を返さない**（`.returning()` は `upsertMarketEvents` の3箇所だけ）。`run()`（92行）が結果を捨てている。
