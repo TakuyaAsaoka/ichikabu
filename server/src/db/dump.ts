@@ -17,6 +17,28 @@ export function dumpFileName(databaseUrl: string, date: Date): string {
   return `${day}-${hostname}-${database}.sql`;
 }
 
+/**
+ * pg_dump に渡す接続先と、そこから外したパスワード。
+ *
+ * パスワードを引数に載せると実行中は `ps` に見え、pg_dump が失敗したときに
+ * Node が出すエラー文（実行したコマンドの全文が入る）にも残る。`PGPASSWORD` で
+ * 渡すために分ける。
+ *
+ * **URL の中の記号は `%40` のような形で書かれているので、戻してから渡す。**
+ * URL オブジェクトは戻さない。Supabase が作るパスワードは記号を含むため、
+ * 戻さないと本番だけ認証に落ちる。
+ */
+export function splitPassword(databaseUrl: string): {
+  url: string;
+  password: string;
+} {
+  const conn = new URL(databaseUrl);
+  const password = decodeURIComponent(conn.password);
+  conn.password = "";
+
+  return { url: conn.toString(), password };
+}
+
 /** event の COPY 行。この直後にデータ行が続く。0件だと次の行がすぐ `\.` になる */
 const eventCopy = /^COPY public\.event \(.*\) FROM stdin;\n/m;
 

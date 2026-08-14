@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dumpFileName, hasEventRows } from "./dump";
+import { dumpFileName, hasEventRows, splitPassword } from "./dump";
 
 /** pg_dump の出力のうち、event の COPY だけを取り出した形（実物から写した） */
 const copyHeader =
@@ -40,6 +40,33 @@ describe("dumpFileName", () => {
         new Date("2026-08-15T08:00:00+09:00"),
       ),
     ).toBe("2026-08-15-localhost-ichikabu.sql");
+  });
+});
+
+describe("splitPassword", () => {
+  it("接続先からパスワードが外れる", () => {
+    expect(
+      splitPassword("postgres://postgres:secret@localhost:5434/ichikabu").url,
+    ).toBe("postgres://postgres@localhost:5434/ichikabu");
+  });
+
+  it("記号入りのパスワードが元の形で取り出せる", () => {
+    // URL の中では %40 と書かれている。この形のまま PGPASSWORD に渡すと
+    // 認証に落ちる。Supabase が作るパスワードは記号を含む
+    expect(
+      splitPassword(
+        "postgres://postgres:p%40ss%3Aword@db.example.com:5432/postgres",
+      ).password,
+    ).toBe("p@ss:word");
+  });
+
+  it("クエリ文字列は残る", () => {
+    // Supabase の接続URLには sslmode が付く
+    expect(
+      splitPassword(
+        "postgres://postgres:pw@db.example.com:5432/postgres?sslmode=require",
+      ).url,
+    ).toBe("postgres://postgres@db.example.com:5432/postgres?sslmode=require");
   });
 });
 

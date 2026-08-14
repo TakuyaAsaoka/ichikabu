@@ -64,13 +64,20 @@ nvm use
 DATABASE_URL='<戻す先>' pnpm db:migrate
 
 # 2. データを流し込む
-/opt/homebrew/opt/postgresql@18/bin/psql '<戻す先>' -v ON_ERROR_STOP=1 \
+/opt/homebrew/opt/postgresql@18/bin/psql '<戻す先>' -1 -v ON_ERROR_STOP=1 \
   -f backups/2026-08-14-....sql
 ```
 
-`-v ON_ERROR_STOP=1` を必ず付ける。付けないと**エラーが出ても最後まで流れて終了コード0を返す**ので、半分だけ入った状態を成功と読んでしまう。
+**`-1` と `-v ON_ERROR_STOP=1` を必ず両方付ける。** 片方ずつでは足りない。
+
+| 付けないと | 起きること |
+|---|---|
+| `-v ON_ERROR_STOP=1` | エラーが出ても最後まで流れて終了コード0を返す。半分だけ入った状態を成功と読む |
+| `-1` | 止まりはするが、**そこまでに入った行は残る**。実測: 途中で `duplicate key` になったとき、`user` の3件だけが入った状態で止まった。`-1` を付けると同じ場面で0件に戻る |
 
 **戻す先の表は空にしておく。** 行が残っていると、同じ主キーで入れようとして `duplicate key` で止まる。
+
+**そのダンプを取った時点のコミットで `db:migrate` する。** データだけのダンプは、取ったときの表の形に縛られる。あとから列が増えたり名前が変わったりすると、古いダンプは最新の形の表に入らない。`git log` でバックアップの日付に近いコミットを見て、そこへ切り替えてから `db:migrate` を実行する。
 
 戻したあとに行数を見る。
 
@@ -80,7 +87,7 @@ DATABASE_URL='<戻す先>' pnpm db:migrate
 
 本番へ戻すときは、**Supabase で新しいプロジェクトを作ってそこへ戻す**のが安全。壊れた本番へ直接流すと、失敗したときに戻る先が無くなる。新しいプロジェクトの作り方は `docs/guides/deploy.md` §5、接続URLの選び方は §4。戻し終えてから Netlify の `DATABASE_URL` を差し替える（同 §5「Netlify」）。
 
-> この手順は開発用DB（Docker の PostgreSQL 18）で実測してある。空のDBに `pnpm db:migrate` を当ててからダンプを流し、`event` 40件・`user` 3件が戻ることを確認した。**Supabase のプロジェクトへ戻すところは、まだ実際には試していない。**
+> この手順は開発用DB（Docker の PostgreSQL 18）で実測してある。空のDBに `pnpm db:migrate` を当ててからダンプを流し、`event` 40件・`user` 3件が戻り、次に振られるIDも続きから始まることを確認した。**Supabase のプロジェクトへ戻すところは、まだ実際には試していない。**
 
 ## 3. `pg_dump` のバージョン
 

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
-import { dumpFileName, hasEventRows } from "../src/db/dump";
+import { dumpFileName, hasEventRows, splitPassword } from "../src/db/dump";
 
 const url = process.env.DATABASE_URL;
 
@@ -21,31 +21,24 @@ if (!existsSync(pgDump)) {
   );
 }
 
-// パスワードは引数ではなく PGPASSWORD で渡す。引数に入れると実行中は ps に見え、
-// pg_dump が失敗したときに Node が出すエラー文（実行したコマンドの全文が入る）に
-// 本番のパスワードがそのまま残る
-const conn = new URL(url);
-const { password } = conn;
-conn.password = "";
-
+const { url: target, password } = splitPassword(url);
 const out = `backups/${dumpFileName(url, new Date())}`;
 // 中身を確かめるまでは .part に書く。空のダンプが本番の名前で backups/*.sql に
 // 並ぶと、後から中身を見ずに戻してしまう
 const partial = `${out}.part`;
 
 mkdirSync("backups", { recursive: true });
-console.log(`接続先: ${conn.host}`);
+console.log(`接続先: ${target}`);
 
 // --data-only: テーブルの定義は server/drizzle/ にあり、戻すときは pnpm db:migrate
 //   で作る。定義を入れると、Supabase のプロジェクトへ戻すときに向こうに元からある
 //   ものとぶつかって止まる
 // -n public: Supabase のプロジェクトには auth・storage 等のスキーマが最初から入って
 //   いる。指定しないと、そちらのデータまでダンプに入る
-execFileSync(
-  pgDump,
-  ["--data-only", "-n", "public", "-f", partial, conn.toString()],
-  { env: { ...process.env, PGPASSWORD: password }, stdio: "inherit" },
-);
+execFileSync(pgDump, ["--data-only", "-n", "public", "-f", partial, target], {
+  env: { ...process.env, PGPASSWORD: password },
+  stdio: "inherit",
+});
 
 if (hasEventRows(readFileSync(partial, "utf8"))) {
   renameSync(partial, out);
@@ -53,7 +46,7 @@ if (hasEventRows(readFileSync(partial, "utf8"))) {
 } else {
   // 消さずに残す。中身を確かめられるようにするため
   console.error(
-    `event の行が1件も無い。${conn.host} が空か、違うDBを指している。取れたものは ${partial}`,
+    `event の行が1件も無い。${target} が空か、違うDBを指している。取れたものは ${partial}`,
   );
   process.exitCode = 1;
 }
