@@ -197,6 +197,12 @@ export const auditLog = pgTable(
     userId: text("user_id").references(() => user.id, {
       onDelete: "restrict",
     }),
+    /**
+     * `stock.market` と違い、CHECK 制約は置かない。
+     * あちらは画面から来た生の文字列をそのまま渡してDBに判定させる形だが、
+     * この2列に入る値は `src/db/audit.ts` が書く決まった文字列だけで、
+     * 外から届く経路が無い。`text({ enum })` は TypeScript 側の型だけを絞る
+     */
     action: text({ enum: AUDIT_ACTIONS }).notNull(),
     resourceType: text("resource_type", { enum: AUDIT_RESOURCES }).notNull(),
     /** 主キーの値。複合主キーの表は ":" でつないだ文字列 */

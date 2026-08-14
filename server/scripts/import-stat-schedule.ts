@@ -31,7 +31,11 @@ const { created, changed, deactivated, entries } = await upsertMarketEvents(
 // 利用者IDは空。人ではなく取り込みが書いたことを表す（監査ログ 設計書 §5.2）。
 // この経路は app/actions.ts を通らないので、ここで記録しないと実データの
 // ほとんどが残らない。失敗は黙って進めず投げる。上の「1件も取れなかった」と
-// 同じ理由で、黙って成功させると記録できていないことに気づけない
+// 同じ理由で、黙って成功させると記録できていないことに気づけない。
+//
+// **投げた時点で書き込みは確定済みで、やり直しても記録は戻らない。**
+// 2回目は同じ結果になる名称を更新も非アクティブ化もしないため、entries が空になる。
+// 投げるのは巻き戻すためではなく、記録が欠けたことを運用者に渡すためである
 const failure = await record(null, entries);
 if (failure) {
   throw new Error(failure);

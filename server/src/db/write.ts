@@ -336,20 +336,24 @@ export async function updateStock(
       ? "銘柄名を入れる"
       : run(() =>
           db.transaction(async (tx) => {
-            // 変更前の行は UPDATE の RETURNING では取れない（返るのは変更後）。
-            // 取り引きの中で先に読む。外で読むと、間に別の更新が入ったとき
-            // 「変更前」として記録される行が実際の変更前と食い違う
+            // 変更前の行は UPDATE の RETURNING では取れない（返るのは変更後）ので
+            // 先に読む。`for("update")` で行に錠を掛けるのが要点で、無いと
+            // 既定の READ COMMITTED では、読んだ後に別の入力者の更新が確定して
+            // UPDATE だけがそれを見る。記録の「変更前」が実際の変更前ではなくなり、
+            // 2人が同じ「変更前」を書いて途中の状態が記録から消える。
+            // 入力者が3人になった（Issue #82）ので、この重なりは現実に起きる
             const [before] = await tx
               .select()
               .from(stock)
-              .where(eq(stock.id, id));
+              .where(eq(stock.id, id))
+              .for("update");
             const [after] = await tx
               .update(stock)
               .set(stockValues(input, name))
               .where(eq(stock.id, id))
               .returning();
             // 該当するIDが無ければ0件更新。記録することが無い
-            return after
+            return after && before
               ? [updatedEntry(stock, String(after.id), before, after)]
               : [];
           }),
@@ -409,16 +413,18 @@ export async function updateTheme(
       ? "テーマ名を入れる"
       : run(() =>
           db.transaction(async (tx) => {
+            // 行に錠を掛ける理由は updateStock と同じ
             const [before] = await tx
               .select()
               .from(theme)
-              .where(eq(theme.id, id));
+              .where(eq(theme.id, id))
+              .for("update");
             const [after] = await tx
               .update(theme)
               .set({ name: trimmed })
               .where(eq(theme.id, id))
               .returning();
-            return after
+            return after && before
               ? [updatedEntry(theme, String(after.id), before, after)]
               : [];
           }),
@@ -526,7 +532,7 @@ export async function updateEvent(
           .set(eventValues(input))
           .where(eq(event.id, id))
           .returning();
-        return after
+        return after && before
           ? [updatedEntry(event, String(after.id), before, after)]
           : [];
       }),
@@ -553,7 +559,11 @@ export async function deleteEvent(id: number): Promise<WriteResult> {
  *
  * 変更前の行は読み直さずに `active` を裏返して作る。書き換えたのはこの1列だけで、
  * どちらの更新も `where` で切り替え前の値を絞っているため、裏返した行が
- * 変更前の行と一致する。読み直すと問い合わせが1本増えるだけになる
+ * 変更前の行と一致する。読み直すと問い合わせが1本増えるだけになる。
+ *
+ * **`set` が `active` の1列だけのときにしか使えない。** 呼び出し元の `set` に
+ * 列を足すと、裏返した「変更前」がその新しい値を元から持っていたことにしてしまい、
+ * 記録が黙って嘘になる（テストは落ちない）。列を足すなら変更前を読み直すこと
  */
 function activeEntries(rows: { id: number; active: boolean }[]): AuditEntry[] {
   return rows.map((row) =>

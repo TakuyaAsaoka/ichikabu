@@ -143,7 +143,7 @@ describe("削除の記録", () => {
 
     await record(null, entriesOf(await deleteStock(stockId)));
 
-    const rows = await db.select().from(auditLog);
+    const rows = await db.select().from(auditLog).orderBy(auditLog.id);
     const linkLog = rows.find((row) => row.resourceType === "theme_stock");
     expect(linkLog?.action).toBe("delete");
     expect(linkLog?.resourceId).toBe(`${themeId}:${stockId}`);
@@ -170,7 +170,7 @@ describe("削除の記録", () => {
 
     await record(null, entriesOf(await deleteTheme(themeId)));
 
-    const rows = await db.select().from(auditLog);
+    const rows = await db.select().from(auditLog).orderBy(auditLog.id);
     expect(rows.map((row) => row.resourceType).sort()).toEqual([
       "theme",
       "theme_stock",
@@ -216,12 +216,12 @@ describe("取り込みの記録", () => {
     );
     await record(null, gone.entries);
 
-    const rows = await db.select().from(auditLog);
+    // 並び順を id で固定する。指定しないと、下の rows[0] がどの回の記録かが
+    // DB の返す順に左右される
+    const rows = await db.select().from(auditLog).orderBy(auditLog.id);
     expect(rows.every((row) => row.userId === null)).toBe(true);
 
-    const cpi = rows.filter(
-      (row) => row.resourceId === String(rows[0].resourceId),
-    );
+    const cpi = rows.filter((row) => row.resourceId === rows[0].resourceId);
     expect(cpi.map((row) => row.action)).toEqual([
       "create",
       "update",
