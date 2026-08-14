@@ -21,6 +21,45 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  async function handleGoogle() {
+    setPending(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/sign-in/social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: "google",
+          callbackURL: "/",
+          // 既定の戻り先は Better Auth の /error。本番ではそこから / へ飛ばされ、
+          // セッションが無いので何も出ないままこの画面に戻ってくる（開発中は
+          // ライブラリの英語のエラーページが出る）。
+          // 許可していないアカウントで押したときに理由を出すため、自分で受ける
+          errorCallbackURL: "/signin",
+        }),
+      });
+      // 本文より先に応答コードを見る。設定漏れのときは本文の無い 500 が返り、
+      // json() が例外になって「通信に失敗しました」に化ける
+      if (!response.ok) {
+        setPending(false);
+        setError(messageFor(response.status));
+        return;
+      }
+      const body: { url?: string } = await response.json();
+      if (!body.url) {
+        setPending(false);
+        setError("Google のログインURLを取得できませんでした");
+        return;
+      }
+      // Google の同意画面へ移る。戻り先は /api/auth/callback/google
+      window.location.assign(body.url);
+    } catch {
+      setPending(false);
+      setError("通信に失敗しました。もう一度試してください");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // event.currentTarget は await をまたぐと null になるため、先に読む
@@ -59,6 +98,17 @@ export function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={handleGoogle}
+        disabled={pending}
+        className="rounded border border-border p-2 disabled:opacity-50"
+      >
+        Google でログイン
+      </button>
+      {/* メールアドレスとパスワードは iOS が使う経路と同じもの。
+          Google の設定が壊れた日に管理UIへ入る手段として残す */}
+      <p className="text-center">または</p>
       <label className="flex flex-col gap-1">
         メールアドレス
         <input

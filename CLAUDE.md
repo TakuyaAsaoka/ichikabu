@@ -52,6 +52,9 @@ xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name
 cp .env.example .env.local
 # BETTER_AUTH_SECRET に `openssl rand -base64 32` の出力を入れる
 # SEED_USER_EMAIL / SEED_USER_PASSWORD を埋める
+# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET を埋める（未設定だとサーバーが起動時に落ちる）。
+#   Google でのログインを実際に試さないなら、品質ゲートを回すだけなら任意の文字列でよい。
+#   本物の値の取り方は docs/guides/google-oauth.md
 nvm use
 docker compose up -d --wait
 pnpm install && pnpm db:migrate && pnpm db:seed

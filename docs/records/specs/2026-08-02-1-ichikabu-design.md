@@ -347,13 +347,16 @@ Better Auth 一本で両クライアントをまかなう。
 
 | クライアント | 方式 |
 |---|---|
-| Web管理UI | Cookieセッション |
-| iOS | Bearerプラグイン + Keychain保存 |
+| Web管理UI | Cookieセッション。Google でのログインとメール＋パスワードの両方（→ `docs/guides/google-oauth.md`） |
+| iOS | Bearerプラグイン + Keychain保存。メール＋パスワードのみ |
 
 - **`user` テーブルは自作しない。Better Auth が生成するものをそのまま本設計の `user` とし、`holding` はそれを参照する**（未決事項 #9 の決定）
   - 根拠: `user` は全FKのハブである。別テーブルで作って後から統合すると `holding` 等のFK張り替えとデータ移行が発生するが、今なら判断1つで済む。利用者1人で属性を足す予定もない段階では、テーブルが1枚少ない構成が素直
   - 引き換えに、Better Auth のスキーマ都合（列名・マイグレーション）に本設計のFKが縛られる。これは受け入れる
-- サインアップ無効（`disableSignUp`）。ユーザーは1件を手動投入
+- サインアップ無効。ユーザーは1件を手動投入。**利用者を作れるのは `pnpm db:seed` だけ**で、
+  Better Auth を通る作成（メール＋パスワードのサインアップ、Google の初回サインイン）は
+  `databaseHooks.user.create.before` が全部拒む。プロバイダごとの `disableSignUp` では
+  塞ぎきれない経路があるため（→ `docs/guides/google-oauth.md`）
 - **Better Auth が生成する4テーブルの日時列はタイムゾーンなし**（自前テーブルの `created_at` はタイムゾーン付き）。生成物のため合わせに行かない。`session.expires_at` の解釈がサーバーのタイムゾーン設定に依存する点だけ、ホスティング先を選ぶとき（Issue #16）に確認する
 - SwiftにSDKは不要。サインインは `POST /api/auth/sign-in/email` を叩くだけ
 - リフレッシュ機構なし。セッションはスライディング延長され、401が返ったら再ログイン画面に落とす（→ §7）
