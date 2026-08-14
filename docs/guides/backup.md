@@ -98,7 +98,20 @@ pg_dump: error: server version: 18.4; pg_dump version: 14.9 (Homebrew)
 pg_dump: error: aborting because of server version mismatch
 ```
 
-このMacの PATH の `pg_dump` は Homebrew の postgresql@14（14.9）で、**開発用DB（18）にも本番にも届かない**。そのため `server/scripts/dump.ts` は `/opt/homebrew/opt/postgresql@18/bin/pg_dump` を直接指している。
+| | バージョン | 測った日 |
+|---|---|---|
+| 開発用DB（Docker） | 18.4 | 2026-08-14 |
+| 本番（Supabase 東京） | **17.6** | 2026-08-14 |
+| 使う `pg_dump`（postgresql@18） | 18.3 | 2026-08-14 |
+
+本番のほうが `pg_dump` より古いので通る。測り方は下記。
+
+```bash
+cd server
+( set -a; . ./.env.deploy.local; set +a; /opt/homebrew/opt/postgresql@18/bin/psql "$DATABASE_URL" -Atc 'show server_version' )
+```
+
+このMacの PATH の `pg_dump` は Homebrew の postgresql@14（14.9）で、**開発用DB（18.4）にも本番（17.6）にも届かない**。そのため `server/scripts/dump.ts` は `/opt/homebrew/opt/postgresql@18/bin/pg_dump` を直接指している。
 
 ```bash
 brew install postgresql@18   # 入っていない場合
