@@ -37,7 +37,7 @@ export const AUDIT_ACTIONS = ["create", "update", "delete"] as const;
  * `holding` はテーブルごと消えたが（ログイン廃止 設計書 §5.1）、値は残す。
  * この表は過去の事実の記録で、消す前に書かれた行が `resource_type='holding'` を
  * 持っている。値を落とすと、実際にDBに在る文字列を型が「ありえない」と言い切る。
- * 本番の `audit_log` にその行が1件も無いと確認できたら消してよい
+ * 本番の `audit_log` にその行が1件も無いと確認できたら消してよい（→ Issue #98）
  */
 export const AUDIT_RESOURCES = [
   "stock",
