@@ -2,7 +2,7 @@ import Foundation
 import IchikabuAPI
 import SwiftUI
 
-/// 月グリッドの日付計算とイベントの割り当て。
+/// 月グリッドの日付計算と、イベントの割り当て・絞り込み。
 /// 画面から切り離してテストできるように、状態を持たない関数だけを置く
 enum EventLayout {
 	/// 日付の計算はすべてJST・グレゴリオ暦・日曜始まりで行う。
@@ -81,6 +81,30 @@ enum EventLayout {
 		// 日についての条件（events(on:from:)）を月の幅に広げただけの式
 		let inMonth = events.filter { $0.startDate <= last && ($0.endDate ?? $0.startDate) >= first }
 		return (inMonth.count, inMonth.filter { $0.importance == 3 }.count)
+	}
+
+	/// 持ち株に出すイベントだけに絞る。判定はサーバーと同じ4条件
+	/// （`GLOBAL` は全員・持ち株の市場・持ち株そのもの・持ち株が属するテーマ）。
+	///
+	/// `stocks` が要るのは、市場とテーマが持ち株のIDだけでは引けないため。
+	/// 銘柄一覧が取れていなければ市場イベントもテーマイベントも判定できないので、
+	/// `GLOBAL` と持ち株のイベントだけが残る
+	static func visible(_ events: [Event], holdings: [Int], stocks: [Stock]) -> [Event] {
+		let held = stocks.filter { holdings.contains($0.id) }
+		// `Stock.market`（JP・US）と `EventMarket`（JP・US・GLOBAL）は値の集合が違うので
+		// 別の型になる。文字列に直して比べるのはここだけ（ログイン廃止 設計書 §3.1）
+		let markets = Set(held.map(\.market.rawValue))
+		let themeIds = Set(held.flatMap(\.themeIds))
+		return events.filter { event in
+			switch event.target {
+			case .market(let target):
+				target.market == .GLOBAL || markets.contains(target.market.rawValue)
+			case .theme(let target):
+				themeIds.contains(target.themeId)
+			case .stock(let target):
+				holdings.contains(target.stockId)
+			}
+		}
 	}
 
 	/// シートの見出し（`8月4日（火）`）

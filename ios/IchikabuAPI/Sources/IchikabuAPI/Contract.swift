@@ -10,3 +10,6 @@ public typealias Health = Components.Schemas.Health
 
 /// `GET /api/events` が返すイベント
 public typealias Event = Components.Schemas.Event
+
+/// `GET /api/stocks` が返す銘柄
+public typealias Stock = Components.Schemas.Stock
