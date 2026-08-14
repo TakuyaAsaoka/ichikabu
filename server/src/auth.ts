@@ -29,7 +29,7 @@ if (!googleClientId || !googleClientSecret) {
 export const auth = betterAuth({
   secret,
   database: drizzleAdapter(db, { provider: "pg", schema }),
-  // 利用者は1人。ユーザーは seed スクリプトで手動投入する（設計書 §9）。
+  // 利用者は seed スクリプトで手動投入する（設計書 §9）。画面からは作れない。
   // iOS がこの経路を使うため、管理UIを Google に変えても残す
   emailAndPassword: { enabled: true, disableSignUp: true },
   socialProviders: {

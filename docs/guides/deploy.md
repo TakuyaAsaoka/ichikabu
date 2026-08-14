@@ -74,8 +74,7 @@ curl https://ichikabu.netlify.app/api/health
 | `BETTER_AUTH_URL` | 要る | 要らない | `https://ichikabu.netlify.app` |
 | `GOOGLE_CLIENT_ID` | 要る | 要らない | 取得は `docs/guides/google-oauth.md`。`pnpm db:seed` は `.env.local` 側の値で足りる |
 | `GOOGLE_CLIENT_SECRET` | 要る | 要らない | 同上 |
-| `SEED_USER_EMAIL` | 要らない | 要る | サインインに使うメールアドレス。**Google でログインするアカウントと同じにする** |
-| `SEED_USER_PASSWORD` | 要らない | 要る | サインインに使うパスワード。iOS が使うので消さない |
+| `SEED_USERS` | 要らない | 要る | 入力者の一覧。JSON の配列で、要素は `email` と `password`。**1人目のメールアドレスは Google でログインするアカウントと同じにする**。パスワードは iOS が使うので消さない |
 
 Netlify 側は Project configuration > Environment variables に入れる。
 
@@ -92,9 +91,12 @@ Netlify 側は Project configuration > Environment variables に入れる。
 ```
 DATABASE_URL='<Supabase の Session pooler・:5432>'
 BETTER_AUTH_SECRET='<openssl rand -base64 32 の出力>'
-SEED_USER_EMAIL='<サインインに使うメールアドレス>'
-SEED_USER_PASSWORD='<サインインに使うパスワード>'
+SEED_USERS='[{"email":"<サインインに使うメールアドレス>","password":"<サインインに使うパスワード>"}]'
 ```
+
+**`SEED_USERS` の中にシングルクォートを入れないこと。** 囲みが途中で閉じてしまう。パスワードにシングルクォートが要るときは、`.env.deploy.local` ではなくその場で `SEED_USERS=... pnpm db:seed` の形で渡す。
+
+> ⚠️ **すでに `.env.deploy.local` を持っている場合は、`SEED_USER_EMAIL` と `SEED_USER_PASSWORD` の2行を消して `SEED_USERS` に書き換える。** 消し忘れると、シェルに `SEED_USERS` が無いまま `pnpm db:seed` が `.env.local`（開発用）の値を読み、**開発用の利用者が本番DBに作られる**。
 
 ### 名前を `.env.production.local` にしないこと
 
@@ -138,7 +140,9 @@ Supabase のダッシュボード上部の **Connect** に3つ並んでいる。
 
 ### 利用者の投入
 
-配信先のDBに1件だけ利用者を作る。このアプリには新規登録の画面が無い（`server/src/auth.ts` の `disableSignUp: true`）。
+配信先のDBに `SEED_USERS` に書いた人数ぶん利用者を作る。このアプリには新規登録の画面が無い（`server/src/auth.ts` の `disableSignUp: true`）。
+
+> ⚠️ **`.env.deploy.local` に `SEED_USERS` が無いと、開発用の利用者が本番DBに作られる。** シェルに `SEED_USERS` が無ければ `pnpm db:seed` は `.env.local`（開発用）の値を読み、エラーも出さずに本番DBへ入れてしまう。§3 のとおり書き換えてあることを、実行前に必ず確かめる。
 
 ```bash
 cd server
