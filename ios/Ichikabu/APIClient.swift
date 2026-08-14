@@ -14,8 +14,8 @@ enum APIError: Error, Equatable {
 struct APIClient {
 	/// 接続先。Debug はMacの `next dev`、Release は配信先を見る。
 	///
-	/// 実機で配信先を使うときは、Xcode の Scheme > Run > Build Configuration を
-	/// Release にする。Debug のままだと iPhone 自身の 3000 番を指すため届かない。
+	/// 実機へ Release のビルドを入れる手順は `docs/guides/deploy.md` §6。
+	/// Debug のままだと iPhone 自身の 3000 番を指すため届かない。
 	static let baseURL: URL = {
 		#if DEBUG
 			return URL(string: "http://localhost:3000")!
