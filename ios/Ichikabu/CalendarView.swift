@@ -28,6 +28,11 @@ struct CalendarView: View {
 	/// タップされた日。nil の間はシートを出さない
 	@State private var selectedDay: Date?
 
+	/// シートの高さ。日付は 0.45、持ち株の一覧は狭いので `.large` で開く。
+	/// 高さの候補（`presentationDetents` に渡す集合）は変えずに、選ぶほうだけを変える。
+	/// 集合を出し分けると、閉じている最中に候補が入れ替わることになる
+	@State private var sheetHeight: PresentationDetent = .fraction(0.45)
+
 	/// 起動月の前後12ヶ月（設計書 §2 判断5）
 	private static let monthRange = -12...12
 
@@ -47,7 +52,7 @@ struct CalendarView: View {
 			.toolbar {
 				// 常に見える入り口。持ち株を選んだあとも選び直せるようにする
 				ToolbarItem(placement: .topBarTrailing) {
-					Button("持ち株") { isPickingHoldings = true }
+					Button("持ち株") { showHoldings() }
 				}
 			}
 		}
@@ -56,9 +61,23 @@ struct CalendarView: View {
 		}
 	}
 
+	/// 持ち株を選ぶ画面を出す
+	private func showHoldings() {
+		sheetHeight = .large
+		isPickingHoldings = true
+	}
+
+	/// その日のイベントのシートを出す。
+	/// 高さを 0.45 に戻すのは、持ち株の一覧で `.large` にしたまま日付を開くと
+	/// カレンダーが隠れ、続けて別の日付をタップできなくなるため（設計書 §3）
+	private func showDay(_ day: Date) {
+		sheetHeight = .fraction(0.45)
+		selectedDay = day
+	}
+
 	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない
 	private var holdingsPrompt: some View {
-		Button { isPickingHoldings = true } label: {
+		Button { showHoldings() } label: {
 			HStack {
 				Text("持ち株が未選択です")
 				Spacer()
@@ -81,7 +100,7 @@ struct CalendarView: View {
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
 					events: shown,
-					onSelect: { selectedDay = $0 }
+					onSelect: { showDay($0) }
 				)
 				.tag(offset)
 			}
@@ -120,8 +139,7 @@ struct CalendarView: View {
 					)
 				}
 			}
-			// 持ち株の一覧は 0.45 では狭いので、そのときだけ大きいままにする
-			.presentationDetents(isPickingHoldings ? [.large] : [.fraction(0.45), .large])
+			.presentationDetents([.fraction(0.45), .large], selection: $sheetHeight)
 			// 0.45 まで下げている間は裏を操作できる。
 			// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
