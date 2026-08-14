@@ -1,12 +1,17 @@
 /** `pnpm db:seed` で作る利用者1人ぶん */
 export type SeedUser = { email: string; password: string };
 
+/** 欄を引ける形かどうか。`JSON.parse` は `unknown` を返すのでここで絞り込む */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /**
  * 要素から文字列の欄を読む。JSON の中身は何が来るか分からないので、
  * 型で絞り込んでから読む
  */
 function textOf(raw: unknown, key: "email" | "password"): string {
-  if (typeof raw !== "object" || raw === null || !(key in raw)) {
+  if (!isRecord(raw)) {
     return "";
   }
   const value = raw[key];
@@ -37,11 +42,21 @@ export function toSeedUsers(text: string): SeedUser[] | string {
   }
 
   const users: SeedUser[] = [];
+  // 重なりの判定は小文字にして行う。seedUser がメールアドレスを小文字にして
+  // 既存を探すため、大文字違いの2件目は黙って「既に存在する」で終わってしまう
+  const seen = new Set<string>();
+
   for (const [index, raw] of parsed.entries()) {
     const email = textOf(raw, "email");
     if (email === "") {
       return `${index + 1}人目: メールアドレスを入れる`;
     }
+    const lowered = email.toLowerCase();
+    if (seen.has(lowered)) {
+      return `${index + 1}人目: ${lowered} が重なっている`;
+    }
+    seen.add(lowered);
+
     const password = textOf(raw, "password");
     if (password === "") {
       return `${index + 1}人目: パスワードを入れる`;

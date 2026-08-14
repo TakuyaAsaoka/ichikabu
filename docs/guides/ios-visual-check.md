@@ -17,7 +17,7 @@ xcrun simctl install booted <パス>/Ichikabu.app
 xcrun simctl launch booted com.takuyaasaoka.ichikabu
 ```
 
-サインインの情報は `server/.env.local` の `SEED_USER_EMAIL` と `SEED_USER_PASSWORD`。
+サインインの情報は `server/.env.local` の `SEED_USERS` の1人目。
 
 ## ウィンドウが開かないとき
 

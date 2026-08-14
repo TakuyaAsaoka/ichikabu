@@ -96,6 +96,8 @@ SEED_USERS='[{"email":"<サインインに使うメールアドレス>","passwor
 
 **`SEED_USERS` の中にシングルクォートを入れないこと。** 囲みが途中で閉じてしまう。パスワードにシングルクォートが要るときは、`.env.deploy.local` ではなくその場で `SEED_USERS=... pnpm db:seed` の形で渡す。
 
+> ⚠️ **すでに `.env.deploy.local` を持っている場合は、`SEED_USER_EMAIL` と `SEED_USER_PASSWORD` の2行を消して `SEED_USERS` に書き換える。** 消し忘れると、シェルに `SEED_USERS` が無いまま `pnpm db:seed` が `.env.local`（開発用）の値を読み、**開発用の利用者が本番DBに作られる**。
+
 ### 名前を `.env.production.local` にしないこと
 
 **Next.js が自動で読むファイル名だから。** `next build` は `NODE_ENV=production` で走り、`.env.production.local` を `.env.local` より先に読む。この名前にすると、ローカルの `pnpm build`（品質ゲート）が本番DBの `DATABASE_URL` を拾う。`NODE_ENV` が `deploy` になることはないので、`.env.deploy.local` なら拾われない。
@@ -138,7 +140,9 @@ Supabase のダッシュボード上部の **Connect** に3つ並んでいる。
 
 ### 利用者の投入
 
-配信先のDBに1件だけ利用者を作る。このアプリには新規登録の画面が無い（`server/src/auth.ts` の `disableSignUp: true`）。
+配信先のDBに `SEED_USERS` に書いた人数ぶん利用者を作る。このアプリには新規登録の画面が無い（`server/src/auth.ts` の `disableSignUp: true`）。
+
+> ⚠️ **`.env.deploy.local` に `SEED_USERS` が無いと、開発用の利用者が本番DBに作られる。** シェルに `SEED_USERS` が無ければ `pnpm db:seed` は `.env.local`（開発用）の値を読み、エラーも出さずに本番DBへ入れてしまう。次の §3 のとおり書き換えてあることを、実行前に必ず確かめる。
 
 ```bash
 cd server

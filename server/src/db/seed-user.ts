@@ -25,7 +25,7 @@ export async function seedUser(
 
   // Better Auth はメールアドレスを小文字にして読み書きする（internal-adapter.mjs の
   // findUserByEmail・findOAuthUser・createUser）。直接 insert する側も揃えないと、
-  // SEED_USER_EMAIL に大文字が入っていたときに、入れた行を誰も見つけられなくなる
+  // SEED_USERS に大文字が入っていたときに、入れた行を誰も見つけられなくなる
   const email = rawEmail.toLowerCase();
 
   const found = await ctx.internalAdapter.findUserByEmail(email, {
