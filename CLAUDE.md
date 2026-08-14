@@ -51,7 +51,7 @@ xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name
 ```
 cp .env.example .env.local
 # BETTER_AUTH_SECRET に `openssl rand -base64 32` の出力を入れる
-# SEED_USER_EMAIL / SEED_USER_PASSWORD を埋める
+# SEED_USERS を埋める（JSON の配列。入力者を増やすときは要素を足す）
 # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET を埋める（未設定だとサーバーが起動時に落ちる）。
 #   Google でのログインを実際に試さないなら、品質ゲートを回すだけなら任意の文字列でよい。
 #   本物の値の取り方は docs/guides/google-oauth.md
