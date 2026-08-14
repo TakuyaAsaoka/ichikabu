@@ -1,6 +1,6 @@
 # 配信先へのデプロイ
 
-iPhone から使う配信先は Netlify（Next.js）と Supabase（PostgreSQL・東京）。
+iPhone から使う配信先（＝本番）は Netlify（Next.js）と Supabase（PostgreSQL・東京）。
 設計は `docs/records/specs/2026-08-13-74-deploy-target-design.md`。
 
 ```
@@ -184,7 +184,7 @@ Netlify の無料プランは**月300クレジット**。**使い切るとサイ
 |---|---|---|
 | 場所 | Mac の Docker（`server/compose.yaml`・ポート5434） | Supabase（東京） |
 | 動いているアプリが読む設定 | `.env.local` | Netlify の環境変数（§2） |
-| Mac から触るときに読む設定 | `.env.local` | `.env.deploy.local`（§3） |
+| Mac から触るときに読む設定 | `.env.local` | `.env.deploy.local`（§3）。あわせて `.env.local` の存在も要る（§1.1） |
 | 作り直し | `docker compose down -v` していつでも | しない |
 
 開発用を作り直しても本番のデータは残る。Netlify のサイトは1つで、常に本番DBだけを見る。

@@ -78,7 +78,7 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 | 環境 | 場所 | 設定の出どころ |
 |---|---|---|
 | 開発用 | Docker の PostgreSQL（`server/compose.yaml`、ポート 5434） | `server/.env.local` |
-| 本番 | Supabase 東京（iPhone のアプリが見ている実データ） | Netlify の環境変数。Mac から本番DBへ `db:migrate` / `db:seed` するときだけ `server/.env.deploy.local`（→ `docs/guides/deploy.md`） |
+| 本番 | Supabase 東京（iPhone のアプリが見ている実データ） | Netlify の環境変数。Mac から本番DBへ `db:migrate` / `db:seed` するときだけ `server/.env.deploy.local`（`.env.local` の存在も要る。→ `docs/guides/deploy.md`） |
 
 Issue #16 は**環境を増やす話ではなく、本番を今の Netlify + Supabase から別のところへ載せ替えるかの選定**（収益化を前提にしたとき。設計書 §1.1 でプラットフォーム選定は保留）。
 
