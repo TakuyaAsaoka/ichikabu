@@ -95,6 +95,8 @@ BETTER_AUTH_SECRET='<openssl rand -base64 32 の出力>'
 SEED_USERS='[{"email":"<サインインに使うメールアドレス>","password":"<サインインに使うパスワード>"}]'
 ```
 
+**`DATABASE_URL` のパスワードに `%` が入っていたら `%25` と書く。** URL の中では `%` が特別な文字なので、そのままだと `pnpm db:dump` が `URI malformed` で止まる。`/` `?` `#` `@` `:` も同じで、それぞれ `%2F` `%3F` `%23` `%40` `%3A` と書く。
+
 **`SEED_USERS` の中にシングルクォートを入れないこと。** 囲みが途中で閉じてしまう。パスワードにシングルクォートが要るときは、`.env.deploy.local` ではなくその場で `SEED_USERS=... pnpm db:seed` の形で渡す。
 
 > ⚠️ **すでに `.env.deploy.local` を持っている場合は、`SEED_USER_EMAIL` と `SEED_USER_PASSWORD` の2行を消して `SEED_USERS` に書き換える。** 消し忘れると、シェルに `SEED_USERS` が無いまま `pnpm db:seed` が `.env.local`（開発用）の値を読み、**開発用の利用者が本番DBに作られる**。
@@ -193,3 +195,5 @@ Netlify の無料プランは**月300クレジット**。**使い切るとサイ
 | 作り直し | `docker compose down -v` していつでも | しない |
 
 開発用を作り直しても本番のデータは残る。Netlify のサイトは1つで、常に本番DBだけを見る。
+
+**本番DBのバックアップは週1回、手で取る。** 取り方と戻し方は `docs/guides/backup.md`。
