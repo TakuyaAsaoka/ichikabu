@@ -174,7 +174,7 @@ nvm use
 
 サンプルの銘柄・イベントも一緒に入る。要らなければ管理UI（`https://ichikabu.netlify.app`）から消す。
 
-## 6. iOS の接続先を切り替える
+## 6. iPhone に配信先を見るビルドを入れる
 
 `ios/Ichikabu/APIClient.swift` の `baseURL` がビルド構成で切り替わる。
 
@@ -183,9 +183,40 @@ nvm use
 | Debug | `http://localhost:3000`（Macの `next dev`） |
 | Release | `https://ichikabu.netlify.app` |
 
-実機で配信先を使うときは、Xcode の **Scheme > Run > Build Configuration** を **Release** にする。Debug のままだと iPhone 自身の3000番を指すため届かない。
+サーバーだけデプロイしても、iPhone に入っているビルドは古いままである。**入れ直しも手で行う。**
 
-**この切り替えは `ios/Ichikabu.xcodeproj/xcshareddata/xcschemes/Ichikabu.xcscheme` を書き換える。** このファイルはコミット対象なので、切り替えたあとは `git checkout` で戻すか、コミットに含めないようにする。既定は Debug のまま置く（開発のほうが回数が多いため）。
+iPhone を Mac に繋いでから、`ios/` で実行する。
+
+```bash
+# 1. 繋がっている実機の Identifier を見る
+xcrun devicectl list devices
+
+# 2. Release でビルドする（<実機のID> は上で見た Identifier）
+xcodebuild -scheme Ichikabu -configuration Release \
+  -destination 'id=<実機のID>' -skipPackagePluginValidation \
+  -derivedDataPath /tmp/ichikabu-release build
+
+# 3. 実機へ入れる
+xcrun devicectl device install app --device '<実機のID>' \
+  /tmp/ichikabu-release/Build/Products/Release-iphoneos/Ichikabu.app
+
+# 4. 起動する（iPhone の画面で叩いてもよい）
+xcrun devicectl device process launch --device '<実機のID>' com.takuyaasaoka.ichikabu
+```
+
+`-skipPackagePluginValidation` が要る理由は「品質ゲート」の節（`CLAUDE.md`）と同じ。
+
+**`-derivedDataPath` の1回目は数分かかる。** swift-openapi-generator の道具立てを Release で作り直すため。同じパスを次も指せば作り直さない。
+
+### Xcode の Scheme を切り替えないこと
+
+同じことは Xcode の **Scheme > Run > Build Configuration** を **Release** にしても行えるが、**この操作は `ios/Ichikabu.xcodeproj/xcshareddata/xcschemes/Ichikabu.xcscheme` を書き換える。** このファイルはコミット対象なので、戻し忘れると Debug 前提の既定が変わったまま入る。上の `xcodebuild -configuration Release` はこのファイルを触らない。
+
+### 入ったビルドが本番を見ているかの確かめ方
+
+`DEBUG` は Debug 構成にしか定義されていない（`ios/Ichikabu.xcodeproj/project.pbxproj` の `SWIFT_ACTIVE_COMPILATION_CONDITIONS`）。したがって Release でビルドすれば `#if DEBUG` の外、つまり配信先を見る。
+
+**画面で確かめるのが確実。** イベントが並べば配信先に届いている。Debug のビルドだと iPhone 自身の3000番を指すため、何も出ない。
 
 ## 7. クレジット残量の見方
 
