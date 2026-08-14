@@ -1,5 +1,7 @@
 # 保有とテーマ所属の削除 設計書
 
+> **保有の側はもう当たらない。** [ログイン廃止 設計書](2026-08-14-86-no-login-design.md) §5.1 で `holding` テーブルごと消えたため、`app/holdings/[stockId]/page.tsx` と `deleteHolding` は無い。テーマ所属の側はそのまま生きている。
+
 - 対応 Issue: [#68 保有とテーマ所属を管理UIから削除できるようにする](https://github.com/TakuyaAsaoka/ichikabu/issues/68)
 - 根拠: [銘柄とテーマの編集・削除 設計書](2026-08-12-67-edit-stock-theme-design.md)（§2 削除の文言・§3.1 一覧の行で直す案・§4.1 一緒に消えるもの・§4.2 保有の行き止まり）、[イベントの編集・削除 設計書](2026-08-11-43-edit-event-design.md)（§3.2 削除の置き場所・§4.1 `ActionForm`・§6 IDの判定）、[管理UI設計書](2026-08-09-6-admin-ui-design.md)（§3 画面構成）
 

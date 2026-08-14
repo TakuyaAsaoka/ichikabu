@@ -102,12 +102,14 @@ describe("サインイン", () => {
     });
     // 管理UIが実際に使う経路（設計書 §9）。iOS の Bearer は廃止した
     const cookie = signIn.headers.get("set-cookie");
-    expect(cookie).toBeTruthy();
+    if (!cookie) {
+      throw new Error("サインイン応答に set-cookie が無い");
+    }
 
     const session = await auth.handler(
       new Request(`${BASE_URL}/api/auth/get-session`, {
         // `;` の前が「名前=値」で、後ろは有効期限などの属性
-        headers: { cookie: `${cookie}`.split(";")[0] },
+        headers: { cookie: cookie.split(";")[0] },
       }),
     );
     expect(session.status).toBe(200);
