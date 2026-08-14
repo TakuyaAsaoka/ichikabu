@@ -1,7 +1,6 @@
-import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
-import { auth } from "../../../src/auth";
+import { eq, isNotNull } from "drizzle-orm";
 import { db } from "../../../src/db";
-import { event, holding, stock, themeStock } from "../../../src/db/schema";
+import { event, stock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
 import { RIGHTS_YEARS, rightsDates } from "../../../src/rights";
 
@@ -44,7 +43,7 @@ function monthDay(date: string): string {
 }
 
 /**
- * 保有銘柄の決算月から権利付最終日のイベントを作る（権利日設計書 §6）。
+ * 決算月が入っている銘柄から権利付最終日のイベントを作る（権利日設計書 §6）。
  * カレンダーに出すのは権利付最終日の1件だけにし、配当落ち日は `note` に書く。
  * 配当落ち日は権利付最終日の翌営業日なので、独立した情報ではない
  */
@@ -103,37 +102,12 @@ function compareEvents(a: Event, b: Event): number {
   return ascending(a.id, b.id);
 }
 
-export async function GET(request: Request): Promise<Response> {
-  // bearer プラグインの before フックが authorization ヘッダーを
-  // セッションクッキーに変換するため、auth.handler を経由しなくても
-  // getSession だけで Bearer 認証を判定できる
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) {
-    // 401 の本文は使われないので返さない（イベント取得API設計書 §2）
-    return new Response(null, { status: 401 });
-  }
-  const userId = session.user.id;
-
-  // 保有している銘柄
-  const heldStocks = db
-    .select({ id: holding.stockId })
-    .from(holding)
-    .where(eq(holding.userId, userId));
-
-  // 保有銘柄の市場
-  const heldMarkets = db
-    .select({ market: stock.market })
-    .from(stock)
-    .innerJoin(holding, eq(holding.stockId, stock.id))
-    .where(eq(holding.userId, userId));
-
-  // 保有銘柄が所属するテーマ
-  const heldThemes = db
-    .select({ id: themeStock.themeId })
-    .from(themeStock)
-    .innerJoin(holding, eq(holding.stockId, themeStock.stockId))
-    .where(eq(holding.userId, userId));
-
+/**
+ * 有効なイベントを全件返す。認証も絞り込みも無く、誰が呼んでも同じ配列が返る
+ * （ログイン廃止 設計書 §5）。持ち株での絞り込みは端末が行う
+ * （`ios/Ichikabu/EventLayout.swift` の `visible`）
+ */
+export async function GET(): Promise<Response> {
   // 権利日を計算する銘柄。決算月は CHECK 制約により JP 銘柄にしか入らないので、
   // 非NULLで絞れば市場の条件は要らない（全体設計書 §4.1）
   const rightsStocks = await db
@@ -144,30 +118,13 @@ export async function GET(request: Request): Promise<Response> {
       fiscalMonth: stock.fiscalMonth,
     })
     .from(stock)
-    .innerJoin(holding, eq(holding.stockId, stock.id))
-    .where(and(eq(holding.userId, userId), isNotNull(stock.fiscalMonth)));
+    .where(isNotNull(stock.fiscalMonth));
 
-  // 表示対象の判定（イベント取得API設計書 §5）。
-  // market が NULL の行（テーマ・銘柄イベント）は IN が真にならないため、
-  // 市場の2条件に引っかからない。CHECK 制約の排他がそのまま効く。
+  // 非アクティブの行は返さない（公表予定の非アクティブ化 設計書 §1）。
+  // 開始日は見ない。非アクティブのまま公表日を過ぎた行（＝中止された回）も
+  // 出さないため、書き込み側で開始日を見て active だけで絞れる形にしてある。
   // 並べ替えは計算したイベントと結合したあとに1回だけ行うので、ここではしない
-  const rows = await db
-    .select()
-    .from(event)
-    .where(
-      and(
-        // 非アクティブの行は返さない（公表予定の非アクティブ化 設計書 §1）。
-        // 開始日は見ない。非アクティブのまま公表日を過ぎた行（＝中止された回）も
-        // 出さないため、書き込み側で開始日を見て active だけで絞れる形にしてある
-        eq(event.active, true),
-        or(
-          eq(event.market, "GLOBAL"),
-          inArray(event.market, heldMarkets),
-          inArray(event.stockId, heldStocks),
-          inArray(event.themeId, heldThemes),
-        ),
-      ),
-    );
+  const rows = await db.select().from(event).where(eq(event.active, true));
 
   const registered = rows
     .map((row): Event | null => {

@@ -24,13 +24,15 @@ paths:
       summary: イベント一覧
       operationId: listEvents
       description: |
-        認証ユーザーの保有に対応するイベントを全件返す。絞り込みパラメータは持たない。
-        月の絞り込みは iOS 側の表示処理の責任（イベント取得API設計書 §2）。
+        有効なイベントを全件返す。絞り込みパラメータは持たない。誰が呼んでも同じ配列が返る。
+        持ち株での絞り込みと月の絞り込みは iOS 側の表示処理の責任
+        （イベント取得API設計書 §2、ログイン廃止 設計書 §5）。
 
-        登録したイベントに加え、保有銘柄の決算月から計算した権利付最終日を含む
-        （権利確定日・配当落ち日の計算 設計書 §2）。
-      security:
-        - bearerAuth: []
+        登録したイベントに加え、決算月が入っている銘柄すべてについて計算した
+        権利付最終日を含む（権利確定日・配当落ち日の計算 設計書 §2）。
+
+        認証は要らない。返すのは運用者が登録したイベントだけで、
+        誰が何を持っているかは含まない（ログイン廃止 設計書 §5.1）。
       responses:
         "200":
           description: |
@@ -42,8 +44,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Event"
-        "401":
-          description: 認証なし。本文は返さない
   /api/stocks:
     get:
       summary: 銘柄一覧
@@ -64,10 +64,6 @@ paths:
                 items:
                   $ref: "#/components/schemas/Stock"
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
   schemas:
     Health:
       type: object

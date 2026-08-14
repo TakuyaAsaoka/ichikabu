@@ -7,7 +7,7 @@ import {
   updatedEntry,
 } from "./audit";
 import { pgError } from "./pg-error";
-import { event, holding, stock, theme, themeStock } from "./schema";
+import { event, stock, theme, themeStock } from "./schema";
 
 /**
  * 制約違反を画面に出す日本語にする（設計書 §5）。
@@ -20,7 +20,6 @@ const MESSAGES: Record<string, string> = {
     "ティッカーは半角の数字・英大文字・ピリオド・ハイフンだけ使える",
   stock_fiscal_month_market_check: "決算月はJP銘柄にだけ入れられる",
   stock_fiscal_month_check: "決算月は1〜12",
-  holding_user_id_stock_id_pk: "その銘柄はすでに保有に登録済み",
   theme_name_unique: "そのテーマ名は登録済み",
   theme_stock_theme_id_stock_id_pk: "その銘柄はすでにこのテーマに登録済み",
   event_target_exclusive_check: "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
@@ -30,14 +29,11 @@ const MESSAGES: Record<string, string> = {
   event_market_check: "市場は JP・US・GLOBAL のどれか",
   // 存在しないIDを指した外部キー違反。選択肢は画面がDBから出しているため、
   // 画面を通した操作では起きない。Server Action への直接POSTでだけ届く。
-  // holding_user_id_user_id_fk は入れない。利用者IDはセッションから来るため
-  // 画面からは届かず、サインイン中に利用者が消えた場合にしか出ない（Issue #49）。
   //
   // この文は INSERT と UPDATE のときの意味。削除では同じ制約名が正反対の意味で
   // 返るため、下の DELETE_MESSAGES で分ける（銘柄・テーマの編集 設計書 §2）
   event_theme_id_theme_id_fk: "そのテーマは無い",
   event_stock_id_stock_id_fk: "その銘柄は無い",
-  holding_stock_id_stock_id_fk: "その銘柄は無い",
   theme_stock_theme_id_theme_id_fk: "そのテーマは無い",
   theme_stock_stock_id_stock_id_fk: "その銘柄は無い",
 };
@@ -51,7 +47,6 @@ const MESSAGES: Record<string, string> = {
  */
 const DELETE_MESSAGES: Record<string, string> = {
   event_stock_id_stock_id_fk: "その銘柄はイベントに使われていて消せない",
-  holding_stock_id_stock_id_fk: "その銘柄は保有に登録されていて消せない",
   event_theme_id_theme_id_fk: "そのテーマはイベントに使われていて消せない",
 };
 
@@ -184,23 +179,6 @@ export async function createStock(input: StockInput): Promise<WriteResult> {
       });
 }
 
-/**
- * 保有を登録する。成功で記録、制約違反で日本語のエラー文を返す。
- * userId はセッションから渡す。この関数はセッションを読まない（設計書 §4）
- */
-export function createHolding(
-  userId: string,
-  stockId: number,
-): Promise<WriteResult> {
-  return run(async () => {
-    const [row] = await db
-      .insert(holding)
-      .values({ userId, stockId })
-      .returning();
-    return [createdEntry(holding, compositeId(row.userId, row.stockId), row)];
-  });
-}
-
 /** テーマを登録する。成功で記録、失敗で日本語のエラー文を返す */
 export async function createTheme(name: string): Promise<WriteResult> {
   const trimmed = trimmedName(name);
@@ -322,7 +300,7 @@ function invalidId(id: number, label: string): string | null {
  * 銘柄を更新する。成功で記録、失敗で日本語のエラー文を返す。
  * 該当するIDが無ければ0件更新になり、成功として空の記録を返す。
  *
- * 市場とティッカーも変えられる。参照しているイベント・保有・テーマ所属は
+ * 市場とティッカーも変えられる。参照しているイベント・テーマ所属は
  * stock.id で紐づいているため、変えても参照は外れない（設計書 §4）
  */
 export async function updateStock(
@@ -373,7 +351,7 @@ function themeStockEntries(
 /**
  * 銘柄を削除する。成功で記録、失敗で日本語のエラー文を返す。
  * 該当するIDが無ければ0件削除になり、成功として空の記録を返す。
- * イベント・保有から参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）。
+ * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）。
  *
  * テーマ所属は CASCADE に任せず、同じ取り引きの中で先に自分で消す。
  * DBに任せると消えた行を受け取る機会が無く、記録に残せない（監査ログ 設計書 §5.4）。
@@ -455,31 +433,6 @@ export async function deleteTheme(id: number): Promise<WriteResult> {
         ];
       }),
     )
-  );
-}
-
-/**
- * 保有を消す。成功で記録、失敗で日本語のエラー文を返す。
- * 該当する行が無ければ0件削除になり、成功として空の記録を返す。
- *
- * userId はセッションから渡す。この関数はセッションを読まない（管理UI設計書 §3）。
- * 主キーの2列とも条件に入れる。stockId だけで消すと他人の保有まで消える
- */
-export async function deleteHolding(
-  userId: string,
-  stockId: number,
-): Promise<WriteResult> {
-  return (
-    invalidId(stockId, "銘柄") ??
-    run(async () => {
-      const rows = await db
-        .delete(holding)
-        .where(and(eq(holding.userId, userId), eq(holding.stockId, stockId)))
-        .returning();
-      return rows.map((row) =>
-        deletedEntry(holding, compositeId(row.userId, row.stockId), row),
-      );
-    })
   );
 }
 

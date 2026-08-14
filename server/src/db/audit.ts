@@ -21,7 +21,7 @@ export type AuditResource = (typeof AUDIT_RESOURCES)[number];
 export type AuditEntry = {
   action: AuditAction;
   resourceType: AuditResource;
-  /** 主キーの値。`holding` と `theme_stock` は複合主キーなので ":" でつなぐ */
+  /** 主キーの値。`theme_stock` は複合主キーなので ":" でつなぐ */
   resourceId: string;
   /** 変更前の行。登録では null */
   previousValues: Record<string, unknown> | null;

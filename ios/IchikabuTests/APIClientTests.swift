@@ -6,24 +6,25 @@ import Testing
 
 @Suite("APIの応答の判定")
 struct APIClientTests {
-	/// 判定はステータスとヘッダしか見ないため、URLは何でもよい
+	/// 判定はステータスしか見ないため、URLは何でもよい
 	private static let url = URL(string: "http://localhost:3000/api/events")!
 
-	private func response(status: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
-		HTTPURLResponse(url: Self.url, statusCode: status, httpVersion: nil, headerFields: headers)!
+	private func response(status: Int) -> HTTPURLResponse {
+		HTTPURLResponse(url: Self.url, statusCode: status, httpVersion: nil, headerFields: nil)!
 	}
 
 	@Test("この経路は Cookie を持たない")
 	func doesNotUseCookies() {
 		// Cookie が付いた要求にだけ Better Auth は Origin を検査する。
 		// アプリは Origin を送らないため、Cookie を1つでも持つと
-		// 以降のサインインが 403 で拒まれる
+		// 同じ配信先にある管理UIの認証の都合で要求が拒まれうる
 		#expect(APIClient.session.configuration.httpCookieStorage == nil)
 	}
 
-	@Test("401 は認証切れとして扱う")
-	func unauthorized() {
-		#expect(throws: APIError.unauthorized) {
+	@Test("成功以外の応答は状態コードごと失敗にする")
+	func unexpectedStatus() {
+		// 認証が無くなったので 401 は返らない。返ってきたら想定外として扱う
+		#expect(throws: APIError.unexpectedStatus(401)) {
 			try APIClient.events(from: Data(), response: response(status: 401))
 		}
 	}
@@ -77,19 +78,5 @@ struct APIClientTests {
 		// 所属テーマは端末側のテーマイベントの判定に使う（ログイン廃止 設計書 §3.2）
 		#expect(stocks[0].themeIds == [10])
 		#expect(stocks[1].themeIds.isEmpty)
-	}
-
-	@Test("サインインの応答ヘッダからトークンを取り出す")
-	func extractToken() throws {
-		let token = try APIClient.token(
-			from: response(status: 200, headers: ["set-auth-token": "abc.def"]))
-		#expect(token == "abc.def")
-	}
-
-	@Test("サインインに失敗すると認証切れとして扱う")
-	func signInFailure() {
-		#expect(throws: APIError.unauthorized) {
-			try APIClient.token(from: response(status: 401))
-		}
 	}
 }

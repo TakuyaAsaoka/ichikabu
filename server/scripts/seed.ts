@@ -16,7 +16,6 @@ if (typeof users === "string") {
 }
 
 // 何度実行しても増えない。判定は seedUser がアカウントの有無で行う
-const userIds: string[] = [];
 for (const { email, password } of users) {
   const result = await seedUser(email, password);
   console.log(
@@ -24,14 +23,11 @@ for (const { email, password } of users) {
       ? `ユーザーを作成した: ${email}`
       : `ユーザーは既に存在する: ${email}`,
   );
-  userIds.push(result.userId);
 }
 
-// 開発用データの保有は1人目にだけ作る。保有はカレンダーの動作確認に使うだけで、
-// 全員ぶんは要らない。**2人目からは保有が0件なので、アプリに出るのは市場が
-// GLOBAL のイベントだけになる**（app/api/events/route.ts が保有で絞るため）。
-// 自分の保有が要るときは管理UIから足す
-const { created: eventCount } = await seedEvents(userIds[0]);
+// 開発用データは利用者に紐づかない。アプリは認証を持たず、誰が見ても同じ
+// イベントが返る（ログイン廃止 設計書 §5）
+const { created: eventCount } = await seedEvents();
 console.log(`イベントを ${eventCount} 件作成した`);
 
 // pg の接続プールが開いたままだと終了しないため明示的に閉じる。

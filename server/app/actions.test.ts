@@ -28,15 +28,14 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 const { auth } = await import("../src/auth");
 const { db } = await import("../src/db");
-const { auditLog, event, holding, stock, theme, themeStock, user } =
-  await import("../src/db/schema");
+const { auditLog, event, stock, theme, themeStock, user } = await import(
+  "../src/db/schema"
+);
 const { seedUser } = await import("../src/db/seed-user");
 const {
   addEvent,
-  addHolding,
   editEvent,
   removeEvent,
-  removeHolding,
   removeStock,
   removeTheme,
   removeThemeStock,
@@ -51,11 +50,12 @@ async function signInAs(email: string): Promise<void> {
       body: JSON.stringify({ email, password: PASSWORD }),
     }),
   );
-  const token = res.headers.get("set-auth-token");
-  if (!token) {
+  const cookie = res.headers.get("set-cookie");
+  if (!cookie) {
     throw new Error(`サインインできなかった: ${email}`);
   }
-  requestHeaders.current = new Headers({ authorization: `Bearer ${token}` });
+  // `;` の前が「名前=値」で、後ろは有効期限などの属性
+  requestHeaders.current = new Headers({ cookie: cookie.split(";")[0] });
 }
 
 function form(values: Record<string, string>): FormData {
@@ -101,8 +101,7 @@ beforeEach(async () => {
   await seedUser(EDITOR, PASSWORD);
 });
 
-// 削除は取り返せないため管理者に限る（設計書 §2）。保有だけは本人しか消せない行なので
-// 含めない（app/actions.ts の removeHolding の注記を参照）。
+// 削除は取り返せないため管理者に限る（設計書 §2）。
 //
 // 欄の名前は英語にする。it.each のタイトル差し込み（`$label`）が拾うのは半角英数の
 // 欄名だけで、日本語にすると `$名前` が文字のまま出て、4件のうちどれが落ちたのか
@@ -202,19 +201,6 @@ describe("管理者ではない入力者", () => {
 
     const [row] = await db.select().from(event);
     expect(row.title).toBe("日銀の金融政策決定会合（変更後）");
-  });
-
-  it("自分で足した保有を自分で外せる", async () => {
-    // 保有は本人しか消せない行で、管理者に限ると誰も消せなくなる。
-    // ここが「4つだけを管理者に限る」判断を固定している
-    expect(await addHolding(null, form({ stockId: "1" }))).toBeNull();
-    expect(await db.select().from(holding)).toHaveLength(1);
-
-    // 成功すると redirect("/") が例外を投げる
-    await expect(removeHolding(null, form({ stockId: "1" }))).rejects.toThrow(
-      /NEXT_REDIRECT/,
-    );
-    expect(await db.select().from(holding)).toEqual([]);
   });
 });
 

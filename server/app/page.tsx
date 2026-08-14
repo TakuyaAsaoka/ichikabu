@@ -4,11 +4,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
-import { event, holding, stock, theme, themeStock } from "../src/db/schema";
+import { event, stock, theme, themeStock } from "../src/db/schema";
 import { addEvent, addStock, addTheme } from "./actions";
 import { BulkEventForm } from "./bulk-event-form";
 import { EventForm } from "./event-form";
-import { HoldingForm } from "./holding-form";
 import { StockForm } from "./stock-form";
 import { ThemeForm } from "./theme-form";
 import { ThemeStockForm } from "./theme-stock-form";
@@ -16,7 +15,7 @@ import { ThemeStockForm } from "./theme-stock-form";
 /**
  * 管理画面。登録フォームと一覧を縦に並べる（設計書 §3）。
  * 銘柄・テーマ・イベントは各行から編集ページへ行ける（編集・削除 設計書 §3）。
- * 保有とテーマ所属は直す列が無いため、行から削除ページへ行く（保有とテーマ所属の削除 設計書 §2）。
+ * テーマ所属は直す列が無いため、行から削除ページへ行く（保有とテーマ所属の削除 設計書 §2）。
  * 並べ替え・絞り込みは付けない
  */
 export default async function Page() {
@@ -34,19 +33,6 @@ export default async function Page() {
       fiscalMonth: stock.fiscalMonth,
     })
     .from(stock)
-    .orderBy(stock.market, stock.ticker);
-
-  // 保有はサインインしている利用者の分だけを出す（設計書 §3）
-  const holdings = await db
-    .select({
-      stockId: holding.stockId,
-      market: stock.market,
-      ticker: stock.ticker,
-      name: stock.name,
-    })
-    .from(holding)
-    .innerJoin(stock, eq(holding.stockId, stock.id))
-    .where(eq(holding.userId, session.user.id))
     .orderBy(stock.market, stock.ticker);
 
   const themes = await db
@@ -113,25 +99,6 @@ export default async function Page() {
               )}{" "}
               <Link href={`/stocks/${row.id}`} className="underline">
                 編集
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">保有を登録</h2>
-        <HoldingForm choices={stocks} />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">保有一覧（{holdings.length}件）</h2>
-        <ul className="flex flex-col gap-1">
-          {holdings.map((row) => (
-            <li key={row.stockId} className="border-b border-border py-1">
-              {row.market} {row.ticker} {row.name}{" "}
-              <Link href={`/holdings/${row.stockId}`} className="underline">
-                外す
               </Link>
             </li>
           ))}

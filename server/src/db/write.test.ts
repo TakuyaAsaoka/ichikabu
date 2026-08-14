@@ -1,19 +1,16 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
-import { expectViolation, resetDatabase } from "../../test/helpers";
+import { resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { event, holding, stock, theme, themeStock } from "./schema";
-import { seedUser } from "./seed-user";
+import { event, stock, theme, themeStock } from "./schema";
 import {
   createEvent,
   createEvents,
-  createHolding,
   createStock,
   createTheme,
   createThemeStock,
   deleteEvent,
-  deleteHolding,
   deleteStock,
   deleteTheme,
   deleteThemeStock,
@@ -129,44 +126,6 @@ describe("createStock", () => {
 
     const [row] = await db.select().from(stock);
     expect(row.name).toBe("トヨタ自動車");
-  });
-});
-
-describe("createHolding", () => {
-  let userId: string;
-  let stockId: number;
-
-  beforeEach(async () => {
-    // holding.user_id は Better Auth の user への外部キー。
-    // resetDatabase が user も消すため、毎回作り直す（設計書 §7 D）
-    ({ userId } = await seedUser(
-      "dev@example.com",
-      "correct-horse-battery-staple",
-    ));
-    await createStock({ ...TOYOTA });
-    const [row] = await db
-      .select()
-      .from(stock)
-      .where(eq(stock.ticker, TOYOTA.ticker));
-    stockId = row.id;
-  });
-
-  it("保有を登録するとDBに行が入る", async () => {
-    expect(await createHolding(userId, stockId)).toEqual(succeeded);
-
-    const rows = await db.select().from(holding);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].stockId).toBe(stockId);
-    expect(rows[0].userId).toBe(userId);
-  });
-
-  it("同じ銘柄をもう一度保有に登録するとエラー文が返る", async () => {
-    await createHolding(userId, stockId);
-
-    expect(await createHolding(userId, stockId)).toBe(
-      "その銘柄はすでに保有に登録済み",
-    );
-    expect(await db.select().from(holding)).toHaveLength(1);
   });
 });
 
@@ -689,44 +648,6 @@ describe("deleteStock", () => {
     expect(await db.select().from(stock)).toHaveLength(1);
   });
 
-  it("保有から参照されているとエラー文が返り、銘柄は消えない", async () => {
-    const { userId } = await seedUser(
-      "dev@example.com",
-      "correct-horse-battery-staple",
-    );
-    const stockId = await onlyStockId();
-    await createHolding(userId, stockId);
-
-    expect(await deleteStock(stockId)).toBe(
-      "その銘柄は保有に登録されていて消せない",
-    );
-    expect(await db.select().from(stock)).toHaveLength(1);
-  });
-
-  it("イベントと保有の両方から参照されていると、参照元を1つずつ知らせる", async () => {
-    // PostgreSQL は最初に当たった制約だけを返す。運用者は2回に分けて消すことになる（設計書 §2）
-    const { userId } = await seedUser(
-      "dev@example.com",
-      "correct-horse-battery-staple",
-    );
-    const stockId = await onlyStockId();
-    await createEvent({ ...BASE, stockId });
-    await createHolding(userId, stockId);
-
-    expect(await deleteStock(stockId)).toBe(
-      "その銘柄はイベントに使われていて消せない",
-    );
-
-    await deleteEvent((await onlyEvent()).id);
-    expect(await deleteStock(stockId)).toBe(
-      "その銘柄は保有に登録されていて消せない",
-    );
-
-    await db.delete(holding);
-    expect(await deleteStock(stockId)).toEqual(succeeded);
-    expect(await db.select().from(stock)).toHaveLength(0);
-  });
-
   it("存在しないIDの削除は何も起きない", async () => {
     await onlyStockId();
 
@@ -819,52 +740,6 @@ describe("deleteTheme", () => {
   });
 });
 
-describe("deleteHolding", () => {
-  let userId: string;
-  let stockId: number;
-
-  beforeEach(async () => {
-    ({ userId } = await seedUser(
-      "dev@example.com",
-      "correct-horse-battery-staple",
-    ));
-    stockId = await onlyStockId();
-    await createHolding(userId, stockId);
-  });
-
-  it("保有を消しても銘柄は消えない", async () => {
-    expect(await deleteHolding(userId, stockId)).toEqual(succeeded);
-    expect(await db.select().from(holding)).toHaveLength(0);
-    expect(await db.select().from(stock)).toHaveLength(1);
-  });
-
-  it("他の利用者の保有は消えない", async () => {
-    // 主キーは user_id + stock_id。銘柄IDだけで消すと他人の保有まで消える
-    const { userId: otherId } = await seedUser(
-      "other@example.com",
-      "correct-horse-battery-staple",
-    );
-    await createHolding(otherId, stockId);
-
-    expect(await deleteHolding(userId, stockId)).toEqual(succeeded);
-    const rows = await db.select().from(holding);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].userId).toBe(otherId);
-  });
-
-  it("存在しない組の削除は何も起きない", async () => {
-    expect(await deleteHolding(userId, 999999)).toEqual(succeeded);
-    expect(await db.select().from(holding)).toHaveLength(1);
-  });
-
-  it("問い合わせに渡せないIDの削除はエラー文が返る", async () => {
-    for (const id of [Number("abc"), 9999999999, Number(null)]) {
-      expect(await deleteHolding(userId, id)).toBe("その銘柄は見つからない");
-    }
-    expect(await db.select().from(holding)).toHaveLength(1);
-  });
-});
-
 describe("deleteThemeStock", () => {
   let themeId: number;
   let stockId: number;
@@ -945,18 +820,6 @@ describe("問い合わせに渡せない値", () => {
     expect(await db.select().from(stock)).toHaveLength(0);
   });
 
-  it("保有の銘柄IDに入れるとエラー文が返る", async () => {
-    const { userId } = await seedUser(
-      "dev@example.com",
-      "correct-horse-battery-staple",
-    );
-
-    for (const value of UNUSABLE) {
-      expect(await createHolding(userId, value)).toBe(UNUSABLE_MESSAGE);
-    }
-    expect(await db.select().from(holding)).toHaveLength(0);
-  });
-
   it("テーマ所属のテーマID・銘柄IDに入れるとエラー文が返る", async () => {
     for (const value of UNUSABLE) {
       expect(await createThemeStock(value, 1)).toBe(UNUSABLE_MESSAGE);
@@ -1015,16 +878,6 @@ describe("存在しないID", () => {
     expect(await db.select().from(event)).toHaveLength(0);
   });
 
-  it("保有の銘柄IDに入れるとエラー文が返る", async () => {
-    const { userId } = await seedUser(
-      "dev@example.com",
-      "correct-horse-battery-staple",
-    );
-
-    expect(await createHolding(userId, 999999)).toBe("その銘柄は無い");
-    expect(await db.select().from(holding)).toHaveLength(0);
-  });
-
   it("テーマ所属のテーマID・銘柄IDに入れるとエラー文が返る", async () => {
     await createTheme("半導体");
     await createStock({ ...TOYOTA });
@@ -1045,17 +898,6 @@ describe("存在しないID", () => {
       "そのテーマは無い",
     );
     expect((await onlyEvent()).market).toBe("JP");
-  });
-
-  it("保有の利用者IDに入れると投げ直される", async () => {
-    // 利用者IDはセッションから来るため画面からは届かない。日本語にすると
-    // 「その銘柄は無い」のような嘘の文になるため、表に入れず投げ直す（Issue #49）
-    await createStock({ ...TOYOTA });
-    const [{ stockId }] = await db.select({ stockId: stock.id }).from(stock);
-
-    const name = await expectViolation(createHolding("no-such-user", stockId));
-    expect(name).toBe("holding_user_id_user_id_fk");
-    expect(await db.select().from(holding)).toHaveLength(0);
   });
 });
 

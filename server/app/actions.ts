@@ -10,12 +10,10 @@ import { stock, theme } from "../src/db/schema";
 import {
   createEvent,
   createEvents,
-  createHolding,
   createStock,
   createTheme,
   createThemeStock,
   deleteEvent,
-  deleteHolding,
   deleteStock,
   deleteTheme,
   deleteThemeStock,
@@ -85,7 +83,7 @@ function requireAdmin(session: Session): string | null {
  * 書き込みを実行し、成功したら監査ログに記録する（設計書 §5.2）。
  * 成功で null、書き込みか記録の失敗で画面に出す日本語のエラー文を返す。
  *
- * **14の Server Action がすべてこれを通る。** 個々の関数が記録を自分で呼ぶ形に
+ * **12の Server Action がすべてこれを通る。** 個々の関数が記録を自分で呼ぶ形に
  * しないのは、呼び忘れがそのまま記録の漏れになるため。3つ目の書き込みの経路が
  * 増えたときは `src/db/write-boundary.test.ts` が落ちる
  */
@@ -127,25 +125,6 @@ export async function addStock(
   const userId = await requireUserId();
 
   const message = await audited(userId, createStock(toStockInput(formData)));
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  return null;
-}
-
-/** 保有を登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function addHolding(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(
-    userId,
-    createHolding(userId, Number(formData.get("stockId"))),
-  );
   if (message) {
     return message;
   }
@@ -248,34 +227,6 @@ export async function removeStock(
   const message = await audited(
     session.user.id,
     deleteStock(Number(formData.get("id"))),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  redirect("/");
-}
-
-/**
- * 保有を外す。戻り値は失敗したときのエラー文で、useActionState の状態になる。
- * 利用者IDはセッションから取る。画面からは渡さない（設計書 §2.1）。
- *
- * **削除5つのうち、ここだけ管理者に限らない。** `deleteHolding` は
- * `(user_id, stock_id)` で絞るため、呼んだ本人の行しか消せない
- * （src/db/write.test.ts「他の利用者の保有は消えない」）。管理者に限ると、
- * 入力者が足した保有は管理者にも消せない行になり、psql を叩くまで残る。
- * 保有は足し直せば戻るので、削除を限る理由（取り返せない）が当たらない
- */
-export async function removeHolding(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(
-    userId,
-    deleteHolding(userId, Number(formData.get("stockId"))),
   );
   if (message) {
     return message;

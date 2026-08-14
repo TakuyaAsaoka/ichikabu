@@ -31,7 +31,14 @@ export const EVENT_MARKETS = ["JP", "US", "GLOBAL"] as const;
  * `create_event` のように対象を混ぜない。対象は `resource_type` が別に持つ
  */
 export const AUDIT_ACTIONS = ["create", "update", "delete"] as const;
-/** 記録の対象になるテーブル。値はDBのテーブル名そのもの */
+/**
+ * 記録の対象。値はDBのテーブル名そのもの。
+ *
+ * `holding` はテーブルごと消えたが（ログイン廃止 設計書 §5.1）、値は残す。
+ * この表は過去の事実の記録で、消す前に書かれた行が `resource_type='holding'` を
+ * 持っている。値を落とすと、実際にDBに在る文字列を型が「ありえない」と言い切る。
+ * 本番の `audit_log` にその行が1件も無いと確認できたら消してよい
+ */
 export const AUDIT_RESOURCES = [
   "stock",
   "theme",
@@ -77,22 +84,7 @@ export const theme = pgTable("theme", {
   createdAt,
 });
 
-// holding と theme_stock は他から参照されないため、サロゲートIDを持たず複合PKにする（設計書 §4.2）。
-
-export const holding = pgTable(
-  "holding",
-  {
-    // Better Auth の user.id は text
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    stockId: integer("stock_id")
-      .notNull()
-      .references(() => stock.id, { onDelete: "restrict" }),
-    createdAt,
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.stockId] })],
-);
+// theme_stock は他から参照されないため、サロゲートIDを持たず複合PKにする（設計書 §4.2）。
 
 export const themeStock = pgTable(
   "theme_stock",
@@ -188,8 +180,7 @@ export const auditLog = pgTable(
      * DELETE は無い）。`seedUser` は `crypto.randomUUID()` で採番するので、
      * 同じメールアドレスで入れ直しても紐づけは戻せない。
      *
-     * `holding.user_id` の cascade と揃えない。あちらは「今の状態」の表で、
-     * 全体設計書 §4.1 がアカウント削除をFK違反で止めないために cascade を選んだ。
+     * これで `user` の行は消せなくなるが、困らない。
      * 入力者をやめさせるのに `user` の行を消す必要は無い。メールアドレスを
      * 書き換えれば、パスワードでも Google でもサインインできなくなる
      * （Google の初回サインインは `src/auth.ts` のフックが拒む）

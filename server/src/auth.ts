@@ -2,7 +2,6 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import { bearer } from "better-auth/plugins/bearer";
 import { db } from "./db";
 import * as schema from "./db/schema";
 
@@ -30,7 +29,7 @@ export const auth = betterAuth({
   secret,
   database: drizzleAdapter(db, { provider: "pg", schema }),
   // 利用者は seed スクリプトで手動投入する（設計書 §9）。画面からは作れない。
-  // iOS がこの経路を使うため、管理UIを Google に変えても残す
+  // Google の設定が壊れた日に管理UIへ入る手段として残す（`app/signin/signin-form.tsx`）
   emailAndPassword: { enabled: true, disableSignUp: true },
   socialProviders: {
     google: { clientId: googleClientId, clientSecret: googleClientSecret },
@@ -64,9 +63,9 @@ export const auth = betterAuth({
     // 既定のメモリは再起動で消え、サーバーが複数台だと台ごとに別勘定になる
     storage: "database",
   },
-  // Web管理UIは Cookie セッション、iOS は Bearer トークン（設計書 §9）。
+  // セッションは Cookie だけ（設計書 §9）。iOS の Bearer はログイン廃止で消えた。
   // nextCookies は、Server Component から getSession を呼んだときにセッションの
   // 期限延長で Cookie を書こうとして書けない状態（DBだけ進む）を防ぐ。
-  // ライブラリが「配列の最後であること」を求めるため、bearer より後に置く
-  plugins: [bearer(), nextCookies()],
+  // ライブラリが「配列の最後であること」を求めるため、足すときはこれより前に置く
+  plugins: [nextCookies()],
 });

@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { event, holding, stock, theme, themeStock, user } from "./schema";
+import { event, stock, theme, themeStock } from "./schema";
 
 beforeEach(resetDatabase);
 
@@ -24,14 +24,6 @@ async function createStock(ticker = "7203") {
 
 async function createTheme(name = "ドローン") {
   const [row] = await db.insert(theme).values({ name }).returning();
-  return row;
-}
-
-async function createUser(id = "user-1") {
-  const [row] = await db
-    .insert(user)
-    .values({ id, name: "運用者", email: `${id}@example.com` })
-    .returning();
   return row;
 }
 
@@ -221,31 +213,6 @@ describe("外部キーの削除時の挙動", () => {
     expect(violated).toBe("event_stock_id_stock_id_fk");
   });
 
-  it("保有されている銘柄は削除できない", async () => {
-    const stockRow = await createStock();
-    const userRow = await createUser();
-    await db
-      .insert(holding)
-      .values({ userId: userRow.id, stockId: stockRow.id });
-
-    const violated = await expectViolation(
-      db.delete(stock).where(eq(stock.id, stockRow.id)),
-    );
-    expect(violated).toBe("holding_stock_id_stock_id_fk");
-  });
-
-  it("ユーザーを削除すると保有も消える", async () => {
-    const stockRow = await createStock();
-    const userRow = await createUser();
-    await db
-      .insert(holding)
-      .values({ userId: userRow.id, stockId: stockRow.id });
-
-    await db.delete(user).where(eq(user.id, userRow.id));
-
-    expect(await db.select().from(holding)).toEqual([]);
-  });
-
   it("銘柄を削除するとテーマ所属も消える", async () => {
     const stockRow = await createStock();
     const themeRow = await createTheme();
@@ -322,17 +289,5 @@ describe("theme_stock の複合主キー", () => {
       db.insert(themeStock).values(values),
     );
     expect(violated).toBe("theme_stock_theme_id_stock_id_pk");
-  });
-});
-
-describe("holding の複合主キー", () => {
-  it("同じユーザーと銘柄の組は2件登録できない", async () => {
-    const stockRow = await createStock();
-    const userRow = await createUser();
-    const values = { userId: userRow.id, stockId: stockRow.id };
-    await db.insert(holding).values(values);
-
-    const violated = await expectViolation(db.insert(holding).values(values));
-    expect(violated).toBe("holding_user_id_stock_id_pk");
   });
 });

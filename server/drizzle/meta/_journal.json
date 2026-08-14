@@ -36,6 +36,13 @@
       "when": 1786716743997,
       "tag": "0004_careful_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786720028835,
+      "tag": "0005_thankful_jimmy_woo",
+      "breakpoints": true
     }
   ]
 }
