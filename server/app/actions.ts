@@ -29,17 +29,49 @@ import { toEventInput } from "./event-input";
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
 // 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
 
+// 管理者は1人で、役割はメールアドレスの一致だけで決める（設計書 §9）。
+// 未設定のまま動かすと、誰も管理者にならず削除が全部拒まれる状態に静かになる。
+// src/auth.ts の秘密鍵と同じく、読み込みの時点で落とす
+const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
+if (!adminEmail) {
+  throw new Error(
+    "ADMIN_EMAIL が設定されていない。削除できる管理者のメールアドレスを .env.local に入れること",
+  );
+}
+
 /**
- * セッションを確かめて利用者IDを返す。
+ * サインインしているかを確かめてセッションを返す。
  * Server Action は画面を通さず直接POSTできるため、画面側の確認とは別にここでも確かめる
  * （Next.js 同梱ドキュメント 01-app/01-getting-started/07-mutating-data.md の警告）
  */
-async function requireUserId(): Promise<string> {
+async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     redirect("/signin");
   }
-  return session.user.id;
+  return session;
+}
+
+/** セッションを確かめて利用者IDを返す */
+async function requireUserId(): Promise<string> {
+  return (await requireSession()).user.id;
+}
+
+/**
+ * 管理者かどうかを確かめる。管理者なら null、そうでなければ拒む理由を返す。
+ * 削除は取り返せないため、管理者だけができる（設計書 §9）。
+ *
+ * 拒み方を `redirect()` にしない。削除は成功しても `redirect("/")` するため、
+ * 拒否と成功が同じ `NEXT_REDIRECT` になり、拒まれたことを画面でもテストでも
+ * 見分けられなくなる（実測。→ 入力者を3人にする設計書 §4）。
+ * 戻り値のエラー文は、他の Server Action と同じく ActionForm が表示する
+ */
+async function requireAdmin(): Promise<string | null> {
+  const session = await requireSession();
+  // seedUser がメールアドレスを小文字にして入れるため、比較も小文字で揃える
+  return session.user.email.toLowerCase() === adminEmail
+    ? null
+    : "削除できるのは管理者だけ";
 }
 
 /**
@@ -175,7 +207,10 @@ export async function removeStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const denied = await requireAdmin();
+  if (denied) {
+    return denied;
+  }
 
   const message = await deleteStock(Number(formData.get("id")));
   if (message) {
@@ -188,7 +223,13 @@ export async function removeStock(
 
 /**
  * 保有を外す。戻り値は失敗したときのエラー文で、useActionState の状態になる。
- * 利用者IDはセッションから取る。画面からは渡さない（設計書 §2.1）
+ * 利用者IDはセッションから取る。画面からは渡さない（設計書 §2.1）。
+ *
+ * **削除5つのうち、ここだけ管理者に限らない。** `deleteHolding` は
+ * `(user_id, stock_id)` で絞るため、呼んだ本人の行しか消せない
+ * （src/db/write.test.ts「他の利用者の保有は消えない」）。管理者に限ると、
+ * 入力者が足した保有は管理者にも消せない行になり、psql を叩くまで残る。
+ * 保有は足し直せば戻るので、削除を限る理由（取り返せない）が当たらない
  */
 export async function removeHolding(
   _previous: string | null,
@@ -229,7 +270,10 @@ export async function removeTheme(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const denied = await requireAdmin();
+  if (denied) {
+    return denied;
+  }
 
   const message = await deleteTheme(Number(formData.get("id")));
   if (message) {
@@ -245,7 +289,10 @@ export async function removeThemeStock(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const denied = await requireAdmin();
+  if (denied) {
+    return denied;
+  }
 
   const message = await deleteThemeStock(
     Number(formData.get("themeId")),
@@ -283,7 +330,10 @@ export async function removeEvent(
   _previous: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  await requireUserId();
+  const denied = await requireAdmin();
+  if (denied) {
+    return denied;
+  }
 
   const message = await deleteEvent(Number(formData.get("id")));
   if (message) {
