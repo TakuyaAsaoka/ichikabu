@@ -15,7 +15,7 @@ function messageFor(status: number): string {
  *
  * Server Action からサーバー側の `auth.api.signInEmail` を呼ぶのではなく、
  * ブラウザから Better Auth の HTTP エンドポイントを叩く。`auth.api` の直接呼び出しは
- * 回数制限を通らないため（設計書 §6）。iOS も同じエンドポイントを使う（全体設計書 §9）
+ * 回数制限を通らないため（設計書 §6）
  */
 export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +106,8 @@ export function SignInForm() {
       >
         Google でログイン
       </button>
-      {/* メールアドレスとパスワードは iOS が使う経路と同じもの。
-          Google の設定が壊れた日に管理UIへ入る手段として残す */}
+      {/* メールアドレスとパスワードは、Google の設定が壊れた日に
+          管理UIへ入る手段として残す（全体設計書 §9） */}
       <p className="text-center">または</p>
       <label className="flex flex-col gap-1">
         メールアドレス

@@ -1,49 +1,18 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../../src/auth";
 import { db } from "../../../src/db";
-import {
-  event,
-  holding,
-  stock,
-  theme,
-  themeStock,
-  user,
-} from "../../../src/db/schema";
-import { seedUser } from "../../../src/db/seed-user";
+import { event, stock, theme, themeStock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
 import { resetDatabase } from "../../../test/helpers";
 import { GET } from "./route";
 
 type Event = components["schemas"]["Event"];
 
-const PASSWORD = "correct-horse-battery-staple";
-
-/** 利用者を作り、user.id と Bearer トークンを返す */
-async function createUser(
-  email: string,
-): Promise<{ id: string; token: string }> {
-  await seedUser(email, PASSWORD);
-  const signIn = await auth.api.signInEmail({
-    body: { email, password: PASSWORD },
-    returnHeaders: true,
-  });
-  // bearer プラグインがサインイン応答に載せるトークン（全体設計書 §9）
-  const token = signIn.headers.get("set-auth-token");
-  if (!token) {
-    throw new Error("サインイン応答に set-auth-token が無い");
-  }
-  const [found] = await db.select().from(user).where(eq(user.email, email));
-  return { id: found.id, token };
-}
-
-/** Bearer トークン付きでハンドラを呼び、200 を確かめて本文の配列を返す */
-async function fetchEvents(token: string): Promise<Event[]> {
-  const res = await GET(
-    new Request("http://localhost:3000/api/events", {
-      headers: { authorization: `Bearer ${token}` },
-    }),
-  );
+/**
+ * ハンドラを呼び、200 を確かめて本文の配列を返す。
+ * `GET` は引数を取らない。誰が呼んでも同じ配列が返る（ログイン廃止 設計書 §5）
+ */
+async function fetchEvents(): Promise<Event[]> {
+  const res = await GET();
   expect(res.status).toBe(200);
   return res.json();
 }
@@ -56,45 +25,17 @@ function titles(events: Event[]): Set<string> {
 beforeEach(resetDatabase);
 
 describe("GET /api/events", () => {
-  it("Bearer トークンなしでは 401 を本文なしで返す", async () => {
-    const res = await GET(new Request("http://localhost:3000/api/events"));
-    expect(res.status).toBe(401);
-    expect(await res.text()).toBe("");
+  it("認証ヘッダーが無くても 200 を返す", async () => {
+    // `GET` が要求そのものを受け取らないため、認証ヘッダーを見る余地が無い。
+    // ヘッダー付きの場合を別に確かめないのは、渡す口が型として無いため
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
   });
 
-  it("でたらめな Bearer トークンでは 401 を返す", async () => {
-    const res = await GET(
-      new Request("http://localhost:3000/api/events", {
-        headers: { authorization: "Bearer deadbeef" },
-      }),
-    );
-    expect(res.status).toBe(401);
-  });
-
-  it("Bearer トークンありでイベントが無ければ 200 で空配列を返す", async () => {
-    const holder = await createUser("holder@example.com");
-    expect(await fetchEvents(holder.token)).toEqual([]);
-  });
-
-  it("市場イベントは保有銘柄の市場のものと GLOBAL だけが返る", async () => {
-    const jpHolder = await createUser("jp-holder@example.com");
-    const usHolder = await createUser("us-holder@example.com");
-
-    const [toyota] = await db
-      .insert(stock)
-      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
-      .returning();
-    const [nvidia] = await db
-      .insert(stock)
-      .values({ market: "US", ticker: "NVDA", name: "NVIDIA" })
-      .returning();
-    await db
-      .insert(holding)
-      .values({ userId: jpHolder.id, stockId: toyota.id });
-    await db
-      .insert(holding)
-      .values({ userId: usHolder.id, stockId: nvidia.id });
-
+  it("市場イベントは GLOBAL も JP も US も全件返る", async () => {
+    // 絞り込みはサーバーに無い。市場で出し分けるのは端末の責任
+    // （ios/Ichikabu/EventLayout.swift の visible）
     await db.insert(event).values([
       {
         title: "日銀金融政策決定会合",
@@ -119,25 +60,15 @@ describe("GET /api/events", () => {
       },
     ]);
 
-    const jpEvents = await fetchEvents(jpHolder.token);
-    expect(titles(jpEvents)).toEqual(new Set(["日銀金融政策決定会合", "FOMC"]));
-    expect(new Set(jpEvents.map((e) => e.kind))).toEqual(new Set(["market"]));
-
-    const usEvents = await fetchEvents(usHolder.token);
-    expect(titles(usEvents)).toEqual(new Set(["米国市場休場", "FOMC"]));
+    expect(titles(await fetchEvents())).toEqual(
+      new Set(["日銀金融政策決定会合", "米国市場休場", "FOMC"]),
+    );
   });
 
-  it("テーマイベントはテーマ所属銘柄の保有者にだけ返る", async () => {
-    const holder = await createUser("theme-holder@example.com");
-    const outsider = await createUser("outsider@example.com");
-
+  it("テーマイベントと銘柄イベントも全件返る", async () => {
     const [nvidia] = await db
       .insert(stock)
       .values({ market: "US", ticker: "NVDA", name: "NVIDIA" })
-      .returning();
-    const [toyota] = await db
-      .insert(stock)
-      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
       .returning();
     const [semiconductor] = await db
       .insert(theme)
@@ -146,40 +77,35 @@ describe("GET /api/events", () => {
     await db
       .insert(themeStock)
       .values({ themeId: semiconductor.id, stockId: nvidia.id });
-    await db.insert(holding).values({ userId: holder.id, stockId: nvidia.id });
-    await db
-      .insert(holding)
-      .values({ userId: outsider.id, stockId: toyota.id });
 
-    await db.insert(event).values({
-      title: "SEMICON Japan",
-      shortLabel: "SEMICON",
-      startDate: "2026-12-16",
-      endDate: "2026-12-18",
-      importance: 2,
-      themeId: semiconductor.id,
-    });
+    await db.insert(event).values([
+      {
+        title: "SEMICON Japan",
+        shortLabel: "SEMICON",
+        startDate: "2026-12-16",
+        endDate: "2026-12-18",
+        importance: 2,
+        themeId: semiconductor.id,
+      },
+      {
+        title: "NVIDIA 決算発表",
+        shortLabel: "NVDA決算",
+        startDate: "2026-11-19",
+        importance: 3,
+        stockId: nvidia.id,
+      },
+    ]);
 
-    const held = await fetchEvents(holder.token);
-    expect(titles(held)).toEqual(new Set(["SEMICON Japan"]));
-    expect(held.map((e) => e.kind)).toEqual(["theme"]);
-    expect(await fetchEvents(outsider.token)).toEqual([]);
+    expect(titles(await fetchEvents())).toEqual(
+      new Set(["SEMICON Japan", "NVIDIA 決算発表"]),
+    );
   });
 
-  it("銘柄イベントはその銘柄の保有者にだけ返る", async () => {
-    const holder = await createUser("stock-holder@example.com");
-    const outsider = await createUser("outsider@example.com");
-
+  it("銘柄イベントは値が無いフィールドを null にして返る", async () => {
     const [toyota] = await db
       .insert(stock)
       .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
       .returning();
-    const [sony] = await db
-      .insert(stock)
-      .values({ market: "JP", ticker: "6758", name: "ソニーグループ" })
-      .returning();
-    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
-    await db.insert(holding).values({ userId: outsider.id, stockId: sony.id });
 
     await db.insert(event).values({
       title: "トヨタ自動車 決算発表",
@@ -190,8 +116,8 @@ describe("GET /api/events", () => {
       stockId: toyota.id,
     });
 
-    // レスポンスの組み立ても合わせて固定する。値が無いフィールドは null で返る
-    expect(await fetchEvents(holder.token)).toEqual([
+    // レスポンスの組み立ても合わせて固定する
+    expect(await fetchEvents()).toEqual([
       {
         id: "1",
         kind: "stock",
@@ -206,18 +132,15 @@ describe("GET /api/events", () => {
         source: null,
       },
     ]);
-    expect(await fetchEvents(outsider.token)).toEqual([]);
   });
 
   it("イベントの対象は kind と一致し、登録した銘柄・テーマ・市場を指す", async () => {
-    const holder = await createUser("target-holder@example.com");
     const [toyota] = await db
       .insert(stock)
       .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
       .returning();
     const [car] = await db.insert(theme).values({ name: "自動車" }).returning();
     await db.insert(themeStock).values({ themeId: car.id, stockId: toyota.id });
-    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
 
     await db.insert(event).values([
       {
@@ -245,7 +168,7 @@ describe("GET /api/events", () => {
 
     // 契約は kind と target.type が食い違う組み合わせも表せてしまうため、
     // 両方が同じ対象を指すことをここで固定する（ログイン廃止 設計書 §3.1）
-    const events = await fetchEvents(holder.token);
+    const events = await fetchEvents();
     expect(events.map((e) => [e.kind, e.target])).toEqual([
       ["stock", { type: "stock", stockId: toyota.id }],
       ["theme", { type: "theme", themeId: car.id }],
@@ -254,13 +177,6 @@ describe("GET /api/events", () => {
   });
 
   it("出典の名前とURLが揃っているイベントは source が返る", async () => {
-    const holder = await createUser("source-holder@example.com");
-    const [toyota] = await db
-      .insert(stock)
-      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
-      .returning();
-    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
-
     await db.insert(event).values({
       title: "消費者物価指数（2026年8月分）",
       shortLabel: "CPI",
@@ -271,7 +187,7 @@ describe("GET /api/events", () => {
       sourceUrl: "https://www.stat.go.jp/data/cpi/",
     });
 
-    const [event0] = await fetchEvents(holder.token);
+    const [event0] = await fetchEvents();
     expect(event0.source).toEqual({
       name: "総務省（PDL1.0）",
       url: "https://www.stat.go.jp/data/cpi/",
@@ -280,12 +196,10 @@ describe("GET /api/events", () => {
 
   it("出典のURLだけのイベントは source が null になる", async () => {
     // source_url は運用者が誤登録を追うための記録で、画面には出さない（設計書 §3.1）
-    const holder = await createUser("url-only-holder@example.com");
     const [toyota] = await db
       .insert(stock)
       .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
       .returning();
-    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
 
     await db.insert(event).values({
       title: "トヨタ自動車 決算発表",
@@ -296,7 +210,7 @@ describe("GET /api/events", () => {
       sourceUrl: "https://global.toyota/jp/ir/",
     });
 
-    const [event0] = await fetchEvents(holder.token);
+    const [event0] = await fetchEvents();
     expect(event0.source).toBeNull();
   });
 
@@ -304,13 +218,6 @@ describe("GET /api/events", () => {
     // 取り込みが「これからの回なのに公表予定に載らなくなった」と判定した行
     // （公表予定の非アクティブ化 設計書 §1）。開始日は見ない。中止された回は
     // 公表日を過ぎても出してはならない
-    const holder = await createUser("inactive-holder@example.com");
-    const [toyota] = await db
-      .insert(stock)
-      .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
-      .returning();
-    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
-
     await db.insert(event).values([
       {
         title: "消費者物価指数（2026年9月分）",
@@ -337,13 +244,13 @@ describe("GET /api/events", () => {
       },
     ]);
 
-    expect(titles(await fetchEvents(holder.token))).toEqual(
+    expect(titles(await fetchEvents())).toEqual(
       new Set(["消費者物価指数（2026年9月分）"]),
     );
   });
 
-  it("決算月のあるJP銘柄を保有していると権利付最終日が計算されて返る", async () => {
-    const holder = await createUser("rights-holder@example.com");
+  it("決算月が入っている銘柄すべてについて権利付最終日が返る", async () => {
+    // 保有していることは条件にならない（ログイン廃止 設計書 §5.2）
     const [toyota] = await db
       .insert(stock)
       .values({
@@ -353,19 +260,33 @@ describe("GET /api/events", () => {
         fiscalMonth: 3,
       })
       .returning();
-    await db.insert(holding).values({ userId: holder.id, stockId: toyota.id });
+    const [shimamura] = await db
+      .insert(stock)
+      .values({
+        market: "JP",
+        ticker: "8227",
+        name: "しまむら",
+        fiscalMonth: 2,
+      })
+      .returning();
 
     // 登録したイベントは1件も無いので、返るのは計算した権利日だけになる。
-    // 休場日リストが載っている年ぶん（2025〜2027）返る。
+    // 休場日リストが載っている年ぶん（2025〜2027）×2銘柄。
     // リストに年を足したらこの期待値も足すこと（落ちて気づく）
-    const events = await fetchEvents(holder.token);
+    const events = await fetchEvents();
     expect(events.map((e) => e.startDate)).toEqual([
+      "2025-02-26",
       "2025-03-27",
+      "2026-02-25",
       "2026-03-27",
+      "2027-02-24",
       "2027-03-29",
     ]);
+    expect(new Set(events.map((e) => e.shortLabel))).toEqual(
+      new Set(["7203権利", "8227権利"]),
+    );
     // 組み立ても固定する。配当落ち日はカレンダーに出さず note に入る（権利日設計書 §6）
-    expect(events[1]).toEqual({
+    expect(events[3]).toEqual({
       id: `rights-${toyota.id}-2026`,
       kind: "stock",
       // 計算した権利日も、登録した銘柄イベントと同じ形で対象を持つ。
@@ -381,22 +302,18 @@ describe("GET /api/events", () => {
       // 休場日リストから計算した日付で、転記元が無い（出典表示設計書 §4）
       source: null,
     });
+    expect(events[2].target).toEqual({ type: "stock", stockId: shimamura.id });
   });
 
   it("決算月のないJP銘柄には権利付最終日が出ない", async () => {
-    const holder = await createUser("no-fiscal-holder@example.com");
-    const [sony] = await db
+    await db
       .insert(stock)
-      .values({ market: "JP", ticker: "6758", name: "ソニーグループ" })
-      .returning();
-    await db.insert(holding).values({ userId: holder.id, stockId: sony.id });
+      .values({ market: "JP", ticker: "6758", name: "ソニーグループ" });
 
-    expect(await fetchEvents(holder.token)).toEqual([]);
+    expect(await fetchEvents()).toEqual([]);
   });
 
   it("イベントは startDate・time・id の昇順で返る", async () => {
-    const holder = await createUser("order-holder@example.com");
-
     // 同じ日（2026-09-16）に時刻ありと時刻なしを混在させ、日をまたがせる。
     // 時刻なしは PostgreSQL の既定（昇順で NULL は最後）どおり同じ日の
     // 時刻ありより後ろに来る想定
@@ -433,13 +350,11 @@ describe("GET /api/events", () => {
       },
     ]);
 
-    const events = await fetchEvents(holder.token);
+    const events = await fetchEvents();
     expect(events.map((e) => e.title)).toEqual(["C", "B", "A", "D"]);
   });
 
   it("同じ日時のイベントは id の文字列としての順で返る", async () => {
-    const holder = await createUser("tiebreak-holder@example.com");
-
     // 契約の id が整数から文字列になったことで、10件目からは "10" が "9" より前に来る。
     // 同じ日に3件以上あるとセルに出るのは先頭2件だけなので、この順序は表示に効く
     await db.insert(event).values(
@@ -452,7 +367,7 @@ describe("GET /api/events", () => {
       })),
     );
 
-    const events = await fetchEvents(holder.token);
+    const events = await fetchEvents();
     expect(events.map((e) => e.id)).toEqual([
       "1",
       "10",

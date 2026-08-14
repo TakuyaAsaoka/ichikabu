@@ -3,10 +3,6 @@ import SwiftUI
 
 /// メイン画面。等高の月グリッドを横スワイプで送る（全体設計書 §10）
 struct CalendarView: View {
-	let token: String
-	/// 401 が返ったときに呼ぶ
-	let onUnauthorized: () -> Void
-
 	@State private var events: [Event] = []
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
 	@State private var stocks: [Stock] = []
@@ -173,13 +169,11 @@ struct CalendarView: View {
 		do {
 			// 2本を1回で受け取る。片方が失敗すると代入に届かないので、
 			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない
-			async let events = APIClient().events(token: token)
+			async let events = APIClient().events()
 			async let stocks = APIClient().stocks()
 			(self.events, self.stocks) = try await (events, stocks)
 			// 再試行で取れたら文言を消す
 			message = nil
-		} catch APIError.unauthorized {
-			onUnauthorized()
 		} catch {
 			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
 			// 文言はイベントに限定しない

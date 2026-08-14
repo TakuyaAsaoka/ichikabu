@@ -115,12 +115,19 @@ App Store Review Guidelines 5.1.1(ii) も同じ方向を指している。
 
 | 場所 | 中身 |
 |---|---|
-| `server/app/api/events/route.ts` | 認証の判定と保有・テーマ・市場の絞り込み（約56行）。`where` は `active` の1条件だけになる |
+| `server/app/api/events/route.ts` | 認証の判定と保有・テーマ・市場の絞り込み。`GET` は引数を取らなくなり、`where` は `active` の1条件だけになった |
 | `openapi.yaml` | `security` / `bearerAuth` / `"401"`（5箇所） |
 | `ios/Ichikabu/SignInView.swift`・`TokenStore.swift`・`ios/IchikabuTests/TokenStoreTests.swift` | ファイルごと（計106行） |
-| `ios/Ichikabu/APIClient.swift` | `signIn`・トークンの取り出し・認証のエラー |
+| `ios/Ichikabu/APIClient.swift` | `signIn`・トークンの取り出し・`unauthorized`・`missingToken` |
 | `ios/Ichikabu/IchikabuApp.swift` | サインイン画面との出し分け |
+| `server/src/auth.ts` | Bearer プラグイン。使っていたのは iOS だけだった |
 | `server/src/db/schema.ts` ほか | `holding` テーブルと、関連する書き込み・画面・テスト |
+
+**`GET` から引数そのものを外した。** 認証ヘッダーを読む口が型として無くなるので、「読まない」ことをテストで見張る必要がなくなる。
+
+**メール＋パスワードは残す。** 管理UIの `app/signin/signin-form.tsx` が Google の設定が壊れた日の入り口として使っており、`seedUser` とテストのサインインもこの経路を通る。
+
+**`AUDIT_RESOURCES` の `"holding"` だけは残した。** 監査ログは過去の事実の記録で、テーブルを消す前に書かれた行が `resource_type='holding'` を持ちうる。`resource_type` にDBの CHECK 制約は無いので既存行はそのまま残り、値を落とすと実際に在る文字列を型が「ありえない」と言い切ることになる。**本番の `audit_log` で `select count(*) from audit_log where resource_type = 'holding'` が0件と確認できたら消してよい。**
 
 ### 5.2 `server/src/rights.ts` は変えない
 
@@ -133,9 +140,18 @@ App Store Review Guidelines 5.1.1(ii) も同じ方向を指している。
 
 **休場日リストをサーバーに置く判断（§14 #7）はそのまま残る。** #7 の決め手は2つあり、①「計算の材料が server にある」は弱まるが、②「iOS に置くと更新のたびに App Store 審査が要り、更新が止まると翌年の権利日が出せなくなる」は変わらない。②だけで server 計算を支える。
 
+**検出力が2つ減った。** `holding` が消えたことで、次の2つは同等のテストを書けない。代わりを立てていないので記録しておく。
+
+| 消えたテスト | 何を見ていたか | なぜ書けないか |
+|---|---|---|
+| `write.test.ts`「イベントと保有の両方から参照されていると、参照元を1つずつ知らせる」 | PostgreSQL が最初に当たった制約だけを返すため、運用者が2回に分けて消すことになる挙動 | `stock` を `ON DELETE restrict` で参照する表が `event` の1つになった。2つ以上ないと再現できない |
+| `write.test.ts`「保有の利用者IDに入れると投げ直される」 | `run()` が、日本語の文言を持たない制約違反をそのまま投げ直すこと | `holding_user_id_user_id_fk` が、文言を持たない制約に到達する唯一の経路だった |
+
 ### 5.3 管理UIへの波及
 
-`holding` を消すと、管理UIから保有の登録が消える。**「グリーンの判定」（決算日が未登録の銘柄を赤くする）の対象が、保有銘柄から『登録されている全銘柄』に変わる。** 判定としてはむしろ素直になる。
+`holding` を消すと、管理UIから「保有を登録」と「保有一覧」の2つの節、`holding-form.tsx`、`app/holdings/[stockId]/page.tsx` が消える。Server Action は14本から12本になった。
+
+**「グリーンの判定」（決算日が未登録の銘柄を赤くする）への波及は無かった。** 着手時に `grep` したところ、この判定はこの設計書にしか書かれておらず、コードには存在しない（`server/app` で0件）。**無い機能への波及を心配していた。** 銘柄一覧は `fiscalMonth` が入っていれば「N月決算」と出すだけである。
 
 ### 5.4 副産物
 

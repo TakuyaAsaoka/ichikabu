@@ -2,8 +2,8 @@
 
 管理UI（`https://ichikabu.netlify.app` と `http://localhost:3000`）に Google アカウントでログインするための設定手順。
 
-iOS アプリはこの経路を使わない。iOS は今までどおりメールアドレスとパスワードで
-`POST /api/auth/sign-in/email` を叩く（設計書 §9）。
+iOS アプリはログインしない（設計書 §9）。メールアドレスとパスワードの経路は、
+Google の設定が壊れた日に管理UIへ入る手段として残してある。
 
 ## 入れる人は seed で入れた人だけ
 

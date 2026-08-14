@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from ".";
-import { event, holding, stock } from "./schema";
+import { event, stock } from "./schema";
 
 /**
  * 開発中の表示確認に使うデータ（Issue #8 設計書 §3）。
@@ -301,11 +301,11 @@ const MARKET_EVENTS = [
 ];
 
 /**
- * 銘柄・保有・イベントを投入する。何度実行しても増えない。
- * 銘柄と保有は一意の制約があるので衝突を無視し、
+ * 銘柄とイベントを投入する。何度実行しても増えない。
+ * 銘柄は一意の制約があるので衝突を無視し、
  * イベントには一意の制約が無いため、見出しで既にあるかを判定する。
  */
-export async function seedEvents(userId: string): Promise<{ created: number }> {
+export async function seedEvents(): Promise<{ created: number }> {
   await db
     .insert(stock)
     .values([...STOCKS])
@@ -324,11 +324,6 @@ export async function seedEvents(userId: string): Promise<{ created: number }> {
       ),
     );
   const stockIdOf = new Map(stocks.map((s) => [s.ticker, s.id]));
-
-  await db
-    .insert(holding)
-    .values(stocks.map((s) => ({ userId, stockId: s.id })))
-    .onConflictDoNothing();
 
   const existing = await db
     .select({ title: event.title })

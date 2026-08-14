@@ -35,6 +35,23 @@ pnpm --package=netlify-cli dlx netlify deploy --build --prod
 
 `--build` はビルドをこのMacで実行してから成果物だけを送る。Netlify 側でビルドしないため、ビルドの失敗で配信先が壊れることがない。
 
+### 1.0 表や列を消すマイグレーションだけは順番が逆
+
+**`DROP TABLE` や `DROP COLUMN` を含むときは、手順3と手順4を入れ替える。** 先にデプロイして、
+あとでマイグレーションを流す。上の順番のままだと、表が消えてからデプロイが終わるまでの数分間、
+**配信先にいる古いビルド**が無い表を読みにいって画面が 500 になる
+（`relation "..." does not exist`）。
+
+**流す前に本番のバックアップを取る。** 消えた行は戻せない。週1回のバックアップとは別に、その場で取る。
+
+```bash
+cd server
+nvm use
+( set -a; . ./.env.deploy.local; set +a; pnpm db:dump )
+```
+
+`( )` でくくる理由と、これを付けないと**開発用DBを取ってしまう**ことは `backup.md` を参照。
+
 ### 1.1 実行する場所と前提
 
 | 決まり | 理由 |
@@ -74,7 +91,7 @@ curl https://ichikabu.netlify.app/api/health
 | `BETTER_AUTH_URL` | 要る | 要らない | `https://ichikabu.netlify.app` |
 | `GOOGLE_CLIENT_ID` | 要る | 要らない | 取得は `docs/guides/google-oauth.md`。`pnpm db:seed` は `.env.local` 側の値で足りる |
 | `GOOGLE_CLIENT_SECRET` | 要る | 要らない | 同上 |
-| `SEED_USERS` | 要らない | 要る | 入力者の一覧。JSON の配列で、要素は `email` と `password`。**1人目のメールアドレスは Google でログインするアカウントと同じにする**。パスワードは iOS が使うので消さない |
+| `SEED_USERS` | 要らない | 要る | 入力者の一覧。JSON の配列で、要素は `email` と `password`。**1人目のメールアドレスは Google でログインするアカウントと同じにする**。パスワードは管理UIの入り口（Google が壊れた日の手段）に使うので消さない |
 | `ADMIN_EMAIL` | 要る | 要らない | 削除できる管理者のメールアドレス1つ（設計書 §9）。`SEED_USERS` のどれかと同じにする。**未設定だとビルドが落ちる**（`app/actions.ts` が読み込みの時点で確かめる）。`pnpm db:seed` はこの値を読まないので `.env.deploy.local` には要らない |
 
 Netlify 側は Project configuration > Environment variables に入れる。

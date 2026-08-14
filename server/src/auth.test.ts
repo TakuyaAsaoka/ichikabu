@@ -95,18 +95,21 @@ describe("サインイン", () => {
     expect(res.status).toBe(200);
   });
 
-  it("iOS向けのトークンが返り、そのトークンでセッションを取得できる", async () => {
+  it("サインインで付いたクッキーでセッションを取得できる", async () => {
     const signIn = await post("sign-in/email", {
       email: EMAIL,
       password: PASSWORD,
     });
-    // Bearer プラグインがサインイン応答に載せるトークン（設計書 §9）
-    const token = signIn.headers.get("set-auth-token");
-    expect(token).toBeTruthy();
+    // 管理UIが実際に使う経路（設計書 §9）。iOS の Bearer は廃止した
+    const cookie = signIn.headers.get("set-cookie");
+    if (!cookie) {
+      throw new Error("サインイン応答に set-cookie が無い");
+    }
 
     const session = await auth.handler(
       new Request(`${BASE_URL}/api/auth/get-session`, {
-        headers: { authorization: `Bearer ${token}` },
+        // `;` の前が「名前=値」で、後ろは有効期限などの属性
+        headers: { cookie: cookie.split(";")[0] },
       }),
     );
     expect(session.status).toBe(200);
