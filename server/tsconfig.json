@@ -32,7 +32,9 @@
   ],
   // `.next/dev/types` は `next dev` が作るもので、ルートのファイルを消しても
   // そのルートを指す記述が残り、`tsc` と `next build` が両方落ちる（Issue #103）。
-  // 上の include から31行目を消す直し方は採れない。`next dev` が書き戻すため。
+  // 上の include の `".next/dev/types/**/*.ts"` を消す直し方は採れない。
+  // `next dev` が書き戻すため。
   // ここで外しても、同じ検査は `next build` が作る `.next/types` 側で効く。
+  // ただしエディタと、`pnpm build` をまだ一度もしていない環境では効かない。
   "exclude": ["node_modules", ".next/dev"]
 }
