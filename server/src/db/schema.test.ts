@@ -283,11 +283,10 @@ describe("AUDIT_RESOURCES", () => {
   // これで決まる。実在しないテーブル名が混ざっていても TypeScript は気づけないため、
   // DBに問い合わせて確かめる（Issue #98）
   it("並んでいる値はすべてDBに実在するテーブル名である", async () => {
-    const { rows } = await db.execute<{ table_name: string }>(sql`
-      SELECT table_name FROM information_schema.tables
-       WHERE table_schema = 'public'
+    const { rows } = await db.execute<{ tablename: string }>(sql`
+      SELECT tablename FROM pg_tables WHERE schemaname = 'public'
     `);
-    const tables = new Set(rows.map((row) => row.table_name));
+    const tables = new Set(rows.map((row) => row.tablename));
     expect(AUDIT_RESOURCES.filter((name) => !tables.has(name))).toEqual([]);
   });
 });
