@@ -129,6 +129,8 @@ App Store Review Guidelines 5.1.1(ii) も同じ方向を指している。
 
 **`AUDIT_RESOURCES` の `"holding"` だけは残した。** 監査ログは過去の事実の記録で、テーブルを消す前に書かれた行が `resource_type='holding'` を持ちうる。`resource_type` にDBの CHECK 制約は無いので既存行はそのまま残り、値を落とすと実際に在る文字列を型が「ありえない」と言い切ることになる。**本番の `audit_log` で `select count(*) from audit_log where resource_type = 'holding'` が0件と確認できたら消してよい。**
 
+> **この判断はもう当たらない（Issue #98）。** 本番に `audit_log` テーブルがまだ無い（監査ログを入れた `0004_careful_calypso.sql` が未適用）と実測で確かめた。次のデプロイで `0004` と `DROP TABLE holding` の `0005_thankful_jimmy_woo.sql` が同じ `pnpm db:migrate` で連続して当たるため、`resource_type='holding'` の行は過去にも将来にも生まれない。値は消し、実在するテーブル名だけが並ぶことを `server/src/db/schema.test.ts` がDBに問い合わせて見張るようにした。
+
 ### 5.2 `server/src/rights.ts` は変えない
 
 `rightsDates(year, fiscalMonth)` は年と決算月だけを受け取る純関数で、認証にも保有にも依存していない。変わるのは `route.ts` の問い合わせ1本だけ。
