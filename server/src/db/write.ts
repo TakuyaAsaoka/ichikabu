@@ -526,7 +526,14 @@ export async function updateEvent(
     tooLongLabel(input.shortLabel) ??
     run(() =>
       db.transaction(async (tx) => {
-        const [before] = await tx.select().from(event).where(eq(event.id, id));
+        // 行に錠を掛ける理由は updateStock と同じ。**5つのテーブルで
+        // いちばん要る。** 入力者3人の editEvent と取り込みの
+        // upsertMarketEvents が同じ event の行に重なる
+        const [before] = await tx
+          .select()
+          .from(event)
+          .where(eq(event.id, id))
+          .for("update");
         const [after] = await tx
           .update(event)
           .set(eventValues(input))
@@ -634,7 +641,11 @@ export async function upsertMarketEvents(
   }
 
   await db.transaction(async (tx) => {
-    // 列を絞らず行ごと読む。絞ると `previous_values` に入れる中身が欠ける
+    // 列を絞らず行ごと読む。絞ると `previous_values` に入れる中身が欠ける。
+    // 錠を掛ける理由は updateStock と同じで、ここで読んだ行がそのまま
+    // 記録の「変更前」になる。取り込みの実行中は当たった名称の行が
+    // 錠で待たされるが、手で月1回叩くだけなので画面が止まる場面は無い。
+    // 待ちが輪になることも無い（画面の取り引きが同時に握る event の行は1つ）
     const existing = await tx
       .select()
       .from(event)
@@ -643,7 +654,8 @@ export async function upsertMarketEvents(
           event.title,
           inputs.map((input) => input.title),
         ),
-      );
+      )
+      .for("update");
     const found = new Map(existing.map((row) => [row.title, row]));
 
     for (const input of inputs) {
