@@ -40,16 +40,21 @@ if (!adminEmail) {
 }
 
 /**
- * セッションを確かめて利用者IDを返す。
+ * サインインしているかを確かめてセッションを返す。
  * Server Action は画面を通さず直接POSTできるため、画面側の確認とは別にここでも確かめる
  * （Next.js 同梱ドキュメント 01-app/01-getting-started/07-mutating-data.md の警告）
  */
-async function requireUserId(): Promise<string> {
+async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     redirect("/signin");
   }
-  return session.user.id;
+  return session;
+}
+
+/** セッションを確かめて利用者IDを返す */
+async function requireUserId(): Promise<string> {
+  return (await requireSession()).user.id;
 }
 
 /**
@@ -59,13 +64,10 @@ async function requireUserId(): Promise<string> {
  * 拒み方を `redirect()` にしない。削除は成功しても `redirect("/")` するため、
  * 拒否と成功が同じ `NEXT_REDIRECT` になり、拒まれたことを画面でもテストでも
  * 見分けられなくなる（実測。→ 入力者を3人にする設計書 §4）。
- * 戻り値のエラー文は、他の14個の Server Action と同じく ActionForm が表示する
+ * 戻り値のエラー文は、他の Server Action と同じく ActionForm が表示する
  */
 async function requireAdmin(): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
   // seedUser がメールアドレスを小文字にして入れるため、比較も小文字で揃える
   return session.user.email.toLowerCase() === adminEmail
     ? null

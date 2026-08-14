@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../test/helpers";
 
 // Server Action を画面を通さず直接呼ぶ（設計書 §4）。画面から削除の欄を消すだけでは、
@@ -10,8 +10,12 @@ const PASSWORD = "correct-horse-battery-staple";
 // app/actions.ts は読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる。
 // ここで入れると、テストの結果が .env.local の中身に左右されなくなる。
 // 大文字を混ぜてあるのは、seedUser がメールアドレスを小文字にして入れるためで、
-// 揃えずに比べると設定に大文字が1つ入っただけで管理者が誰も居なくなる
-process.env.ADMIN_EMAIL = "Admin@Example.com";
+// 揃えずに比べると設定に大文字が1つ入っただけで管理者が誰も居なくなる。
+// stubEnv で入れるのは、テストファイルをまたいで値を持ち越さないため
+vi.stubEnv("ADMIN_EMAIL", "Admin@Example.com");
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 // next/headers と next/cache は Next.js のリクエストの中でしか動かない。
 // セッションだけは差し替えず、本物の Better Auth のトークンを headers に載せる
@@ -30,6 +34,7 @@ const { seedUser } = await import("../src/db/seed-user");
 const {
   addEvent,
   addHolding,
+  editEvent,
   removeEvent,
   removeHolding,
   removeStock,
@@ -150,6 +155,27 @@ describe("管理者ではない入力者", () => {
       ),
     ).toBeNull();
     expect(await db.select().from(event)).toHaveLength(2);
+  });
+
+  it("イベントを編集できる", async () => {
+    // 限るのは削除だけ。編集にも requireAdmin を足すと、ここが落ちる
+    await expect(
+      editEvent(
+        null,
+        form({
+          id: "1",
+          title: "日銀の金融政策決定会合（変更後）",
+          shortLabel: "日銀",
+          startDate: "2026-04-28",
+          importance: "3",
+          target: "market:JP",
+        }),
+      ),
+      // 成功すると redirect("/") が例外を投げる
+    ).rejects.toThrow(/NEXT_REDIRECT/);
+
+    const [row] = await db.select().from(event);
+    expect(row.title).toBe("日銀の金融政策決定会合（変更後）");
   });
 
   it("自分で足した保有を自分で外せる", async () => {
