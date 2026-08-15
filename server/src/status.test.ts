@@ -169,7 +169,15 @@ describe("休場日リストの不足", () => {
   it("翌年ぶんが載っていない年に入ると出る", async () => {
     // リストの最後の年に入ると、その年のうちに翌年ぶんが要る（全体設計書 §14）
     expect(await gapsOf("closedDays", `${LAST_YEAR}-01-01`)).toEqual([
-      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんが要る（src/rights.ts の CLOSED_DAYS）`,
+      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
+    ]);
+  });
+
+  it("何年ほうっておいても、足す先はリストの続きの年になる", async () => {
+    // 2年ほうっておいた状態。「今年の翌年」を出すと1年ぶん飛ばした案内になり、
+    // 間の年は誰も足さないまま権利日が出ないで残る
+    expect(await gapsOf("closedDays", `${LAST_YEAR + 2}-06-01`)).toEqual([
+      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
     ]);
   });
 
@@ -186,14 +194,44 @@ describe("findGaps", () => {
     expect(await findGaps(TODAY)).toEqual([]);
   });
 
-  it("直せる画面がある抜けは行き先を持つ", async () => {
-    const id = await addStock({ fiscalMonth: null });
-
-    expect(await findGaps(TODAY)).toContainEqual({
-      kind: "fiscalMonth",
-      label: "JP 7203 トヨタ自動車",
-      href: `/stocks/${id}`,
+  it("直せる画面がある抜けだけが行き先を持つ", async () => {
+    // 5種類を一度に出す。銘柄は決算月が空で未来のイベントも無く、
+    // イベントは出典の表示名が無いまま非アクティブで日付を過ぎている
+    const stockId = await addStock({ fiscalMonth: null });
+    await addEvent({
+      title: "消費者物価指数（2026年1月分）",
+      startDate: `${LAST_YEAR - 1}-01-23`,
+      active: false,
+      sourceUrl: "https://www.stat.go.jp/data/cpi/",
     });
+    const [row] = await db.select({ id: event.id }).from(event);
+    const today = `${LAST_YEAR}-06-01`;
+
+    expect(await findGaps(today)).toEqual([
+      // 登録するのは `/` のフォームで、銘柄の編集画面では直せない
+      { kind: "nextEarnings", label: "JP 7203 トヨタ自動車", href: null },
+      {
+        kind: "fiscalMonth",
+        label: "JP 7203 トヨタ自動車",
+        href: `/stocks/${stockId}`,
+      },
+      {
+        kind: "sourceName",
+        label: `${LAST_YEAR - 1}-01-23 消費者物価指数（2026年1月分）`,
+        href: `/events/${row.id}`,
+      },
+      {
+        kind: "pastInactive",
+        label: `${LAST_YEAR - 1}-01-23 消費者物価指数（2026年1月分）`,
+        href: `/events/${row.id}`,
+      },
+      // 直すのはソースコードで、画面からは直せない
+      {
+        kind: "closedDays",
+        label: `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
+        href: null,
+      },
+    ]);
   });
 });
 

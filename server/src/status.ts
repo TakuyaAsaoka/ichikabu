@@ -12,15 +12,22 @@ import { RIGHTS_YEARS } from "./rights";
  * 5種類それぞれの「抜けあり・抜けなし」を確かめる場所が作れないため
  */
 
-/** 抜けの種類 */
-export type GapKind =
-  | "nextEarnings"
-  | "fiscalMonth"
-  | "sourceName"
-  | "pastInactive"
-  | "closedDays";
+/**
+ * 抜けの種類。並びがそのまま画面の並び順になる。
+ * 型ではなく配列で持つ。画面は種類を全部たどるので一覧が要り、
+ * 型からは作れない（`Object.keys(GAP_TITLES)` から作ると `as` が要る）
+ */
+export const GAP_KINDS = [
+  "nextEarnings",
+  "fiscalMonth",
+  "sourceName",
+  "pastInactive",
+  "closedDays",
+] as const;
 
-/** 画面に出す見出し。種類の一覧もここから作る */
+export type GapKind = (typeof GAP_KINDS)[number];
+
+/** 画面に出す見出し。足し忘れは Record の型が落とす */
 export const GAP_TITLES: Record<GapKind, string> = {
   nextEarnings: "次の決算日が未登録",
   fiscalMonth: "決算月なし",
@@ -153,7 +160,9 @@ function closedDaysGap(year: number): Gap[] {
   return [
     {
       kind: "closedDays",
-      label: `休場日リストが${last}年まで。${year + 1}年ぶんが要る（src/rights.ts の CLOSED_DAYS）`,
+      // 足す先はリストの続きの年で、今年の翌年ではない。2年以上ほうっておくと
+      // その2つはずれ、今年の翌年を出すと間の年が抜けたまま埋まらない
+      label: `休場日リストが${last}年まで。${last + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
       // 直すのはソースコードで、画面からは直せない
       href: null,
     },

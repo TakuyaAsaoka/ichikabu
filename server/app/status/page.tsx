@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../src/auth";
-import { findGaps, GAP_TITLES, type GapKind, jstToday } from "../../src/status";
+import { findGaps, GAP_KINDS, GAP_TITLES, jstToday } from "../../src/status";
 
 /**
  * 状態の画面。登録の抜けを種類ごとに並べる（状態画面 設計書 §3）。
@@ -16,7 +16,6 @@ export default async function Page() {
   }
 
   const gaps = await findGaps(jstToday(new Date()));
-  const kinds = Object.keys(GAP_TITLES) as GapKind[];
 
   return (
     <>
@@ -25,7 +24,7 @@ export default async function Page() {
         一覧に戻る
       </Link>
 
-      {kinds.map((kind) => {
+      {GAP_KINDS.map((kind) => {
         const rows = gaps.filter((gap) => gap.kind === kind);
         return (
           <section key={kind} className="flex flex-col gap-3">
