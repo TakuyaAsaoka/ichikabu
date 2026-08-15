@@ -59,7 +59,7 @@
 | `holding.user_id` | `auth.api.getSession` が返すセッションの利用者。画面に入力欄を出さない |
 | `holding.stock_id` | 保有フォームの `<select>` |
 
-保有一覧も同じ利用者の行だけを出す。利用者は当面1人（全体設計書 §12）だが、`user_id` を固定値や「最初の1件」で代用すると、利用者が増えたときに他人の保有が混ざる。セッションから取る形を最初から採る。
+保有一覧も同じ利用者の行だけを出す。利用者は~~当面1人~~**いま3人**（全体設計書 §12）だが、`user_id` を固定値や「最初の1件」で代用すると、利用者が増えたときに他人の保有が混ざる。セッションから取る形を最初から採る。
 
 ### 入力欄はブラウザの検証を使う
 
@@ -191,6 +191,8 @@ server/
 
 配信先が Netlify に決まった（→ Issue #74）ので、先送りしていた2つを決めた。
 
+**本番のログとDBはまだ見ていない。**つまり「いま本番でクライアントIPが取れているか」は分かっていない。見ずに決めてよいと判断したのは、**取れていてもいなくても下の2つの結論が変わらない**ため。理由は後ろの表で示す。
+
 | 決めたこと | 結論 |
 |---|---|
 | 管理UIの入口をIPで絞るか | **絞らない** |
@@ -202,6 +204,8 @@ server/
 
 Better Auth は `x-forwarded-for` に値が1つだけのときそれを使い、カンマ区切りで2つ以上入っていると誰からのリクエストか決められず、`no-trusted-ip` という共通の鍵にまとめる（`@better-auth/core/dist/utils/ip.mjs` の `getIPFromHeader`、`better-auth/dist/api/rate-limiter/index.mjs` の `NO_TRUSTED_IP_KEY`）。Netlify が案内している `x-nf-client-connection-ip` を候補の先頭に足せば値が1つで読めるが、**このヘッダをクライアントが自分で書いて送ってきたとき Netlify が捨てる、という記述が公開資料に無い**。捨てないなら、リクエストごとに違う値を書くだけで鍵が変わり、`/sign-in/email` の「10秒に3回」を素通りできる。`getIp` を実際に呼んで確かめた。
 
+候補の並びを入れ替えて `x-forwarded-for` を先、`x-nf-client-connection-ip` を後ろにしても同じ。`x-forwarded-for` に自分で書いた値を入れると Netlify が本当の発信元を継ぎ足して値が2つになり、そこで読めなくなって後ろの `x-nf-client-connection-ip` に落ちるため、けっきょく書いた値が使われる。
+
 | 送るヘッダ | 既定（いま） | ヘッダを足した場合 |
 |---|---|---|
 | `x-forwarded-for: 1.2.3.4` | `1.2.3.4` | `1.2.3.4` |
@@ -209,13 +213,19 @@ Better Auth は `x-forwarded-for` に値が1つだけのときそれを使い、
 | `x-forwarded-for: 1.2.3.4, 5.6.7.8` | `null` | `null` |
 | 上に `x-nf-client-connection-ip: 1.2.3.4` を足す | `null` | `1.2.3.4` |
 
-2行目が決め手。**既定は、クライアントが書いたヘッダでは鍵を動かせない。**全員で1つの枠になるのは、緩いのではなく「回り道ができない」という意味で厳しい。利用者は3人なので、共有でも足りる。
+2行目が決め手。**既定は、クライアントが書いたヘッダでは鍵を動かせない。**そして1行目と3行目のとおり、本番がどちらの状態でも既定は緩まない。**本番のログを見なくても決められるのはこのため。**
+
+仮に全員で1つの枠になっていたとしても、それは緩いのではなく「回り道ができない」という意味で厳しい。利用者は3人なので、共有でも足りる。
 
 共有で困る場面も小さい。鍵はパスごとに分かれているので（`createRateLimitKey(ip, path)`）、`/sign-in/email` が埋まっても、ふだん使う Google のログイン（`/sign-in/social`）は別の枠で無事。断ったときは `last_request` を更新しないため待ち時間が延びず、最大10秒で戻る。
 
 棄却した案: `advanced.ipAddress.trustedProxies` に Netlify 側のIPを入れれば、書き換えも共有も避けられる。しかし Netlify はCDNのIPの一覧を公開していない（入れ替わり続けるため）。固定IPは有料プランの機能なので、いまは書けない。
 
-**やり直す条件**: 本番の `rate_limit` テーブルに `no-trusted-ip|` で始まる `key` が実際に出ているとき。共有の枠だと確定するので、書き換えられる危険を引き受けてでもヘッダを足す判断に変わりうる。確かめ方は `server/` で次を実行する（`.env.deploy.local` が要る。→ `docs/guides/deploy.md`）。
+**やり直す条件**: 本番の `rate_limit` テーブルに `no-trusted-ip|` で始まる `key` が実際に出ていて、なおかつ3人が10秒に3回の枠を分け合って困ったとき。
+
+そのときでも、**先に試すのは `rateLimit.customRules` で `/sign-in/email` の回数を増やすこと**。書き換えられる余地が無く、`auth.ts` の設定だけで済む（`better-auth/dist/api/rate-limiter/index.mjs` の 301〜318 行がパスごとの上書きを見ている）。それでも足りないときに初めて、書き換えられる危険を引き受けてヘッダを足すかを考える。
+
+確かめ方は `server/` で次を実行する（`.env.deploy.local` が要る。→ `docs/guides/deploy.md`）。**本番の管理UIでサインインしてから1分以内に実行すること。**`rate_limit` の行は残り続けない。窓が切れた行は次のリクエストのときに消される（同ファイルの `deleteExpiredRows`）ので、しばらく誰も使っていない時間帯に叩くと**0件が返る。0件は「IPが取れている」ではなく「まだ分からない」**。
 
 ```
 pnpm exec tsx --env-file=.env.deploy.local -e 'const {Client}=require("pg");const c=new Client({connectionString:process.env.DATABASE_URL});c.connect().then(()=>c.query("select key, count, last_request from rate_limit order by last_request desc limit 20")).then(r=>{console.table(r.rows);return c.end()}).catch(e=>{console.error("ERR",e.message);process.exit(1)})'

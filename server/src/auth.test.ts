@@ -14,11 +14,15 @@ const BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 // /sign-in/email は組み込み規則で10秒に3回まで。1つのテストで4回以上叩くと、
 // 401 でも 500 でもない 429 が返って原因の分かりにくい失敗になる。
 // テストをまたぐ分は beforeEach の resetDatabase が rate_limit ごと消している
-function post(path: string, body: unknown) {
+function post(
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+) {
   return auth.handler(
     new Request(`${BASE_URL}/api/auth/${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify(body),
     }),
   );
@@ -121,18 +125,18 @@ describe("サインイン", () => {
   // Issue #106 で「`advanced.ipAddress.ipAddressHeaders` を足さない」と決めた。
   // 足すと Netlify 側がこのヘッダを捨てる保証が無いまま、送り手が書いた値が
   // 回数を数える鍵になり、値を変えるだけで総当たりが素通りする
-  // （設計書 §6「IPで絞るかの決着」）。その決定をここで固定する
+  // （設計書 §6「IPで絞るかの決着」）。その決定をここで固定する。
+  //
+  // 枠が1つにまとまる理由は、テストと本番で違う。テストでは getIp が
+  // `127.0.0.1` を返し（`@better-auth/core` の ip.mjs、isTest() の分岐）、
+  // 本番で発信元が読めないときは `no-trusted-ip` になる。名前は違うが、
+  // どちらも鍵が1つに固まる点は同じなので、この検査で決定を守れる
   it("送り手が書いたIPのヘッダでは、サインインの回数の枠を分けられない", async () => {
     const 叩く = (ip: string) =>
-      auth.handler(
-        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-nf-client-connection-ip": ip,
-          },
-          body: JSON.stringify({ email: EMAIL, password: "wrong-password" }),
-        }),
+      post(
+        "sign-in/email",
+        { email: EMAIL, password: "wrong-password" },
+        { "x-nf-client-connection-ip": ip },
       );
 
     // 組み込みの規則で `/sign-in*` は10秒に3回まで
