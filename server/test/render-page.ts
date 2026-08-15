@@ -51,6 +51,49 @@ export async function render(page: Page): Promise<string> {
 }
 
 /**
+ * `redirect()` や `notFound()` が投げる例外から `digest` を取り出す。
+ * Next.js はこの2つを例外で表し、行き先や状態番号は `message` ではなく
+ * `digest` にしか入っていない。
+ * `prefix` で始まらないもの（本物のエラー）は、握りつぶさずにそのまま投げ直す
+ */
+async function digestOf(
+  run: () => Promise<unknown>,
+  prefix: string,
+  whenNotThrown: string,
+): Promise<string> {
+  try {
+    await run();
+  } catch (error) {
+    const digest = (error as { digest?: string }).digest;
+    if (typeof digest === "string" && digest.startsWith(prefix)) {
+      return digest;
+    }
+    throw error;
+  }
+  throw new Error(whenNotThrown);
+}
+
+/**
+ * `notFound()` に落ちたことを確かめる。落ちなかったら落とす。
+ *
+ * digest は `NEXT_HTTP_ERROR_FALLBACK;404` の形（実測）。**番号までここで比べる。**
+ * `NEXT_HTTP_ERROR_FALLBACK` だけを見ると `forbidden()`（403）と見分けが付かない
+ * （`redirectedTo` と同じ理由）。呼ぶ側に比べさせると、比べ忘れが起きる
+ */
+export async function expectNotFound(
+  run: () => Promise<unknown>,
+): Promise<void> {
+  const digest = await digestOf(
+    run,
+    "NEXT_HTTP_ERROR_FALLBACK;",
+    "見つからない扱いになるはずの画面が、最後まで描き切った",
+  );
+  if (digest !== "NEXT_HTTP_ERROR_FALLBACK;404") {
+    throw new Error(`見つからない扱いではない中断だった: ${digest}`);
+  }
+}
+
+/**
  * `redirect()` の行き先。追い返されなかったら落とす。
  * 画面（`Page`）と Server Action のどちらにも使える。
  *
@@ -61,15 +104,11 @@ export async function render(page: Page): Promise<string> {
 export async function redirectedTo(
   run: () => Promise<unknown>,
 ): Promise<string> {
-  try {
-    await run();
-  } catch (error) {
-    // digest は `NEXT_REDIRECT;replace;/signin;307;` の形（実測）
-    const digest = (error as { digest?: string }).digest;
-    if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT;")) {
-      return digest.split(";")[2];
-    }
-    throw error;
-  }
-  throw new Error("行き先へ送られるはずの処理が、送られずに終わった");
+  // digest は `NEXT_REDIRECT;replace;/signin;307;` の形（実測）
+  const digest = await digestOf(
+    run,
+    "NEXT_REDIRECT;",
+    "行き先へ送られるはずの処理が、送られずに終わった",
+  );
+  return digest.split(";")[2];
 }

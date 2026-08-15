@@ -45,13 +45,9 @@ beforeEach(async () => {
   userIds.editor = (await seedUser(EDITOR, PASSWORD)).userId;
 });
 
+// サインインしていない人の追い返しは `test/pages.test.ts` の表が見ている。
+// 下の「管理者ではない入力者」は行き先が `/` で別物なのでここに残す
 describe("監査ログの画面", () => {
-  it("サインインしていないとサインインの画面へ追い返される", async () => {
-    requestHeaders.current = new Headers();
-
-    expect(await redirectedTo(Page)).toBe("/signin");
-  });
-
   it("管理者ではない入力者は追い返される", async () => {
     // 入力者に監査ログは見せない（入力者を3人にする設計書 §2）。
     // 画面から入口を消すだけでは、URL を直に打つ経路が塞がったか判定できない
