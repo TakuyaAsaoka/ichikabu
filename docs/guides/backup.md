@@ -17,7 +17,10 @@ nvm use
 ```
 接続先: postgres://postgres.<プロジェクトID>@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
 backups/2026-08-14-aws-0-ap-northeast-1.pooler.supabase.com-postgres.sql を作成しました
+DBのサイズ: <いまの大きさ> MB / 500 MB
 ```
+
+最後の1行の読み方は §4。開発用DBに繋いだときは `DBのサイズ: 9 MB` だけになる（500MB の上限は Supabase にしか無いため）。
 
 `( )` でくくるのは `docs/guides/deploy.md` §1.1 と同じ理由。本番の `DATABASE_URL` をシェルに残さない。
 
@@ -117,4 +120,29 @@ cd server
 brew install postgresql@18   # 入っていない場合
 ```
 
-`/opt/homebrew/opt/postgresql@18` は Homebrew が張り替える別名なので、18.3 → 18.4 の更新でこのパスは変わらない。**PostgreSQL 19 に上げたときは上と同じ mismatch で止まる**ので、そのとき `scripts/dump.ts` の `18` を書き換える。
+`/opt/homebrew/opt/postgresql@18` は Homebrew が張り替える別名なので、18.3 → 18.4 の更新でこのパスは変わらない。**PostgreSQL 19 に上げたときは上と同じ mismatch で止まる**ので、そのとき `scripts/dump.ts` の `pgBin` を書き換える。pg_dump も psql もここから取っているので、直すのは1か所でよい。
+
+## 4. 有料プランへ上げる線（Issue #16 で決めた）
+
+Supabase の無料プランは**500MB**。超えると書き込みが止まる。
+
+> **400MB に達したら Supabase を Pro（$25/月）に上げる。**
+
+ダンプの最後の行がこう変わるので、週1で取っていれば必ず目に入る。**逆に言えば、ダンプを取らない週はこの信号が出ない。** Netlify のように向こうから通知は来ない。
+
+```
+DBのサイズ: 412 MB / 500 MB
+⚠️ 400 MB に達した。Supabase を Pro に上げる（→ docs/guides/backup.md §4）
+```
+
+**400 という幅は、見る間隔から出ている。** 週1で見るので、残り100MB あれば「増え方を1回見てから上げる」で間に合う（100MB ÷ 7日 ＝ 1日14MB 増え続けて、ようやく1週間で埋まる）。上げる操作自体は Supabase の画面で5分。
+
+**見張るものは別に作らない。** 毎週必ず走るダンプに相乗りさせれば、増える手間が0になるため。線と表示は `server/src/db/dump.ts` の `dbSizeLine` にあり、動かすと `server/src/db/dump.test.ts` が赤くなる。
+
+### 測っているもの
+
+`pg_database_size(current_database())`。Supabase が Database size の確かめ方として挙げているものと同じで、**500MB を課しているのは Supabase なので、Supabase が数えている数え方で見る。**
+
+**表と索引を足し上げる数え方で代用しないこと。** 開発用DB（event 40件）で両方を測ると、`pg_database_size` が 8,734 kB、public の表と索引の合計が 816 kB で、**10倍ちがう**（2026-08-15 実測）。少ないほうで線を引くと、上限に着いてから気づくことになる。
+
+**開発用DBの数字を本番の代わりにしないこと。** Supabase のプロジェクトには `auth`・`storage` 等のスキーマが最初から入っており、空でも数十MBある。

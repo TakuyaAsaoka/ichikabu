@@ -39,6 +39,39 @@ export function splitPassword(databaseUrl: string): {
   return { url: conn.toString(), password };
 }
 
+/** Supabase の無料プランの上限。ここを超えると書き込みが止まる */
+const supabaseFreeLimitMb = 500;
+
+/** Supabase を Pro に上げる線。なぜここに引いたかは docs/guides/backup.md §4 */
+const upgradeThresholdMb = 400;
+
+/**
+ * ダンプのついでに出す、DBのサイズの行。
+ *
+ * **上限を出すのは Supabase に繋いだときだけ。** 開発用DBに500MBの線は無く、
+ * 出すと嘘になる。
+ */
+export function dbSizeLine(bytes: number, databaseUrl: string): string {
+  // psql が数値以外を返したとき。0扱いにすると「まだ余裕がある」と読めてしまう
+  if (!Number.isFinite(bytes)) {
+    return "DBのサイズ: 取れなかった";
+  }
+
+  const mb = Math.round(bytes / 1024 / 1024);
+
+  // 本番は pooler の `...pooler.supabase.com`、直つなぎは `db.<ID>.supabase.co`。
+  // 末尾が2通りあるので、ドットまでで見る
+  if (!new URL(databaseUrl).hostname.includes("supabase.")) {
+    return `DBのサイズ: ${mb} MB`;
+  }
+
+  const line = `DBのサイズ: ${mb} MB / ${supabaseFreeLimitMb} MB`;
+
+  return mb < upgradeThresholdMb
+    ? line
+    : `${line}\n⚠️ ${upgradeThresholdMb} MB に達した。Supabase を Pro に上げる（→ docs/guides/backup.md §4）`;
+}
+
 /** event の COPY 行。この直後にデータ行が続く。0件だと次の行がすぐ `\.` になる */
 const eventCopy = /^COPY public\.event \(.*\) FROM stdin;\n/m;
 
