@@ -118,6 +118,32 @@ describe("サインイン", () => {
     });
   });
 
+  // Issue #106 で「`advanced.ipAddress.ipAddressHeaders` を足さない」と決めた。
+  // 足すと Netlify 側がこのヘッダを捨てる保証が無いまま、送り手が書いた値が
+  // 回数を数える鍵になり、値を変えるだけで総当たりが素通りする
+  // （設計書 §6「IPで絞るかの決着」）。その決定をここで固定する
+  it("送り手が書いたIPのヘッダでは、サインインの回数の枠を分けられない", async () => {
+    const 叩く = (ip: string) =>
+      auth.handler(
+        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-nf-client-connection-ip": ip,
+          },
+          body: JSON.stringify({ email: EMAIL, password: "wrong-password" }),
+        }),
+      );
+
+    // 組み込みの規則で `/sign-in*` は10秒に3回まで
+    for (const ip of ["203.0.113.1", "203.0.113.2", "203.0.113.3"]) {
+      expect((await 叩く(ip)).status).toBe(401);
+    }
+    // 毎回違うIPを書いても枠は分かれず、4回目で断られる。
+    // 枠が分かれてしまうと 401 が返り、ここが赤くなる
+    expect((await 叩く("203.0.113.4")).status).toBe(429);
+  });
+
   it("誤ったパスワードでは 401 が返る", async () => {
     const res = await post("sign-in/email", {
       email: EMAIL,
