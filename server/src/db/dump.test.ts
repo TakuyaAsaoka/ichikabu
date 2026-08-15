@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dumpFileName, hasEventRows, splitPassword } from "./dump";
+import { dbSizeLine, dumpFileName, hasEventRows, splitPassword } from "./dump";
 
 /** pg_dump の出力のうち、event の COPY だけを取り出した形（実物から写した） */
 const copyHeader =
@@ -67,6 +67,42 @@ describe("splitPassword", () => {
         "postgres://postgres:pw@db.example.com:5432/postgres?sslmode=require",
       ).url,
     ).toBe("postgres://postgres@db.example.com:5432/postgres?sslmode=require");
+  });
+});
+
+describe("dbSizeLine", () => {
+  const supabase =
+    "postgres://postgres.abc@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
+  const local = "postgres://postgres@localhost:5434/ichikabu";
+  const mb = (n: number) => n * 1024 * 1024;
+
+  it("開発用DBには上限を出さない", () => {
+    // 500MB の線は Supabase の話で、Docker の PostgreSQL には無い
+    expect(dbSizeLine(mb(9), local)).toBe("DBのサイズ: 9 MB");
+  });
+
+  it("Supabase なら上限までの余裕が分かる", () => {
+    expect(dbSizeLine(mb(9), supabase)).toBe("DBのサイズ: 9 MB / 500 MB");
+  });
+
+  it("直つなぎの接続先も Supabase と分かる", () => {
+    // pooler は supabase.com、直つなぎは supabase.co で末尾が違う
+    expect(
+      dbSizeLine(mb(9), "postgres://postgres@db.abc.supabase.co:5432/postgres"),
+    ).toContain("/ 500 MB");
+  });
+
+  it("399MB では手を打つよう促さない", () => {
+    expect(dbSizeLine(mb(399), supabase)).not.toContain("Pro に上げる");
+  });
+
+  it("ちょうど400MBで手を打つよう促す", () => {
+    // 線そのもの。ここを含めないと、400MB に着いた週を1回見送る
+    expect(dbSizeLine(mb(400), supabase)).toContain("Pro に上げる");
+  });
+
+  it("上限を超えていても手を打つよう促す", () => {
+    expect(dbSizeLine(mb(520), supabase)).toContain("Pro に上げる");
   });
 });
 

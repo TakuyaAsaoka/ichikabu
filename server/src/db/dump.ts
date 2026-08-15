@@ -39,6 +39,43 @@ export function splitPassword(databaseUrl: string): {
   return { url: conn.toString(), password };
 }
 
+/** Supabase の無料プランの上限。ここを超えると書き込みが止まる */
+const supabaseFreeLimitMb = 500;
+
+/**
+ * Supabase を Pro に上げる線。
+ *
+ * 上限まで100MB残っていれば、週1のダンプで増え方を1回見てから上げても間に合う
+ * （100MB ÷ 7日 ＝ 14MB/日 増え続けて、ようやく1週間で埋まる）。
+ */
+const upgradeThresholdMb = 400;
+
+/**
+ * ダンプのついでに出す、DBのサイズの行。
+ *
+ * 上限を見張る仕組みは別に置かない。置き場所は配信先の定時実行になるが、
+ * それ自体がクレジットを食う（→ docs/guides/deploy.md §7）。毎週必ず走る
+ * ダンプに相乗りさせれば、増える手間は0になる。
+ *
+ * **上限を出すのは Supabase に繋いだときだけ。** 開発用DBに500MBの線は無く、
+ * 出すと嘘になる。
+ */
+export function dbSizeLine(bytes: number, databaseUrl: string): string {
+  const mb = Math.round(bytes / 1024 / 1024);
+
+  // 本番は pooler の `...pooler.supabase.com`、直つなぎは `db.<ID>.supabase.co`。
+  // 末尾が2通りあるので、ドットまでで見る
+  if (!new URL(databaseUrl).hostname.includes("supabase.")) {
+    return `DBのサイズ: ${mb} MB`;
+  }
+
+  const line = `DBのサイズ: ${mb} MB / ${supabaseFreeLimitMb} MB`;
+
+  return mb < upgradeThresholdMb
+    ? line
+    : `${line}\n⚠️ ${upgradeThresholdMb} MB を超えた。Supabase を Pro に上げる（→ docs/guides/backup.md）`;
+}
+
 /** event の COPY 行。この直後にデータ行が続く。0件だと次の行がすぐ `\.` になる */
 const eventCopy = /^COPY public\.event \(.*\) FROM stdin;\n/m;
 

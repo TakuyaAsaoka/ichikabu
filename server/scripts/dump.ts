@@ -1,6 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
-import { dumpFileName, hasEventRows, splitPassword } from "../src/db/dump";
+import {
+  dbSizeLine,
+  dumpFileName,
+  hasEventRows,
+  splitPassword,
+} from "../src/db/dump";
 
 const url = process.env.DATABASE_URL;
 
@@ -43,6 +48,16 @@ execFileSync(pgDump, ["--data-only", "-n", "public", "-f", partial, target], {
 if (hasEventRows(readFileSync(partial, "utf8"))) {
   renameSync(partial, out);
   console.log(`${out} を作成しました`);
+
+  // ダンプが取れたあとに出す。ここで落ちてもダンプは残る。psql は pg_dump と
+  // 同じ postgresql@18 に入っている（PATH の 14 系は Supabase に届かない）
+  const bytes = execFileSync(
+    "/opt/homebrew/opt/postgresql@18/bin/psql",
+    ["-Atc", "select pg_database_size(current_database())", target],
+    { env: { ...process.env, PGPASSWORD: password }, encoding: "utf8" },
+  );
+
+  console.log(dbSizeLine(Number(bytes.trim()), target));
 } else {
   // 消さずに残す。中身を確かめられるようにするため
   console.error(
