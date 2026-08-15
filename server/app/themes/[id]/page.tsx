@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../src/auth";
 import { db } from "../../../src/db";
@@ -8,6 +7,7 @@ import { stock, theme, themeStock } from "../../../src/db/schema";
 import { isId } from "../../../src/db/write";
 import { editTheme, removeTheme } from "../../actions";
 import { ActionForm } from "../../form";
+import { Nav } from "../../nav";
 import { ThemeForm } from "../../theme-form";
 
 /**
@@ -53,9 +53,7 @@ export default async function Page({
   return (
     <>
       <h1 className="text-xl font-bold">テーマを編集</h1>
-      <Link href="/" className="text-muted underline">
-        一覧に戻る
-      </Link>
+      <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">
         <ThemeForm action={editTheme} submitLabel="テーマを更新" theme={row} />

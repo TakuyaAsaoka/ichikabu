@@ -1,9 +1,9 @@
 import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
-import { resetDatabase } from "../../test/helpers";
+import { entriesOf, resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { type AuditEntry, listRecent, recentQuery, record } from "./audit";
+import { listRecent, recentQuery, record } from "./audit";
 import { auditLog, event, stock, theme, themeStock } from "./schema";
 import {
   createEvent,
@@ -17,21 +17,9 @@ import {
   type EventInput,
   updateEvent,
   upsertMarketEvents,
-  type WriteResult,
 } from "./write";
 
 beforeEach(resetDatabase);
-
-/**
- * 書き込みが成功したことを判定し、記録を取り出す。
- * 失敗するとエラー文（文字列）が返るため、その文言を出して落とす
- */
-function entriesOf(result: WriteResult): AuditEntry[] {
-  if (typeof result === "string") {
-    throw new Error(`書き込みが失敗した: ${result}`);
-  }
-  return result;
-}
 
 const EVENT: EventInput = {
   title: "日本銀行 金融政策決定会合",

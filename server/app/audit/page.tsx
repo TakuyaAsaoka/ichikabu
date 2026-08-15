@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "../../src/admin";
 import { auth } from "../../src/auth";
@@ -8,6 +7,7 @@ import {
   type AuditResource,
   listRecent,
 } from "../../src/db/audit";
+import { Nav } from "../nav";
 
 /** 操作の区分の見出し。足し忘れは Record の型が落とす */
 const ACTION_TITLES: Record<AuditAction, string> = {
@@ -54,9 +54,7 @@ export default async function Page() {
   return (
     <>
       <h1 className="text-xl font-bold">監査ログ</h1>
-      <Link href="/" className="text-muted underline">
-        一覧に戻る
-      </Link>
+      <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">新しい順（{rows.length}件）</h2>

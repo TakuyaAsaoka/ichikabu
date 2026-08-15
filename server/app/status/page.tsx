@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../src/auth";
 import { findGaps, GAP_KINDS, GAP_TITLES, jstToday } from "../../src/status";
+import { Nav } from "../nav";
 
 /**
  * 状態の画面。登録の抜けを種類ごとに並べる（状態画面 設計書 §3）。
@@ -21,9 +22,7 @@ export default async function Page() {
   return (
     <>
       <h1 className="text-xl font-bold">状態</h1>
-      <Link href="/" className="text-muted underline">
-        一覧に戻る
-      </Link>
+      <Nav email={session.user.email} />
 
       {GAP_KINDS.map((kind) => {
         const rows = gaps.filter((gap) => gap.kind === kind);

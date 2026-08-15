@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../../src/auth";
 import { db } from "../../../../../src/db";
@@ -8,6 +7,7 @@ import { stock, theme, themeStock } from "../../../../../src/db/schema";
 import { isId } from "../../../../../src/db/write";
 import { removeThemeStock } from "../../../../actions";
 import { ActionForm } from "../../../../form";
+import { Nav } from "../../../../nav";
 
 /**
  * テーマ所属を外すページ（設計書 §2）。
@@ -52,9 +52,7 @@ export default async function Page({
   return (
     <>
       <h1 className="text-xl font-bold">テーマ所属を外す</h1>
-      <Link href="/" className="text-muted underline">
-        一覧に戻る
-      </Link>
+      <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">
         <p>

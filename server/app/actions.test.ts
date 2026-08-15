@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../test/helpers";
+import { redirectedTo } from "../test/render-page";
 
 // Server Action を画面を通さず直接呼ぶ（設計書 §4）。画面から削除の欄を消すだけでは、
 // 直接POSTされる経路が塞がっているかを判定できない
@@ -183,9 +184,12 @@ describe("管理者ではない入力者", () => {
     expect(rows[0].resourceType).toBe("event");
   });
 
-  it("イベントを編集できる", async () => {
-    // 限るのは削除だけ。編集にも requireAdmin を足すと、ここが落ちる
-    await expect(
+  it("イベントを編集できて、イベントの画面へ戻る", async () => {
+    // 限るのは削除だけ。編集にも requireAdmin を足すと、ここが落ちる。
+    // 行き先まで見る。`rejects.toThrow(/NEXT_REDIRECT/)` の形は行き先を
+    // 1文字も見ておらず、直したイベントが出ていない `/` へ飛ばす壊れ方が
+    // 緑のまま通る（Issue #112 で実測）
+    const to = await redirectedTo(() =>
       editEvent(
         null,
         form({
@@ -197,8 +201,8 @@ describe("管理者ではない入力者", () => {
           target: "market:JP",
         }),
       ),
-      // 成功すると redirect("/") が例外を投げる
-    ).rejects.toThrow(/NEXT_REDIRECT/);
+    );
+    expect(to).toBe("/events");
 
     const [row] = await db.select().from(event);
     expect(row.title).toBe("日銀の金融政策決定会合（変更後）");
@@ -211,12 +215,11 @@ describe("管理者", () => {
     await signInAs(ADMIN);
   });
 
-  it("イベントを削除できる", async () => {
+  it("イベントを削除できて、イベントの画面へ戻る", async () => {
     // 拒み方だけを入れて全員を拒んでいないことを、ここで固定する。
-    // 成功すると redirect("/") が例外を投げる
-    await expect(removeEvent(null, form({ id: "1" }))).rejects.toThrow(
-      /NEXT_REDIRECT/,
-    );
+    // 行き先まで見る理由は上と同じ
+    const to = await redirectedTo(() => removeEvent(null, form({ id: "1" })));
+    expect(to).toBe("/events");
     expect(await db.select().from(event)).toEqual([]);
   });
 });
