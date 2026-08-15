@@ -12,7 +12,8 @@ import { RIGHTS_YEARS } from "./rights";
  * **「画面は描画できないから検査できない」と書いてあったのは誤りだった**（Issue #111 で実測）。
  * `@testing-library`・`jsdom`・`happy-dom` はどれも要らず、`react-dom/server` の
  * `renderToStaticMarkup(await Page())` で画面がHTML文字列になる（`react-dom` は
- * next が依存に持っている）。画面そのものを確かめる例は `app/audit/page.test.ts`
+ * package.json の依存に入っている）。画面そのものを確かめる例は
+ * `app/audit/page.test.ts`
  */
 
 /**

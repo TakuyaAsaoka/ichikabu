@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { type AuditEntry, listRecent, record } from "./audit";
+import { type AuditEntry, listRecent, recentQuery, record } from "./audit";
 import { auditLog, event, stock, theme, themeStock } from "./schema";
 import {
   createEvent,
@@ -91,11 +91,21 @@ describe("listRecent", () => {
     expect(await listRecent()).toEqual([]);
   });
 
+  it("並び順は created_at と id の両方で決める", () => {
+    // **走らせた結果ではこの1行を守れない。** created_at が同じ行どうしの順序を
+    // SQLは決めておらず、DBは正しい順を返すことも間違った順を返すこともできる。
+    // 実際 `desc(auditLog.id)` を消しても、下の「貼った順の逆で返る」は緑のまま
+    // だった（実測）。問い合わせ文そのものを見るのが、消されたことに気づく唯一の手
+    expect(recentQuery().toSQL().sql).toContain(
+      'order by "audit_log"."created_at" desc, "audit_log"."id" desc',
+    );
+  });
+
   it("1回の操作でまとめて入れた記録も、貼った順の逆で返る", async () => {
     // 貼り付け一括は1回の送信ぶんの記録を1文で入れるため、created_at が
     // 全部同じ値になる（既定値の now() は取り引きの開始時刻）。
-    // ここが listRecent の並び順が崩れる唯一の場面で、
-    // 前後を言い当てられるのは id しか残っていない
+    // ここが listRecent の並び順が崩れる唯一の場面。
+    // ただし上のとおり、この検査だけでは id が消えたことに気づけない
     const inputs = Array.from({ length: 30 }, (_, i) => ({
       ...EVENT,
       title: `日本銀行 金融政策決定会合 ${i}`,

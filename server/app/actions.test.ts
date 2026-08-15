@@ -8,7 +8,8 @@ const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
 const PASSWORD = "correct-horse-battery-staple";
 
-// app/actions.ts は読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる。
+// src/admin.ts が読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる
+// （app/actions.ts はそこから isAdmin を借りる）。
 // ここで入れると、テストの結果が .env.local の中身に左右されなくなる。
 // 大文字を混ぜてあるのは、seedUser がメールアドレスを小文字にして入れるためで、
 // 揃えずに比べると設定に大文字が1つ入っただけで管理者が誰も居なくなる。

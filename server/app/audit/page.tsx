@@ -25,8 +25,9 @@ const RESOURCE_TITLES: Record<AuditResource, string> = {
 };
 
 /**
- * 日時を日本時間で出す。`created_at` は timestamptz で、書かないとMacとNetlifyで
- * 違う時刻が出る（`src/status.ts` の `jstToday` と同じ理由）
+ * 日時を日本時間で出す。`created_at` は timestamptz なので、時間帯を書かないと
+ * 動かす場所の設定しだいで表示が変わる（`src/status.ts` の `jstToday` と同じ理由）。
+ * 手元は日本時間なので、外しても手元のテストでは気づけない
  */
 const formatJst = (at: Date): string =>
   at.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });

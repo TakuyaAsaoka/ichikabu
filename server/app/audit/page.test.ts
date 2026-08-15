@@ -57,7 +57,10 @@ async function signInAs(email: string): Promise<void> {
  * 画面を描いてHTMLで返す。`redirect()` で追い返された場合はその行き先を投げる。
  *
  * Server Component は React の要素を返す非同期の関数なので、そのまま呼べる。
- * ブラウザもDOMも要らない（`react-dom/server` は next が依存に持っている）
+ * ブラウザもDOMも要らない（`react-dom` は package.json の依存に入っている）。
+ *
+ * この形が効くのは、返る要素の中に非同期のコンポーネントが入れ子で無いときだけ。
+ * 入れ子があると `renderToStaticMarkup` は待てずに落ちる
  */
 async function render(): Promise<string> {
   return renderToStaticMarkup(await Page());
@@ -123,9 +126,13 @@ describe("監査ログの画面", () => {
 
     const html = await render();
     expect(html).toContain(ADMIN);
+    expect(html).toContain("登録");
+    // 先に両方が出ていることを確かめる。片方が出ていないと indexOf が -1 になり、
+    // 下の「前に出る」が素通りする
+    expect(html).toContain("銘柄 #1");
+    expect(html).toContain("テーマ #1");
     // 新しい銘柄の登録が、古いテーマの登録より前に出る
     expect(html.indexOf("銘柄 #1")).toBeLessThan(html.indexOf("テーマ #1"));
-    expect(html).toContain("登録");
   });
 
   it("取り込みが入れた記録は操作した人が「取り込み」と出る", async () => {
