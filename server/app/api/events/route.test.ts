@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../src/db";
 import { event, stock, theme, themeStock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
-import { resetDatabase } from "../../../test/helpers";
+import {
+  expectPublicApiCacheHeaders,
+  resetDatabase,
+} from "../../../test/helpers";
 import { GET } from "./route";
 
 type Event = components["schemas"]["Event"];
@@ -31,6 +34,10 @@ describe("GET /api/events", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
+  });
+
+  it("CDN に載せるヘッダを返す", async () => {
+    expectPublicApiCacheHeaders(await GET());
   });
 
   it("市場イベントは GLOBAL も JP も US も全件返る", async () => {

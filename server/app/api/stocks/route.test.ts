@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../src/db";
 import { stock, theme, themeStock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
-import { resetDatabase } from "../../../test/helpers";
+import {
+  expectPublicApiCacheHeaders,
+  resetDatabase,
+} from "../../../test/helpers";
 import { GET } from "./route";
 
 type Stock = components["schemas"]["Stock"];
@@ -19,6 +22,10 @@ beforeEach(resetDatabase);
 describe("GET /api/stocks", () => {
   it("銘柄が無ければ 200 で空配列を返す", async () => {
     expect(await fetchStocks()).toEqual([]);
+  });
+
+  it("CDN に載せるヘッダを返す", async () => {
+    expectPublicApiCacheHeaders(await GET());
   });
 
   it("認証なしで銘柄一覧が返り、市場・ティッカーの昇順に並ぶ", async () => {

@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { PUBLIC_API_CACHE_HEADERS } from "../../../src/cache";
 import { db } from "../../../src/db";
 import { stock, themeStock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
@@ -45,5 +46,7 @@ export async function GET(): Promise<Response> {
     if (row.themeId !== null) found.themeIds.push(row.themeId);
   }
 
-  return Response.json([...stocks.values()]);
+  return Response.json([...stocks.values()], {
+    headers: PUBLIC_API_CACHE_HEADERS,
+  });
 }

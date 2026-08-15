@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { expect } from "vitest";
 import { db } from "../src/db";
 import type { AuditEntry } from "../src/db/audit";
 import { pgError } from "../src/db/pg-error";
@@ -35,6 +36,21 @@ export function entriesOf(result: WriteResult): AuditEntry[] {
     throw new Error(`書き込みが失敗した: ${result}`);
   }
   return result;
+}
+
+/**
+ * 公開API（`/api/events`・`/api/stocks`）がCDNに載せるヘッダを確かめる
+ * （公開APIのキャッシュ 設計書 §2）。
+ *
+ * 値は `PUBLIC_API_CACHE_HEADERS` を読まずに直に書く。読んで突き合わせると、
+ * 定数を書き換えたときにこの検査も一緒に動いて緑のまま通り、何も守らなくなる
+ */
+export function expectPublicApiCacheHeaders(response: Response): void {
+  expect(Object.fromEntries(response.headers)).toMatchObject({
+    "cache-control": "public, max-age=0, must-revalidate",
+    "netlify-cdn-cache-control":
+      "public, durable, s-maxage=300, stale-while-revalidate=600",
+  });
 }
 
 /** 制約違反で失敗することを確かめ、違反した制約名を返す */
