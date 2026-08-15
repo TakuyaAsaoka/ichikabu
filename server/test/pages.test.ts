@@ -1,7 +1,8 @@
 import { readdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { basename, dirname } from "node:path";
 import type { ReactNode } from "react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WriteResult } from "../src/db/write";
 import { entriesOf, resetDatabase } from "./helpers";
 import {
   notFoundOn,
@@ -50,23 +51,18 @@ async function signIn(email: string): Promise<void> {
 }
 
 /** 書き込みが採番したIDを取り出す。1から始まることに頼らない */
-function idOf(result: Awaited<ReturnType<typeof createStock>>): string {
+function idOf(result: WriteResult): string {
   return entriesOf(result)[0].resourceId;
 }
 
-async function addStock(): Promise<string> {
+async function addStock(ticker = "7203", name = "トヨタ自動車") {
   return idOf(
-    await createStock({
-      market: "JP",
-      ticker: "7203",
-      name: "トヨタ自動車",
-      fiscalMonth: 3,
-    }),
+    await createStock({ market: "JP", ticker, name, fiscalMonth: 3 }),
   );
 }
 
-async function addTheme(): Promise<string> {
-  return idOf(await createTheme("半導体"));
+async function addTheme(name = "半導体") {
+  return idOf(await createTheme(name));
 }
 
 async function addEvent(): Promise<string> {
@@ -190,14 +186,14 @@ const SCREENS: Screen[] = [
         why: "数でないテーマID",
         open: () =>
           ThemeStockRemove({
-            params: Promise.resolve({ id: "abc", stockId: "1" }),
+            params: Promise.resolve({ id: "abc", stockId: MISSING }),
           }),
       },
       {
         why: "数でない銘柄ID",
         open: () =>
           ThemeStockRemove({
-            params: Promise.resolve({ id: "1", stockId: "abc" }),
+            params: Promise.resolve({ id: MISSING, stockId: "abc" }),
           }),
       },
       {
@@ -206,6 +202,28 @@ const SCREENS: Screen[] = [
           ThemeStockRemove({
             params: Promise.resolve({ id: MISSING, stockId: MISSING }),
           }),
+      },
+      // 下の2件は、問い合わせの `and` から片方の条件を落としたときに落ちる。
+      // 「所属が1件も無い」だけでは、条件を落としても行が見つからず緑のまま通る
+      {
+        why: "別の銘柄が所属しているテーマ",
+        open: async () => {
+          const stockId = await addStock("7203", "トヨタ自動車");
+          const other = await addStock("6758", "ソニーグループ");
+          const id = await addTheme("半導体");
+          entriesOf(await createThemeStock(Number(id), Number(other)));
+          return ThemeStockRemove({ params: Promise.resolve({ id, stockId }) });
+        },
+      },
+      {
+        why: "その銘柄が所属している別のテーマ",
+        open: async () => {
+          const stockId = await addStock("7203", "トヨタ自動車");
+          const belonging = await addTheme("半導体");
+          const id = await addTheme("防衛");
+          entriesOf(await createThemeStock(Number(belonging), Number(stockId)));
+          return ThemeStockRemove({ params: Promise.resolve({ id, stockId }) });
+        },
       },
     ],
   },
@@ -231,8 +249,13 @@ beforeEach(async () => {
 describe("管理画面に共通の約束", () => {
   it("表に載っていない画面が無い", async () => {
     // 画面を足したとき、下の検査が黙って素通りしないようにする
-    const dirs = readdirSync("app", { recursive: true, encoding: "utf8" })
-      .filter((path) => path.endsWith("page.tsx"))
+    // 位置はこのファイルから決める。`process.cwd()` に頼ると、`server/` 以外から
+    // 起動したときに無いディレクトリを見て落ちる
+    const dirs = readdirSync(new URL("../app", import.meta.url), {
+      recursive: true,
+      encoding: "utf8",
+    })
+      .filter((path) => basename(path) === "page.tsx")
       .map(dirname)
       .sort();
 
@@ -261,7 +284,7 @@ describe("管理画面に共通の約束", () => {
       // 見出しが消えても、同じ文字列が `Nav` のリンク名に残る画面がある。
       // `toContain(見出し)` だと消したことに気づけないため、中身を取り出して比べる
       const html = await render(open);
-      expect(/<h1[^>]*>([^<]*)<\/h1>/.exec(html)?.[1]).toBe(heading);
+      expect(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1]).toBe(heading);
     },
   );
 

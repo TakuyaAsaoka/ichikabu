@@ -1,11 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { entriesOf, resetDatabase } from "../../test/helpers";
-import {
-  PASSWORD,
-  redirectedTo,
-  render,
-  signInAs,
-} from "../../test/render-page";
+import { PASSWORD, render, signInAs } from "../../test/render-page";
 
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
@@ -69,13 +64,9 @@ beforeEach(async () => {
   userIds.editor = (await seedUser(EDITOR, PASSWORD)).userId;
 });
 
+// 追い返しと `Nav` の出し分けは `test/pages.test.ts` の表が全画面ぶん見ている。
+// ここに置くのは、この画面にしか無い「入れた人」の出し方だけにする
 describe("イベントの画面", () => {
-  it("サインインしていないとサインインの画面へ追い返される", async () => {
-    requestHeaders.current = new Headers();
-
-    expect(await redirectedTo(Page)).toBe("/signin");
-  });
-
   it("入れた人が名前で出る", async () => {
     await record(userIds.editor, entriesOf(await addEvent("CPI")));
     await signIn(EDITOR);
@@ -136,18 +127,5 @@ describe("イベントの画面", () => {
     const html = await render(Page);
     expect(html).toContain("記録なし");
     expect(html).not.toContain(ADMIN);
-  });
-
-  it("入力者には監査ログへの行き先が出ない", async () => {
-    // 行き先は `app/nav.tsx` が出す。開いても追い返されるリンクを見せない
-    await signIn(EDITOR);
-
-    expect(await render(Page)).not.toContain('href="/audit"');
-  });
-
-  it("管理者には監査ログへの行き先が出る", async () => {
-    await signIn(ADMIN);
-
-    expect(await render(Page)).toContain('href="/audit"');
   });
 });

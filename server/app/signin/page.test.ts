@@ -36,9 +36,11 @@ describe("サインインの画面", () => {
     expect(await redirectedTo(open())).toBe("/");
   });
 
-  it("エラーが無いときはエラー文の場所ごと出さない", async () => {
-    // フォームにも `text-error` の段落があるため、画面が出す方だけを見る
-    expect(await render(open())).not.toContain('<p class="text-error">');
+  it("エラーが無いときはエラー文を出さない", async () => {
+    const html = await render(open());
+
+    expect(html).not.toContain("Google でのログインに失敗しました");
+    expect(html).not.toContain("この Google アカウントではログインできません");
   });
 
   it("許していない Google アカウントには、その旨を出す", async () => {

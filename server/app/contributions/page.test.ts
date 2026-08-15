@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { entriesOf, resetDatabase } from "../../test/helpers";
-import {
-  PASSWORD,
-  redirectedTo,
-  render,
-  signInAs,
-} from "../../test/render-page";
+import { PASSWORD, render, signInAs } from "../../test/render-page";
 
 const ALICE = "alice@example.com";
 const BOB = "bob@example.com";
@@ -37,13 +32,8 @@ beforeEach(async () => {
   userIds.bob = (await seedUser(BOB, PASSWORD)).userId;
 });
 
+// 追い返しは `test/pages.test.ts` の表が全画面ぶん見ている
 describe("貢献度の画面", () => {
-  it("サインインしていないとサインインの画面へ追い返される", async () => {
-    requestHeaders.current = new Headers();
-
-    expect(await redirectedTo(Page)).toBe("/signin");
-  });
-
   it("記録が0件のとき、その旨が出る", async () => {
     await signIn(ALICE);
 

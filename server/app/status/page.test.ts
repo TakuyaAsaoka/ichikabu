@@ -53,5 +53,9 @@ describe("状態の画面", () => {
     const html = await render(Page);
     expect(html).toContain("トヨタ自動車");
     expect(html).toContain(`href="/stocks/${created.resourceId}"`);
+    // 種類ごとの件数まで見る。件数を見ないと、`app/status/page.tsx` の
+    // 「その種類だけを取り出す」を外しても、どの区画にも同じ行が出て緑になる
+    expect(html).toContain("決算月なし（1件）");
+    expect(html).toContain("出典の表示名なし（0件）");
   });
 });
