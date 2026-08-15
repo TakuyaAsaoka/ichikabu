@@ -20,6 +20,8 @@ export default async function Page() {
   }
 
   const rows = await countByUser();
+  // 取り込みスクリプトの行も1行返るが、人ではないので人数には数えない
+  const people = rows.filter((row) => row.userId !== null).length;
 
   return (
     <>
@@ -27,9 +29,7 @@ export default async function Page() {
       <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">
-          入力者ごとの件数（{rows.length}人）
-        </h2>
+        <h2 className="text-base font-bold">入力者ごとの件数（{people}人）</h2>
         <ul className="flex flex-col gap-1">
           {/* 0件を黙って空白で表さない。空白は「まだ読めていない」と
               見分けが付かない（`app/status/page.tsx` と同じ理由） */}

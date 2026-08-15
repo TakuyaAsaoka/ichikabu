@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDatabase } from "../../test/helpers";
+import { entriesOf, resetDatabase } from "../../test/helpers";
 import {
   PASSWORD,
   redirectedTo,
@@ -23,25 +23,18 @@ const { createTheme, updateTheme, deleteTheme } = await import(
 );
 const { default: Page } = await import("./page");
 
-type WriteResult = Awaited<ReturnType<typeof createTheme>>;
-
-/** 書き込みが成功したことを判定し、記録を取り出す */
-function entriesOf(result: WriteResult) {
-  if (typeof result === "string") {
-    throw new Error(`書き込みが失敗した: ${result}`);
-  }
-  return result;
-}
-
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {
   requestHeaders.current = await signInAs(auth.handler, email);
 }
 
+/** 各テストの前に作り直す利用者のID。記録に残す人の出どころ */
+const userIds = { alice: "", bob: "" };
+
 beforeEach(async () => {
   await resetDatabase();
-  await seedUser(ALICE, PASSWORD);
-  await seedUser(BOB, PASSWORD);
+  userIds.alice = (await seedUser(ALICE, PASSWORD)).userId;
+  userIds.bob = (await seedUser(BOB, PASSWORD)).userId;
 });
 
 describe("貢献度の画面", () => {
@@ -58,10 +51,12 @@ describe("貢献度の画面", () => {
   });
 
   it("入力者ごとに登録・更新・削除の件数が出る", async () => {
-    const { userId } = await seedUser(ALICE, PASSWORD);
-    await record(userId, entriesOf(await createTheme("半導体")));
-    await record(userId, entriesOf(await updateTheme(1, "半導体・製造装置")));
-    await record(userId, entriesOf(await deleteTheme(1)));
+    await record(userIds.alice, entriesOf(await createTheme("半導体")));
+    await record(
+      userIds.alice,
+      entriesOf(await updateTheme(1, "半導体・製造装置")),
+    );
+    await record(userIds.alice, entriesOf(await deleteTheme(1)));
     await signIn(ALICE);
 
     const html = await render(Page);
@@ -72,11 +67,9 @@ describe("貢献度の画面", () => {
   });
 
   it("登録の多い入力者が先に出る", async () => {
-    const alice = await seedUser(ALICE, PASSWORD);
-    const bob = await seedUser(BOB, PASSWORD);
-    await record(alice.userId, entriesOf(await createTheme("半導体")));
-    await record(bob.userId, entriesOf(await createTheme("防衛")));
-    await record(bob.userId, entriesOf(await createTheme("造船")));
+    await record(userIds.alice, entriesOf(await createTheme("半導体")));
+    await record(userIds.bob, entriesOf(await createTheme("防衛")));
+    await record(userIds.bob, entriesOf(await createTheme("造船")));
     await signIn(ALICE);
 
     const html = await render(Page);
@@ -97,13 +90,20 @@ describe("貢献度の画面", () => {
   });
 
   it("入力者ごとに分かれて数えられる", async () => {
-    const alice = await seedUser(ALICE, PASSWORD);
-    const bob = await seedUser(BOB, PASSWORD);
-    await record(alice.userId, entriesOf(await createTheme("半導体")));
-    await record(bob.userId, entriesOf(await createTheme("防衛")));
+    await record(userIds.alice, entriesOf(await createTheme("半導体")));
+    await record(userIds.bob, entriesOf(await createTheme("防衛")));
     await signIn(ALICE);
 
     // まとめて数えると「登録 2件」の1行になる。人数もそこで狂う
     expect(await render(Page)).toContain("（2人）");
+  });
+
+  it("取り込みは人数に数えない", async () => {
+    await record(userIds.alice, entriesOf(await createTheme("半導体")));
+    await record(null, entriesOf(await createTheme("防衛")));
+    await signIn(ALICE);
+
+    // 行は2つ出るが、人は1人。取り込みを人数に混ぜると「2人」になる
+    expect(await render(Page)).toContain("（1人）");
   });
 });

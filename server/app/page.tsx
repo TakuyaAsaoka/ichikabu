@@ -60,7 +60,9 @@ export default async function Page() {
 
   return (
     <>
-      <h1 className="text-xl font-bold">イチカブ 管理</h1>
+      {/* 見出しは `app/nav.tsx` の行き先の名前と揃える。
+          リンクの名前と着いた先の名前が違うと、着いたかどうかが分からない */}
+      <h1 className="text-xl font-bold">銘柄とテーマ</h1>
       <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">

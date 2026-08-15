@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDatabase } from "../../test/helpers";
+import { entriesOf, resetDatabase } from "../../test/helpers";
 import {
   PASSWORD,
   redirectedTo,
@@ -31,25 +31,18 @@ const { seedUser } = await import("../../src/db/seed-user");
 const { createTheme, createStock } = await import("../../src/db/write");
 const { default: Page } = await import("./page");
 
-type WriteResult = Awaited<ReturnType<typeof createTheme>>;
-
-/** 書き込みが成功したことを判定し、記録を取り出す */
-function entriesOf(result: WriteResult) {
-  if (typeof result === "string") {
-    throw new Error(`書き込みが失敗した: ${result}`);
-  }
-  return result;
-}
-
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {
   requestHeaders.current = await signInAs(auth.handler, email);
 }
 
+/** 各テストの前に作り直す利用者のID。記録に残す人の出どころ */
+const userIds = { admin: "", editor: "" };
+
 beforeEach(async () => {
   await resetDatabase();
-  await seedUser(ADMIN, PASSWORD);
-  await seedUser(EDITOR, PASSWORD);
+  userIds.admin = (await seedUser(ADMIN, PASSWORD)).userId;
+  userIds.editor = (await seedUser(EDITOR, PASSWORD)).userId;
 });
 
 describe("監査ログの画面", () => {
@@ -74,10 +67,9 @@ describe("監査ログの画面", () => {
   });
 
   it("管理者には日時・操作した人・種別・対象が新しい順に出る", async () => {
-    const { userId } = await seedUser(ADMIN, PASSWORD);
-    await record(userId, entriesOf(await createTheme("半導体")));
+    await record(userIds.admin, entriesOf(await createTheme("半導体")));
     await record(
-      userId,
+      userIds.admin,
       entriesOf(
         await createStock({
           market: "JP",

@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import { db } from "../src/db";
+import type { AuditEntry } from "../src/db/audit";
 import { pgError } from "../src/db/pg-error";
+import type { WriteResult } from "../src/db/write";
 
 /**
  * テストごとに全テーブルを空にする。採番も1に戻す。
@@ -22,6 +24,17 @@ export async function resetDatabase(): Promise<void> {
       END IF;
     END $$;
   `);
+}
+
+/**
+ * 書き込みが成功したことを判定し、監査ログに残す記録を取り出す。
+ * `src/db/write.ts` の書き込みは、失敗すると画面に出すエラー文を返す
+ */
+export function entriesOf(result: WriteResult): AuditEntry[] {
+  if (typeof result === "string") {
+    throw new Error(`書き込みが失敗した: ${result}`);
+  }
+  return result;
 }
 
 /** 制約違反で失敗することを確かめ、違反した制約名を返す */
