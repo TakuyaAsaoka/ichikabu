@@ -7,9 +7,13 @@ import { RIGHTS_YEARS } from "./rights";
  * 登録の抜けを見つける（状態画面 設計書 §2）。
  *
  * 判定をここに置き、`app/status/page.tsx` は呼んで並べるだけにする。
- * 画面に書くと検査できない。`server/` に React Server Component を描画する
- * 仕組みが無く（`@testing-library`・`jsdom`・`happy-dom` のどれも入っていない）、
- * 5種類それぞれの「抜けあり・抜けなし」を確かめる場所が作れないため
+ * 5種類それぞれの「抜けあり・抜けなし」を、画面の形に左右されずに確かめられる。
+ *
+ * **「画面は描画できないから検査できない」と書いてあったのは誤りだった**（Issue #111 で実測）。
+ * `@testing-library`・`jsdom`・`happy-dom` はどれも要らず、`react-dom/server` の
+ * `renderToStaticMarkup(await Page())` で画面がHTML文字列になる（`react-dom` は
+ * package.json の依存に入っている）。画面そのものを確かめる例は
+ * `app/audit/page.test.ts`
  */
 
 /**

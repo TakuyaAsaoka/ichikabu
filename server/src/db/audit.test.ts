@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { type AuditEntry, record } from "./audit";
+import { type AuditEntry, listRecent, recentQuery, record } from "./audit";
 import { auditLog, event, stock, theme, themeStock } from "./schema";
 import {
   createEvent,
+  createEvents,
   createStock,
   createTheme,
   createThemeStock,
@@ -82,6 +83,51 @@ describe("record", () => {
       "書き込みは済んだが、監査ログに残せなかった。押し直さず管理者に知らせること",
     );
     expect(await db.select().from(auditLog)).toEqual([]);
+  });
+});
+
+describe("listRecent", () => {
+  it("記録が無いときは空で返る", async () => {
+    expect(await listRecent()).toEqual([]);
+  });
+
+  it("並び順は created_at と id の両方で決める", () => {
+    // **走らせた結果ではこの1行を守れない。** created_at が同じ行どうしの順序を
+    // SQLは決めておらず、DBは正しい順を返すことも間違った順を返すこともできる。
+    // 実際 `desc(auditLog.id)` を消しても、下の「貼った順の逆で返る」は緑のまま
+    // だった（実測）。問い合わせ文そのものを見るのが、消されたことに気づく唯一の手
+    expect(recentQuery().toSQL().sql).toContain(
+      'order by "audit_log"."created_at" desc, "audit_log"."id" desc',
+    );
+  });
+
+  it("1回の操作でまとめて入れた記録も、貼った順の逆で返る", async () => {
+    // 貼り付け一括は1回の送信ぶんの記録を1文で入れるため、created_at が
+    // 全部同じ値になる（既定値の now() は取り引きの開始時刻）。
+    // ここが listRecent の並び順が崩れる唯一の場面。
+    // ただし上のとおり、この検査だけでは id が消えたことに気づけない
+    const inputs = Array.from({ length: 30 }, (_, i) => ({
+      ...EVENT,
+      title: `日本銀行 金融政策決定会合 ${i}`,
+      shortLabel: `日銀会合${i}`,
+    }));
+    await record(null, entriesOf(await createEvents(inputs)));
+
+    const rows = await listRecent();
+    expect(new Set(rows.map((row) => Number(row.createdAt))).size).toBe(1);
+    // イベントIDは貼った順に1から振られるので、新しい順は30から1
+    expect(rows.map((row) => row.resourceId)).toEqual(
+      Array.from({ length: 30 }, (_, i) => String(30 - i)),
+    );
+  });
+
+  it("取り込みが入れた記録は操作した人が空で返る", async () => {
+    await record(null, entriesOf(await createTheme("半導体")));
+
+    const [row] = await listRecent();
+    expect(row.userName).toBeNull();
+    expect(row.action).toBe("create");
+    expect(row.resourceType).toBe("theme");
   });
 });
 

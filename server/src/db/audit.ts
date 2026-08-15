@@ -1,6 +1,17 @@
-import { getTableColumns, getTableName, type Table } from "drizzle-orm";
+import {
+  desc,
+  eq,
+  getTableColumns,
+  getTableName,
+  type Table,
+} from "drizzle-orm";
 import { db } from ".";
-import { type AUDIT_ACTIONS, type AUDIT_RESOURCES, auditLog } from "./schema";
+import {
+  type AUDIT_ACTIONS,
+  type AUDIT_RESOURCES,
+  auditLog,
+  user,
+} from "./schema";
 
 /**
  * 操作の区分。対象は `resourceType` が別に持つため、`create_event` のように
@@ -136,4 +147,75 @@ export async function record(
     return "書き込みは済んだが、監査ログに残せなかった。押し直さず管理者に知らせること";
   }
   return null;
+}
+
+/** 画面に出す1行。前後の値は出さない（→ `listRecent`） */
+export type AuditRow = {
+  id: number;
+  createdAt: Date;
+  /** 操作した人の表示名。取り込みスクリプトなど人以外は null */
+  userName: string | null;
+  action: AuditAction;
+  resourceType: AuditResource;
+  resourceId: string;
+};
+
+/**
+ * 新しい順に全件読む（`app/audit/page.tsx`）。
+ *
+ * `previousValues` と `newValues` は返さない。1行が行まるごとの写しで、
+ * 一覧に並べると読めない量になる。消した行を戻すのは設計書 §5.4 の
+ * `jsonb_populate_record` を psql で流す手順のままにする。
+ *
+ * **件数の上限も絞り込みも付けない**（Issue #111 で討論して決めた）。
+ *
+ * - 上限を付けると、設計書 §5.4 の復元が届かなくなる。復元は
+ *   `WHERE a.id = <監査ログのID>` で、その id を管理者は画面で探す。
+ *   上限より古い削除は画面から永久に見えなくなり、`previousValues` は
+ *   消した行の唯一の写しなので、戻す手段そのものが消える
+ * - 絞り込みを付けるより、全件をHTMLに出してブラウザの検索（⌘F）に任せるほうが
+ *   よく効く。「削除」でも入力者のメールアドレスでも1回で引ける。コードは0行で、
+ *   逆に上限や送り出しを付けるとこの検索が表示中のぶんにしか届かなくなる
+ * - 増える速さを測った。窓に追いついた状態で `pnpm import:stat` を叩くと
+ *   監査ログは**0件**しか増えない（実測。2ヶ月ぶん新しく入っても2件）。
+ *   残りは3人の手入力だけで、本番は今0件
+ *
+ * 苦しくなったら `action` での絞り込みを足す。画面が件数を出すので、
+ * 増え方は見て分かる
+ */
+export async function listRecent(): Promise<AuditRow[]> {
+  return recentQuery();
+}
+
+/**
+ * 上の問い合わせの組み立てだけを切り出したもの。**テストから並び順を
+ * 確かめるためにだけ公開している**（`src/db/audit.test.ts`）。
+ *
+ * 走らせた結果では並び順を守れない。同じ値どうしの順序をSQLが決めていない以上、
+ * DBは正しい順を返すことも間違った順を返すこともできる。実際
+ * `desc(auditLog.id)` を消しても走らせるテストは緑のままだった（実測）。
+ * 問い合わせ文そのものを見るのが、この1行を守れる唯一の方法
+ */
+export function recentQuery() {
+  return (
+    db
+      .select({
+        id: auditLog.id,
+        createdAt: auditLog.createdAt,
+        userName: user.name,
+        action: auditLog.action,
+        resourceType: auditLog.resourceType,
+        resourceId: auditLog.resourceId,
+      })
+      .from(auditLog)
+      // 取り込みスクリプトの記録は user_id が NULL なので、内部結合にすると消える
+      .leftJoin(user, eq(auditLog.userId, user.id))
+      // id も並び順に入れる。`created_at` の既定値は `now()` で、これは取り引きの
+      // 開始時刻を返すため、1回の操作でまとめて入れた行は全部同じ値になる
+      // （`record` は1文で入れる）。同じ値どうしの順序はSQLが決めておらず、
+      // 実行計画次第で変わる。**この崩れは走らせるテストでは捕まえられない**
+      // （そのときの実行計画が正しい順を返してしまえば緑になる）ため、
+      // 問い合わせ文のほうをテストで固定している
+      .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+  );
 }

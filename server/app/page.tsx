@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isAdmin } from "../src/admin";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { event, stock, theme, themeStock } from "../src/db/schema";
@@ -85,6 +86,13 @@ export default async function Page() {
       <Link href="/status" className="text-muted underline">
         状態（登録の抜け）
       </Link>
+      {/* 入力者には出さない。開いても追い返されるリンクを見せない
+          （判定は `app/audit/page.tsx` が自分でもう1度やる） */}
+      {isAdmin(session.user.email) && (
+        <Link href="/audit" className="text-muted underline">
+          監査ログ
+        </Link>
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">銘柄を登録</h2>
