@@ -1,0 +1,61 @@
+import { headers } from "next/headers";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "../../src/auth";
+import { findGaps, GAP_TITLES, type GapKind, jstToday } from "../../src/status";
+
+/**
+ * 状態の画面。登録の抜けを種類ごとに並べる（状態画面 設計書 §3）。
+ * 判定は持たず `src/status.ts` の `findGaps` を呼ぶだけにする。
+ * ここに書くと、画面を描く仕組みが無いぶん検査できなくなる
+ */
+export default async function Page() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    redirect("/signin");
+  }
+
+  const gaps = await findGaps(jstToday(new Date()));
+  const kinds = Object.keys(GAP_TITLES) as GapKind[];
+
+  return (
+    <>
+      <h1 className="text-xl font-bold">状態</h1>
+      <Link href="/" className="text-muted underline">
+        一覧に戻る
+      </Link>
+
+      {kinds.map((kind) => {
+        const rows = gaps.filter((gap) => gap.kind === kind);
+        return (
+          <section key={kind} className="flex flex-col gap-3">
+            <h2 className="text-base font-bold">
+              {GAP_TITLES[kind]}（{rows.length}件）
+            </h2>
+            <ul className="flex flex-col gap-1">
+              {/* 抜けが無いことを黙って空白で表さない。空白は「調べていない」と
+                  見分けが付かず、この画面を開く意味が無くなる */}
+              {rows.length === 0 ? (
+                <li className="text-muted">抜けなし</li>
+              ) : (
+                rows.map((gap) => (
+                  <li
+                    key={gap.href ?? gap.label}
+                    className="border-b border-border py-1 text-error"
+                  >
+                    {gap.label}{" "}
+                    {gap.href !== null && (
+                      <Link href={gap.href} className="underline">
+                        直す
+                      </Link>
+                    )}
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
+        );
+      })}
+    </>
+  );
+}
