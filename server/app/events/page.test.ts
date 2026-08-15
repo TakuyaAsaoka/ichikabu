@@ -118,10 +118,18 @@ describe("イベントの画面", () => {
     // どちらが後に読まれるかをSQLが決めていないため。それだと壊しても
     // 緑になることがある
     await record(userIds.admin, entriesOf(await createTheme("半導体")));
-    entriesOf(await addEvent("CPI"));
+    // 直すイベントのIDは登録の記録から取る。1 と書くと、採番が1から始まる
+    // ことに頼ることになる。番号がずれると `updateEvent` は0件更新になり、
+    // 記録が1件も入らないまま緑になる（この検査が静かに効かなくなる）
+    const [created] = entriesOf(await addEvent("CPI"));
     await record(
       userIds.admin,
-      entriesOf(await updateEvent(1, { ...toInput("CPI"), importance: 2 })),
+      entriesOf(
+        await updateEvent(Number(created.resourceId), {
+          ...toInput("CPI"),
+          importance: 2,
+        }),
+      ),
     );
     await signIn(EDITOR);
 
