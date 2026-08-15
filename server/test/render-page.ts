@@ -51,8 +51,9 @@ export async function render(page: Page): Promise<string> {
 }
 
 /**
- * 中断の合図を取り出す。Next.js は `redirect()` も `notFound()` も例外で表し、
- * 中身は `message` ではなく `digest` にしか入っていない。
+ * `redirect()` や `notFound()` が投げる例外から `digest` を取り出す。
+ * Next.js はこの2つを例外で表し、行き先や状態番号は `message` ではなく
+ * `digest` にしか入っていない。
  * `prefix` で始まらないもの（本物のエラー）は、握りつぶさずにそのまま投げ直す
  */
 async function digestOf(
@@ -73,19 +74,23 @@ async function digestOf(
 }
 
 /**
- * `notFound()` に落ちたことを確かめ、digest をそのまま返す。
- * 落ちなかったら落とす。
+ * `notFound()` に落ちたことを確かめる。落ちなかったら落とす。
  *
- * digest は `NEXT_HTTP_ERROR_FALLBACK;404` の形（実測）。**番号まで比べること。**
+ * digest は `NEXT_HTTP_ERROR_FALLBACK;404` の形（実測）。**番号までここで比べる。**
  * `NEXT_HTTP_ERROR_FALLBACK` だけを見ると `forbidden()`（403）と見分けが付かない
- * （`redirectedTo` と同じ理由）
+ * （`redirectedTo` と同じ理由）。呼ぶ側に比べさせると、比べ忘れが起きる
  */
-export function notFoundOn(run: () => Promise<unknown>): Promise<string> {
-  return digestOf(
+export async function expectNotFound(
+  run: () => Promise<unknown>,
+): Promise<void> {
+  const digest = await digestOf(
     run,
     "NEXT_HTTP_ERROR_FALLBACK;",
     "見つからない扱いになるはずの画面が、最後まで描き切った",
   );
+  if (digest !== "NEXT_HTTP_ERROR_FALLBACK;404") {
+    throw new Error(`見つからない扱いではない中断だった: ${digest}`);
+  }
 }
 
 /**

@@ -1,16 +1,9 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
 
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-
-// 画面は読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる
-// （`app/audit/page.test.ts` と同じ理由）
-vi.stubEnv("ADMIN_EMAIL", "Admin@Example.com");
-afterAll(() => {
-  vi.unstubAllEnvs();
-});
 
 const requestHeaders = { current: new Headers() };
 vi.mock("next/headers", () => ({

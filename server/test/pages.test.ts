@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WriteResult } from "../src/db/write";
 import { entriesOf, resetDatabase } from "./helpers";
 import {
-  notFoundOn,
+  expectNotFound,
   PASSWORD,
   redirectedTo,
   render,
@@ -86,6 +86,17 @@ async function addEvent(): Promise<string> {
 
 /** 採番されていないID。この番号の行はどのテストでも作らない */
 const MISSING = "999";
+
+/**
+ * 銘柄とテーマのIDをずらす。
+ *
+ * `resetDatabase` が採番を1に戻すため、素直に1件ずつ作ると銘柄もテーマも
+ * IDが 1 になる。テーマ所属の画面は2つのIDを扱うので、同じ値のままだと
+ * 入れ替えても区別が付かない
+ */
+async function shiftStockIds(): Promise<void> {
+  await addStock("6758", "ソニーグループ");
+}
 
 /**
  * 管理画面1枚。`app/` 配下の `page.tsx` と1対1で並べる。
@@ -174,8 +185,10 @@ const SCREENS: Screen[] = [
     dir: "themes/[id]/stocks/[stockId]",
     heading: "テーマ所属を外す",
     open: async () => {
+      await shiftStockIds();
       const stockId = await addStock();
       const id = await addTheme();
+      // 所属が作れなかったら、そこで落とす（画面が空になって黙って緑にならない）
       entriesOf(await createThemeStock(Number(id), Number(stockId)));
       return ThemeStockRemove({ params: Promise.resolve({ id, stockId }) });
     },
@@ -208,9 +221,9 @@ const SCREENS: Screen[] = [
       {
         why: "別の銘柄が所属しているテーマ",
         open: async () => {
-          const stockId = await addStock("7203", "トヨタ自動車");
           const other = await addStock("6758", "ソニーグループ");
-          const id = await addTheme("半導体");
+          const stockId = await addStock();
+          const id = await addTheme();
           entriesOf(await createThemeStock(Number(id), Number(other)));
           return ThemeStockRemove({ params: Promise.resolve({ id, stockId }) });
         },
@@ -218,8 +231,9 @@ const SCREENS: Screen[] = [
       {
         why: "その銘柄が所属している別のテーマ",
         open: async () => {
-          const stockId = await addStock("7203", "トヨタ自動車");
-          const belonging = await addTheme("半導体");
+          await shiftStockIds();
+          const stockId = await addStock();
+          const belonging = await addTheme();
           const id = await addTheme("防衛");
           entriesOf(await createThemeStock(Number(belonging), Number(stockId)));
           return ThemeStockRemove({ params: Promise.resolve({ id, stockId }) });
@@ -260,6 +274,15 @@ describe("管理画面に共通の約束", () => {
       .sort();
 
     expect(dirs).toEqual(SCREENS.map((screen) => screen.dir).sort());
+  });
+
+  it("IDを受け取る画面には、見つからない扱いの検査がある", () => {
+    // 画面を数え合わせるだけでは、行を足したときの `notFound` の書き忘れが残る
+    const missing = SCREENS.filter(
+      (screen) => screen.dir.includes("[") && !screen.notFound,
+    );
+
+    expect(missing.map((screen) => screen.dir)).toEqual([]);
   });
 
   it.each(GUARDED)(
@@ -316,9 +339,7 @@ describe("管理画面に共通の約束", () => {
       // 無いIDは、読めた行が無いまま画面を組み立てると 500 になる
       await signIn(EDITOR);
 
-      expect(await notFoundOn(() => render(open))).toBe(
-        "NEXT_HTTP_ERROR_FALLBACK;404",
-      );
+      await expectNotFound(() => render(open));
     },
   );
 });

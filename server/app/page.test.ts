@@ -60,12 +60,22 @@ describe("銘柄とテーマの画面", () => {
     }
   });
 
+  it("登録フォームが3つとも出る", async () => {
+    // フォームを丸ごと落としても、一覧だけ見ていると気づけない
+    const html = await render(Page);
+
+    for (const label of ["銘柄を登録", "テーマを登録", "テーマ所属を登録"]) {
+      expect(html).toContain(label);
+    }
+  });
+
   it("銘柄とテーマが一覧に出て、各行から編集ページへ行ける", async () => {
     const stockId = await addStock("7203", "トヨタ自動車");
     const themeId = await addTheme("半導体");
 
     const html = await render(Page);
     expect(html).toContain("トヨタ自動車");
+    expect(html).toContain("3月決算");
     expect(html).toContain("半導体");
     expect(html).toContain(`href="/stocks/${stockId}"`);
     expect(html).toContain(`href="/themes/${themeId}"`);
@@ -73,7 +83,10 @@ describe("銘柄とテーマの画面", () => {
 
   it("テーマ所属は所属しているテーマの下にだけぶら下がる", async () => {
     // テーマを2件にする。1件だけだと、`app/page.tsx` の「このテーマの所属だけを
-    // 取り出す」を外しても同じHTMLになり、壊しても緑のまま通る
+    // 取り出す」を外しても同じHTMLになり、壊しても緑のまま通る。
+    // 銘柄を1件捨てるのは、銘柄とテーマのIDを別の数にするため。同じ数だと
+    // 外すリンクの2つのIDを入れ替えても気づけない
+    await addStock("6758", "ソニーグループ");
     const stockId = await addStock("7203", "トヨタ自動車");
     const themeId = await addTheme("半導体");
     const emptyId = await addTheme("防衛");

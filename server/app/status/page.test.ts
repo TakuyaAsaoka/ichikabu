@@ -28,7 +28,6 @@ describe("状態の画面", () => {
     // 誰の目にも触れないまま残る
     const html = await render(Page);
 
-    expect(GAP_KINDS).toHaveLength(5);
     for (const kind of GAP_KINDS) {
       expect(html).toContain(GAP_TITLES[kind]);
     }
