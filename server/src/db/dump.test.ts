@@ -98,7 +98,15 @@ describe("dbSizeLine", () => {
 
   it("ちょうど400MBで手を打つよう促す", () => {
     // 線そのもの。ここを含めないと、400MB に着いた週を1回見送る
-    expect(dbSizeLine(mb(400), supabase)).toContain("Pro に上げる");
+    expect(dbSizeLine(mb(400), supabase)).toBe(
+      "DBのサイズ: 400 MB / 500 MB\n⚠️ 400 MB に達した。Supabase を Pro に上げる（→ docs/guides/backup.md §4）",
+    );
+  });
+
+  it("サイズが取れなかったときに余裕があるとは言わない", () => {
+    // psql が数値以外を返した場合。0扱いにすると「9 MB / 500 MB」のような
+    // 嘘の余裕が出る
+    expect(dbSizeLine(Number.NaN, supabase)).toBe("DBのサイズ: 取れなかった");
   });
 
   it("上限を超えていても手を打つよう促す", () => {

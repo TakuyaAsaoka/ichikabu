@@ -17,8 +17,10 @@ if (!url) {
 // 本番の Supabase にも「server version mismatch」で断られる。pg_dump は自分より
 // 新しいサーバーを扱えないため、18系を直接指す。opt/ の下は Homebrew が張り替える
 // 別名なので、18.3 → 18.4 の更新でこのパスは変わらない。PostgreSQL 19 に上げた
-// ときは同じ mismatch で止まるので、そのとき 19 に書き換える
-const pgDump = "/opt/homebrew/opt/postgresql@18/bin/pg_dump";
+// ときは同じ mismatch で止まるので、そのときここの 18 を書き換える（psql も同じ
+// ところから取るので、1か所直せば両方に効く）
+const pgBin = "/opt/homebrew/opt/postgresql@18/bin";
+const pgDump = `${pgBin}/pg_dump`;
 
 if (!existsSync(pgDump)) {
   throw new Error(
@@ -49,15 +51,20 @@ if (hasEventRows(readFileSync(partial, "utf8"))) {
   renameSync(partial, out);
   console.log(`${out} を作成しました`);
 
-  // ダンプが取れたあとに出す。ここで落ちてもダンプは残る。psql は pg_dump と
-  // 同じ postgresql@18 に入っている（PATH の 14 系は Supabase に届かない）
-  const bytes = execFileSync(
-    "/opt/homebrew/opt/postgresql@18/bin/psql",
-    ["-Atc", "select pg_database_size(current_database())", target],
-    { env: { ...process.env, PGPASSWORD: password }, encoding: "utf8" },
-  );
+  // ダンプが取れたあとに出す。サイズはおまけなので、取れなくてもバックアップの
+  // 成否をひっくり返さない（週1の作業で終了コードが1になると、取れているのに
+  // 失敗したと読む）
+  try {
+    const bytes = execFileSync(
+      `${pgBin}/psql`,
+      ["-Atc", "select pg_database_size(current_database())", target],
+      { env: { ...process.env, PGPASSWORD: password }, encoding: "utf8" },
+    );
 
-  console.log(dbSizeLine(Number(bytes.trim()), target));
+    console.log(dbSizeLine(Number(bytes.trim()), target));
+  } catch {
+    console.warn("DBのサイズは取れなかった。ダンプは取れている");
+  }
 } else {
   // 消さずに残す。中身を確かめられるようにするため
   console.error(

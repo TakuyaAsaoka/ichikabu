@@ -120,19 +120,19 @@ cd server
 brew install postgresql@18   # 入っていない場合
 ```
 
-`/opt/homebrew/opt/postgresql@18` は Homebrew が張り替える別名なので、18.3 → 18.4 の更新でこのパスは変わらない。**PostgreSQL 19 に上げたときは上と同じ mismatch で止まる**ので、そのとき `scripts/dump.ts` の `18` を書き換える。
+`/opt/homebrew/opt/postgresql@18` は Homebrew が張り替える別名なので、18.3 → 18.4 の更新でこのパスは変わらない。**PostgreSQL 19 に上げたときは上と同じ mismatch で止まる**ので、そのとき `scripts/dump.ts` の `pgBin` を書き換える。pg_dump も psql もここから取っているので、直すのは1か所でよい。
 
 ## 4. 有料プランへ上げる線（Issue #16 で決めた）
 
 Supabase の無料プランは**500MB**。超えると書き込みが止まる。
 
-> **400MB を超えたら Supabase を Pro（$25/月）に上げる。**
+> **400MB に達したら Supabase を Pro（$25/月）に上げる。**
 
-ダンプの最後の行がこう変わるので、週1で取っていれば必ず目に入る。
+ダンプの最後の行がこう変わるので、週1で取っていれば必ず目に入る。**逆に言えば、ダンプを取らない週はこの信号が出ない。** Netlify のように向こうから通知は来ない。
 
 ```
 DBのサイズ: 412 MB / 500 MB
-⚠️ 400 MB を超えた。Supabase を Pro に上げる（→ docs/guides/backup.md）
+⚠️ 400 MB に達した。Supabase を Pro に上げる（→ docs/guides/backup.md §4）
 ```
 
 **400 という幅は、見る間隔から出ている。** 週1で見るので、残り100MB あれば「増え方を1回見てから上げる」で間に合う（100MB ÷ 7日 ＝ 1日14MB 増え続けて、ようやく1週間で埋まる）。上げる操作自体は Supabase の画面で5分。
