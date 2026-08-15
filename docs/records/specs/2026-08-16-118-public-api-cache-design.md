@@ -12,7 +12,8 @@ iOS が叩く公開API（`/api/events`・`/api/stocks`）をNetlifyのCDNに載�
 |---|---|
 | CDNが保つ時間 | **300秒**（`s-maxage=300`）。期限切れのあと600秒は古い写しを返しつつ裏で取り直す |
 | 端末に持たせるか | **持たせない**（`max-age=0, must-revalidate`）。写しはCDNの1箇所だけに置く |
-| クエリ文字列 | **キャッシュの鍵から外す**（`Netlify-Vary: query=none`） |
+| エッジ間で写しを共有するか | **する**（`durable`）。書かないと自動でも付かない |
+| クエリ文字列 | 何も書かない。ランタイムが既に鍵から外している |
 | 回数の制限 | **入れない** |
 
 ## 2. 付けるヘッダ
@@ -21,15 +22,11 @@ iOS が叩く公開API（`/api/events`・`/api/stocks`）をNetlifyのCDNに載�
 
 ```
 Cache-Control: public, max-age=0, must-revalidate
-Netlify-CDN-Cache-Control: public, s-maxage=300, stale-while-revalidate=600
-Netlify-Vary: query=none
+Netlify-CDN-Cache-Control: public, durable, s-maxage=300, stale-while-revalidate=600
 ```
 
 Netlifyは `Netlify-CDN-Cache-Control` → `CDN-Cache-Control` → `Cache-Control` の順に
 細かいほうを見る。CDNには300秒を、端末には「毎回確かめてから使え」を渡している。
-
-`durable` は書かない。Netlify の Next.js ランタイムは 5.5.0 以降、
-載せられる応答に自動でエッジ間の共有キャッシュを使う。
 
 ### 300秒にした理由
 
@@ -39,19 +36,41 @@ Netlifyは `Netlify-CDN-Cache-Control` → `CDN-Cache-Control` → `Cache-Contro
 1回の作業のうちに終わる。60秒に縮めると再取得の費用が月156クレジットになり、
 無料枠300の半分を1つのAPIで使う。
 
-### クエリ文字列を鍵から外す理由
+**300秒経ったあとの最初の1回は、まだ古い写しが返る。**`stale-while-revalidate` は
+「古いものを返しながら裏で取り直す」ので、新しい内容が出るのは**その次から**である。
+つまり iPhone で確かめるときは2回開く。写しに触る人が誰も居ないまま900秒
+（300＋600）過ぎると写しは捨てられ、次の1回は取り直しを待つ形になる。
 
-**Netlifyは関数の応答について、既定でクエリ文字列をキャッシュの鍵に入れる。**
-これが無いと `/api/events?x=1`・`?x=2`… と振るだけでCDNを素通りでき、
-載せた意味が無くなる（1件あたりの費用が17倍に戻る）。
+### `durable` を自分で書く理由
 
-`Netlify-Vary: query=a|b` は「並べた欄だけを鍵に入れ、**並べなかった欄は外す**」
-という意味である。2本のAPIは欄を1つも持たないので、外して失うものが無い。
-欄を1つも並べない書き方はNetlifyの資料に無いため、無い名前を1つ書いている。
+`durable` はエッジの台どうしで写しを共有させる指示である。無いと台ごとに写しが要り、
+写しの無い台に当たるたび関数が起動する。
+
+`@netlify/plugin-nextjs` はこれを自動で足すが、**足している3か所とも
+「応答が `netlify-cdn-cache-control` を持っていないこと」を条件にしている**
+（`dist/run/headers.js`。5.15.13 で確認）。こちらがその見出しを書いた時点で、
+どの分岐も通らない。**自分で書かないと付かない。**
+
+### クエリ文字列について何も書かない理由
+
+`@netlify/plugin-nextjs` は `netlify-vary` を**毎回自分で組み立てる**
+（同じファイルの `setVaryHeaders`）。既定は `query=__nextDataReq|_rsc` で、
+**この2つ以外のクエリ文字列は既に鍵から外れている。**
+
+こちらが `Netlify-Vary` を書いても、消されずに**足される**。つまり書けるのは
+「鍵を割れる欄を増やすこと」だけになる。素の Netlify Function なら
+クエリ文字列は既定で鍵に入るが、このリポジトリはランタイムを通すので当てはまらない。
+
+**`?_rsc=1`・`?_rsc=2` と振られると鍵は割れる。**これはこちらのヘッダでは塞げない
+（ランタイムが必ず入れる）。塞ぐ話は §5 の残っている穴と同じ系統なので Issue #120 に置いた。
 
 ## 3. 費用（Netlifyの単価 → [deploy.md](../../guides/deploy.md) §7）
 
-1リクエストあたりのクレジット。応答は `/api/events` が 12,471バイト（gzipで1,365）。
+1リクエストあたりのクレジット。応答は `/api/events` が 12,471バイト、
+**gzipで1,365バイト**。帯域は流れたバイト数で数えるので、圧縮後で計算している
+（[deploy.md](../../guides/deploy.md) §7 の表は圧縮前の値で見積もっており、
+帯域を約9倍に見ている。あちらは「デプロイ以外はほぼ減らない」を示すのが目的で、
+多めに見ても結論が変わらないため直していない）。
 
 | 状態 | 1件あたり | 無料枠300が尽きる回数 |
 |---|---|---|
@@ -64,7 +83,7 @@ Netlifyは `Netlify-CDN-Cache-Control` → `CDN-Cache-Control` → `Cache-Contro
 ## 4. 回数の制限を入れない理由
 
 Netlifyの回数の制限は無料プランでも使える（コードで書ける規則は2本まで）。
-リクエスト処理の1段目で、CDNのキャッシュ（4段目）より前に効く。
+リクエスト処理の3段目で、CDNのキャッシュ（6段目）より前に効く。
 発信元の判定はNetlifyのエッジが行うので、Issue #106 で問題にした
 「送り手が自分で書いたヘッダで鍵を動かされる」は起きない
 （→ [管理UI 設計書](2026-08-09-6-admin-ui-design.md) §6）。**入れられる。入れない理由は別にある。**
@@ -84,8 +103,9 @@ Netlifyの回数の制限は無料プランでも使える（コードで書け�
 **429も課金される。** Netlifyが課金対象から外すのは関数とEdge Functionの
 実行回数だけで、Webリクエストの計上は避けられない。つまり制限を入れても
 消費に上限は付かず、100リクエスト/秒の連打で尽きるまでの時間が
-13分から4.2時間に伸びるだけである（この4.2時間も、上の10,944クレジットとは
-別の話で、連打の速さを落とした結果にすぎない）。
+13分から3.5時間に伸びるだけである（弾かれた分のWebリクエストと、
+通した1.1件/秒ぶんの関数の費用を足した値。上の10,944クレジットとは別の話で、
+連打の速さを落とした結果にすぎない）。
 
 **打つ手は既にあり、0円である。** Netlifyが50%・75%で通知を鳴らし、
 こちらは手動デプロイを止めて次の付与日を待てばよい（deploy.md §7）。
@@ -98,7 +118,7 @@ Netlifyの回数の制限は無料プランでも使える（コードで書け�
 | `netlify/edge-functions/` に回数の制限を1本置く | 上のとおり、普通の使い方を壊さない線では予算を守れない。無料枠の規則2本のうち1本を、効かないものに使うことになる |
 | `netlify.toml` の `[[redirects]]` に書く | `from` 1つで規則1本を使い、2本のAPIで枠を使い切る。`to` の書き換えが `@netlify/plugin-nextjs` の `/api` の経路と当たる |
 | `middleware.ts` を新設して自分で数える | 全リクエストの前に関数が入り、CDNに載ったリクエストにもコンピュートが乗る。キャッシュの効果を自分で削る |
-| `durable` を自分で書く | Netlify の Next.js ランタイムが自動で使う。書いても増えるものが無い |
+| Route Handler に `export const revalidate = 300` を置く | ランタイムが `s-maxage=300, stale-while-revalidate=31536000, durable` を自分で組み立てるので `durable` は付く。ただし Next.js 自身の応答の保管も一緒に動き出し、置き場所が1つ増える。`durable` の1語を書くほうが小さい |
 
 ## 5. 残っている穴（→ Issue #120）
 
@@ -109,6 +129,8 @@ Netlifyの回数の制限は無料プランでも使える（コードで書け�
 |---|---|---|
 | `POST /api/events` | 405 | `fwd=miss`（関数が起動している） |
 | `GET /api/nope`（無いパス） | 404 | 同上 |
+| `GET /nope`（無いパス） | 404 | 同上 |
+| `GET /api/events?_rsc=1`・`?_rsc=2` | 200 | ランタイムが `_rsc` を鍵に入れるため、値を振ると鍵が割れる（→ §2） |
 
 1件あたり0.0038のままなので、この形で叩かれると7.9万件で無料枠が尽きる。
 #118 のスコープ（公開API2本をCDNに載せる）の外なので、Issue #120 に分けた。
@@ -120,18 +142,24 @@ Netlifyの回数の制限は無料プランでも使える（コードで書け�
 （→ [deploy.md](../../guides/deploy.md)）。
 
 ```bash
-curl -sI https://ichikabu.netlify.app/api/events | grep -iE "^(cache-control|netlify-cdn-cache-control|cache-status|age):"
+curl -sI https://ichikabu.netlify.app/api/events | grep -iE "^(cache-control|cache-status):"
 ```
 
-`cache-status` に `hit` が出れば載っている。直前にデプロイするとCDNが空なので、
-1回目は必ず `miss` になる。2回目以降を見る。`age` の値は毎回変わるので見ない。
+**`netlify-cdn-cache-control` は出ない。**Netlify は `Netlify-` で始まる
+キャッシュ用の見出しを自分で読んで捨て、下流へは渡さない。出ないことを
+「効いていない」と読み違えると、確かめるために無駄にデプロイすることになる
+（1回15クレジット）。
 
-クエリ文字列が鍵から外れたかは、違うクエリで2回叩いて両方 `hit` になるかで見る。
+見るのは `cache-status` の2行である。
 
-```bash
-curl -sI "https://ichikabu.netlify.app/api/events?a=1" | grep -i cache-status
-curl -sI "https://ichikabu.netlify.app/api/events?a=2" | grep -i cache-status
-```
+| 行 | 見たい状態 |
+|---|---|
+| `"Netlify Edge"` | `hit`。その台に写しがある |
+| `"Netlify Durable"` | `hit`。台をまたいで写しを共有できている（`durable` が効いている） |
+
+エッジが `miss` でも durable が `hit` なら、関数は起動していない。
+直前にデプロイするとどちらの写しも空なので、1回目は必ず `miss` になる。
+2回目以降を見る。`age` の値は毎回変わるので見ない。
 
 ヘッダそのものは `server/test/helpers.ts` の `expectPublicApiCacheHeaders` が
 2本のRoute Handlerについて見ている。これはローカルで流れる。
