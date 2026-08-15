@@ -51,6 +51,30 @@ export async function render(page: Page): Promise<string> {
 }
 
 /**
+ * `notFound()` に落ちたことを確かめ、digest をそのまま返す。
+ * 落ちなかったら落とす。
+ *
+ * digest は `NEXT_HTTP_ERROR_FALLBACK;404` の形（実測）。**番号まで比べること。**
+ * `NEXT_HTTP_ERROR_FALLBACK` だけを見ると `forbidden()`（403）と見分けが付かない
+ * （`redirectedTo` と同じ理由）
+ */
+export async function notFoundOn(run: () => Promise<unknown>): Promise<string> {
+  try {
+    await run();
+  } catch (error) {
+    const digest = (error as { digest?: string }).digest;
+    if (
+      typeof digest === "string" &&
+      digest.startsWith("NEXT_HTTP_ERROR_FALLBACK;")
+    ) {
+      return digest;
+    }
+    throw error;
+  }
+  throw new Error("見つからない扱いになるはずの画面が、最後まで描き切った");
+}
+
+/**
  * `redirect()` の行き先。追い返されなかったら落とす。
  * 画面（`Page`）と Server Action のどちらにも使える。
  *
