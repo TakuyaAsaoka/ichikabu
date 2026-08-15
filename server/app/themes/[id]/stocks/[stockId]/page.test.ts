@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { WriteResult } from "../../../../../src/db/write";
 import { entriesOf, resetDatabase } from "../../../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../../../test/render-page";
 
@@ -17,7 +18,7 @@ const { createStock, createTheme, createThemeStock } = await import(
 const { default: Page } = await import("./page");
 
 /** 作った行のIDを返す。書き込みが失敗したらそこで落とす */
-async function idOf(result: Awaited<ReturnType<typeof createTheme>>) {
+function idOf(result: WriteResult): string {
   return entriesOf(result)[0].resourceId;
 }
 
@@ -38,7 +39,7 @@ describe("テーマ所属を外す画面", () => {
       name: "ソニーグループ",
       fiscalMonth: 3,
     });
-    const stockId = await idOf(
+    const stockId = idOf(
       await createStock({
         market: "JP",
         ticker: "7203",
@@ -46,7 +47,7 @@ describe("テーマ所属を外す画面", () => {
         fiscalMonth: 3,
       }),
     );
-    const themeId = await idOf(await createTheme("半導体"));
+    const themeId = idOf(await createTheme("半導体"));
     entriesOf(await createThemeStock(Number(themeId), Number(stockId)));
 
     const html = await render(() =>

@@ -61,12 +61,20 @@ describe("銘柄とテーマの画面", () => {
   });
 
   it("登録フォームが3つとも出る", async () => {
-    // フォームを丸ごと落としても、一覧だけ見ていると気づけない
+    // フォームを丸ごと落としても、一覧だけ見ていると気づけない。
+    // 見出しの文字列（「銘柄を登録」等）はフォームが消えても残るため、
+    // そのフォームにしか無い入力の名前で見る。
+    // テーマ所属のフォームは、テーマと銘柄がどちらも在るときだけ出る
+    await addStock("7203", "トヨタ自動車");
+    await addTheme("半導体");
+
     const html = await render(Page);
 
-    for (const label of ["銘柄を登録", "テーマを登録", "テーマ所属を登録"]) {
-      expect(html).toContain(label);
-    }
+    expect(html).toContain('name="ticker"'); // 銘柄を登録
+    expect(html).toContain('name="themeId"'); // テーマ所属を登録
+    // テーマを登録は `name="name"` だけで、銘柄を登録と同じ名前を使う。
+    // フォームの数で見分ける（この画面に置くフォームは3つ）
+    expect(html.match(/<form\b/g)).toHaveLength(3);
   });
 
   it("銘柄とテーマが一覧に出て、各行から編集ページへ行ける", async () => {
@@ -97,6 +105,9 @@ describe("銘柄とテーマの画面", () => {
     // 所属を持たない側は「銘柄なし」のまま。空白で表すと「所属が無い」のか
     // 「読めていない」のか見分けが付かないため、文字で出す
     expect(html).toContain("銘柄なし");
+    // 先に両方が出ていることを確かめる。片方が出ていないと indexOf が -1 になり、
+    // 下の「前に出る」が素通りする
+    expect(html).toContain(`href="/themes/${emptyId}"`);
     expect(html.indexOf(`href="/themes/${emptyId}"`)).toBeLessThan(
       html.indexOf("銘柄なし"),
     );

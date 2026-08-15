@@ -113,7 +113,11 @@ type Screen = {
   heading: string;
   /** 前提データを作ってから画面を描く */
   open: () => Promise<ReactNode>;
-  /** 管理者だけが開ける画面。入力者は追い返される */
+  /**
+   * 管理者だけが開ける画面。入力者でサインインすると描けないため、
+   * 下の検査は管理者で開き、「入力者に監査ログの行き先を出さない」からは外す。
+   * 入力者を追い返すこと自体は `app/audit/page.test.ts` が見ている
+   */
   adminOnly?: boolean;
   /** サインインしていない人に見せる画面。追い返しも `Nav` も無い */
   signedOut?: boolean;
@@ -278,8 +282,10 @@ describe("管理画面に共通の約束", () => {
 
   it("IDを受け取る画面には、見つからない扱いの検査がある", () => {
     // 画面を数え合わせるだけでは、行を足したときの `notFound` の書き忘れが残る
+    // 空の配列も書き忘れとして数える。`!screen.notFound` だけだと
+    // `notFound: []` が素通りし、検査が1本も走らないまま緑になる
     const missing = SCREENS.filter(
-      (screen) => screen.dir.includes("[") && !screen.notFound,
+      (screen) => screen.dir.includes("[") && !screen.notFound?.length,
     );
 
     expect(missing.map((screen) => screen.dir)).toEqual([]);
