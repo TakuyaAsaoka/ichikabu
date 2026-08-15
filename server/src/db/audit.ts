@@ -1,8 +1,10 @@
 import {
+  and,
   desc,
   eq,
   getTableColumns,
   getTableName,
+  sql,
   type Table,
 } from "drizzle-orm";
 import { db } from ".";
@@ -217,5 +219,81 @@ export function recentQuery() {
       // （そのときの実行計画が正しい順を返してしまえば緑になる）ため、
       // 問い合わせ文のほうをテストで固定している
       .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+  );
+}
+
+/**
+ * イベントを登録したのが誰かを、イベントIDから引ける形で全件返す
+ * （`app/events/page.tsx` の一覧。Issue #112）。
+ *
+ * 値の null と「キーが無い」は別のことを表す。
+ *
+ * - キーがあって値が null → 取り込みスクリプトが入れた（`user_id` が NULL）
+ * - キーが無い → 記録そのものが無い。監査ログは `drizzle/0004_careful_calypso.sql`
+ *   で足したもので、遡って埋める処理は無い。`src/db/seed-event.ts` も記録を
+ *   書かないため、それより前に入ったイベントには作成者が存在しない
+ *
+ * この2つを混ぜて両方「取り込み」と出すと、取り込みがやっていない登録を
+ * 取り込みの手柄にする。`schema.ts` の `onDelete: "restrict"` が避けているのと
+ * 同じ嘘を、表示側で作ることになる。
+ *
+ * イベント1件につき登録の記録は最大1件。`event.id` は
+ * `generatedAlwaysAsIdentity` で採番され、消しても番号が回ってこない
+ */
+export async function creatorNamesByEventId(): Promise<
+  Map<string, string | null>
+> {
+  const rows = await db
+    .select({ resourceId: auditLog.resourceId, userName: user.name })
+    .from(auditLog)
+    // 取り込みスクリプトの記録は user_id が NULL なので、内部結合にすると消える
+    .leftJoin(user, eq(auditLog.userId, user.id))
+    .where(
+      and(eq(auditLog.resourceType, "event"), eq(auditLog.action, "create")),
+    );
+  return new Map(rows.map((row) => [row.resourceId, row.userName]));
+}
+
+/** 貢献度の画面に出す1行（`app/contributions/page.tsx`） */
+export type ContributionRow = {
+  /** 行を見分けるための利用者ID。取り込みスクリプトなど人以外は null */
+  userId: string | null;
+  /** 操作した人の表示名。取り込みスクリプトなど人以外は null */
+  userName: string | null;
+  created: number;
+  updated: number;
+  deleted: number;
+};
+
+/**
+ * 入力者ごとの操作の件数を、登録の多い順に返す（設計書 §5.5 の問い合わせ）。
+ *
+ * 対象（銘柄・テーマ・イベント・テーマ所属）で絞らない。12の Server Action が
+ * すべて `app/actions.ts` の `audited` を通るので、絞るとかえって条件が1つ増える。
+ *
+ * 画面が行を見分けるのに `user_id` を使うため、まとめる単位にも入れる。
+ * 入れずに走らせるとPostgreSQLが
+ * 「column "audit_log.user_id" must appear in the GROUP BY clause」で落とす（実測）
+ */
+export async function countByUser(): Promise<ContributionRow[]> {
+  const countIf = (action: AuditAction) =>
+    sql<number>`count(*) filter (where ${auditLog.action} = ${action})`.mapWith(
+      Number,
+    );
+  const created = countIf("create");
+  return (
+    db
+      .select({
+        userId: auditLog.userId,
+        userName: user.name,
+        created,
+        updated: countIf("update"),
+        deleted: countIf("delete"),
+      })
+      .from(auditLog)
+      .leftJoin(user, eq(auditLog.userId, user.id))
+      .groupBy(auditLog.userId, user.name)
+      // 同じ件数の入力者どうしの順序をSQLは決めないため、表示名まで並び順に入れる
+      .orderBy(desc(created), user.name)
   );
 }

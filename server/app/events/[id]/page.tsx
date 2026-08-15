@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../src/auth";
 import { db } from "../../../src/db";
@@ -9,6 +8,7 @@ import { isId } from "../../../src/db/write";
 import { editEvent, removeEvent } from "../../actions";
 import { EventForm } from "../../event-form";
 import { ActionForm } from "../../form";
+import { Nav } from "../../nav";
 
 /**
  * イベントの編集ページ（設計書 §3）。
@@ -55,9 +55,7 @@ export default async function Page({
   return (
     <>
       <h1 className="text-xl font-bold">イベントを編集</h1>
-      <Link href="/" className="text-muted underline">
-        一覧に戻る
-      </Link>
+      <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">
         <EventForm
