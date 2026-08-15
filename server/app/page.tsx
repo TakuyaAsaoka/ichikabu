@@ -82,6 +82,9 @@ export default async function Page() {
   return (
     <>
       <h1 className="text-xl font-bold">イチカブ 管理</h1>
+      <Link href="/status" className="text-muted underline">
+        状態（登録の抜け）
+      </Link>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">銘柄を登録</h2>

@@ -92,6 +92,13 @@ describe("設計書が指しているコードが実在する", () => {
       decl: "async function requireSession(",
       section: "監査ログの設計書 §4",
     },
+    {
+      spec: "../../docs/records/specs/2026-08-15-110-admin-status-screen-design.md",
+      code: "../src/status.ts",
+      name: "findGaps",
+      decl: "export async function findGaps(",
+      section: "状態画面の設計書 §2",
+    },
   ];
 
   for (const { spec, code, name, decl, section } of specRefs) {
