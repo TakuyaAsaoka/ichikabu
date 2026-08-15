@@ -127,6 +127,20 @@ describe("設計書が指しているコードが実在する", () => {
       decl: "export async function redirectedTo(",
       section: "管理画面を分ける設計書 §6",
     },
+    {
+      spec: "../../docs/records/specs/2026-08-16-118-public-api-cache-design.md",
+      code: "../src/cache.ts",
+      name: "PUBLIC_API_CACHE_HEADERS",
+      decl: "export const PUBLIC_API_CACHE_HEADERS = {",
+      section: "公開APIのキャッシュ 設計書 §2",
+    },
+    {
+      spec: "../../docs/records/specs/2026-08-16-118-public-api-cache-design.md",
+      code: "../test/helpers.ts",
+      name: "expectPublicApiCacheHeaders",
+      decl: "export function expectPublicApiCacheHeaders(",
+      section: "公開APIのキャッシュ 設計書 §6",
+    },
   ];
 
   for (const { spec, code, name, decl, section } of specRefs) {

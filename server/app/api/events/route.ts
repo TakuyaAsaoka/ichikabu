@@ -1,4 +1,5 @@
 import { eq, isNotNull } from "drizzle-orm";
+import { PUBLIC_API_CACHE_HEADERS } from "../../../src/cache";
 import { db } from "../../../src/db";
 import { event, stock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
@@ -157,5 +158,5 @@ export async function GET(): Promise<Response> {
   const body = [...registered, ...rightsEvents(rightsStocks)].sort(
     compareEvents,
   );
-  return Response.json(body);
+  return Response.json(body, { headers: PUBLIC_API_CACHE_HEADERS });
 }
