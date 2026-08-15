@@ -305,7 +305,7 @@
 | バックエンド | Next.js 単体（管理UI + Route Handlers 同居） | Hono分離はデプロイ・認証・管理対象が2倍になるのに得るものがない |
 | ORM | Drizzle | `event` の対象3列の排他（`CHECK (num_nonnulls(...) = 1)`）を、スキーマ定義の中にそのまま書けるため。Prisma はスキーマで表現できないと公式が明言している。**この理由は「既存資産で既知だから」より強く、再検討は不要**（→ Issue #16） |
 | DBの種類 | PostgreSQL | §4.2 の対象3列の排他が CHECK 制約に依存する。SQLite系（Turso・D1）は対象外 |
-| **DBのサービス** | 本番は Supabase 東京（→ Issue #74）。無料プランのまま使い、**400MB を超えたら Pro に上げる**（→ `docs/guides/backup.md` §4） | 開発は今までどおり Docker の PostgreSQL。載せ替えるかどうかは保留のまま。候補ごとの比較は Issue #16（クローズ済み）に残してある |
+| **DBのサービス** | 本番は Supabase 東京（→ Issue #74）。無料プランのまま使い、**400MB に達したら Pro に上げる**（→ `docs/guides/backup.md` §4） | 開発は今までどおり Docker の PostgreSQL。載せ替えるかどうかは保留のまま。候補ごとの比較は Issue #16（クローズ済み）に残してある |
 | **ホスティング** | 本番は Netlify（→ Issue #74）。無料プランのまま使い、**残りが成功デプロイ5回ぶんを切ったら有料プランに上げる**（→ `docs/guides/deploy.md` §7） | 無料枠には非商用限定のものがあり、収益化が目的である以上そこは選べない（→ §13）。**別の場所へ移すのは、クレジットが尽きそうなときの打つ手にならない**（実機に入っている Release ビルドが配信先のURLを焼き込むため。→ `docs/guides/deploy.md` §7） |
 | 認証 | Better Auth 一本 | → §9 |
 | iOSネットワーク層 | URLSession + async/await のみ | 生成クライアントがそのまま動く。Alamofire不要 |

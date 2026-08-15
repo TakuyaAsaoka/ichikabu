@@ -62,8 +62,10 @@ if (hasEventRows(readFileSync(partial, "utf8"))) {
     );
 
     console.log(dbSizeLine(Number(bytes.trim()), target));
-  } catch {
+  } catch (e) {
+    // 理由も出す。「取れなかった」だけだと、権限なのか接続なのかが分からない
     console.warn("DBのサイズは取れなかった。ダンプは取れている");
+    console.warn(e instanceof Error ? e.message : e);
   }
 } else {
   // 消さずに残す。中身を確かめられるようにするため
