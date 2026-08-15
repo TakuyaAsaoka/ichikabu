@@ -2,22 +2,25 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "../src/admin";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
-import { event, stock, theme, themeStock } from "../src/db/schema";
-import { addEvent, addStock, addTheme } from "./actions";
-import { BulkEventForm } from "./bulk-event-form";
-import { EventForm } from "./event-form";
+import { stock, theme, themeStock } from "../src/db/schema";
+import { addStock, addTheme } from "./actions";
+import { Nav } from "./nav";
 import { StockForm } from "./stock-form";
 import { ThemeForm } from "./theme-form";
 import { ThemeStockForm } from "./theme-stock-form";
 
 /**
- * 管理画面。登録フォームと一覧を縦に並べる（設計書 §3）。
- * 銘柄・テーマ・イベントは各行から編集ページへ行ける（編集・削除 設計書 §3）。
+ * 銘柄とテーマの画面。登録フォームと一覧を縦に並べる（設計書 §3）。
+ * 銘柄・テーマは各行から編集ページへ行ける（編集・削除 設計書 §3）。
  * テーマ所属は直す列が無いため、行から削除ページへ行く（保有とテーマ所属の削除 設計書 §2）。
- * 並べ替え・絞り込みは付けない
+ * 並べ替え・絞り込みは付けない。
+ *
+ * イベントは `app/events/page.tsx` が受け持つ（Issue #112）。
+ * この画面が `/` のまま残るのは、`app/actions.ts` の `redirect("/")` 7本のうち
+ * 5本（銘柄・テーマ・テーマ所属の編集と削除）とサインイン後の着地点が
+ * ここを指しているため
  */
 export default async function Page() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -55,44 +58,10 @@ export default async function Page() {
     .innerJoin(stock, eq(themeStock.stockId, stock.id))
     .orderBy(stock.market, stock.ticker);
 
-  // 対象は3列のうち1つだけが埋まる（全体設計書 §5）ため、
-  // テーマと銘柄を外部結合し、埋まっている側だけが値を持つ形で読む
-  const events = await db
-    .select({
-      id: event.id,
-      title: event.title,
-      shortLabel: event.shortLabel,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      importance: event.importance,
-      market: event.market,
-      // 出典の表示名を入れ忘れた行は、出典の記載を条件とする出典では規約の
-      // 条件を満たさない。一覧でそれが分かるように出す（編集・削除 設計書 §3.1）
-      sourceName: event.sourceName,
-      // 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
-      // ここに出す（公表予定の非アクティブ化 設計書 §4）
-      active: event.active,
-      themeName: theme.name,
-      ticker: stock.ticker,
-    })
-    .from(event)
-    .leftJoin(theme, eq(event.themeId, theme.id))
-    .leftJoin(stock, eq(event.stockId, stock.id))
-    .orderBy(event.startDate);
-
   return (
     <>
       <h1 className="text-xl font-bold">イチカブ 管理</h1>
-      <Link href="/status" className="text-muted underline">
-        状態（登録の抜け）
-      </Link>
-      {/* 入力者には出さない。開いても追い返されるリンクを見せない
-          （判定は `app/audit/page.tsx` が自分でもう1度やる） */}
-      {isAdmin(session.user.email) && (
-        <Link href="/audit" className="text-muted underline">
-          監査ログ
-        </Link>
-      )}
+      <Nav email={session.user.email} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">銘柄を登録</h2>
@@ -157,45 +126,6 @@ export default async function Page() {
               </li>
             );
           })}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">イベントを登録</h2>
-        <EventForm
-          themes={themes}
-          stocks={stocks}
-          action={addEvent}
-          submitLabel="イベントを登録"
-        />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">イベントをまとめて登録</h2>
-        <BulkEventForm />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">
-          イベント一覧（{events.length}件）
-        </h2>
-        <ul className="flex flex-col gap-1">
-          {events.map((row) => (
-            <li key={row.id} className="border-b border-border py-1">
-              {!row.active && "【非アクティブ】"}
-              {row.startDate}
-              {row.endDate !== null && `〜${row.endDate}`} ★{row.importance}{" "}
-              {row.shortLabel}
-              <span className="text-muted">
-                {" "}
-                / {row.market ?? row.themeName ?? row.ticker} / {row.title} /
-                出典: {row.sourceName ?? "表示名なし"}
-              </span>{" "}
-              <Link href={`/events/${row.id}`} className="underline">
-                編集
-              </Link>
-            </li>
-          ))}
         </ul>
       </section>
     </>

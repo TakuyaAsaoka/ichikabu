@@ -1,10 +1,14 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../../test/helpers";
+import {
+  PASSWORD,
+  redirectedTo,
+  render,
+  signInAs,
+} from "../../test/render-page";
 
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-const PASSWORD = "correct-horse-battery-staple";
 
 // 画面は読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる。
 // 大文字を混ぜてあるのは `app/actions.test.ts` と同じ理由（seedUser が
@@ -38,47 +42,8 @@ function entriesOf(result: WriteResult) {
 }
 
 /** サインインして、以降の描画がそのセッションで動くようにする */
-async function signInAs(email: string): Promise<void> {
-  const res = await auth.handler(
-    new Request("http://localhost:3000/api/auth/sign-in/email", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password: PASSWORD }),
-    }),
-  );
-  const cookie = res.headers.get("set-cookie");
-  if (!cookie) {
-    throw new Error(`サインインできなかった: ${email}`);
-  }
-  requestHeaders.current = new Headers({ cookie: cookie.split(";")[0] });
-}
-
-/**
- * 画面を描いてHTMLで返す。`redirect()` で追い返された場合はその行き先を投げる。
- *
- * Server Component は React の要素を返す非同期の関数なので、そのまま呼べる。
- * ブラウザもDOMも要らない（`react-dom` は package.json の依存に入っている）。
- *
- * この形が効くのは、返る要素の中に非同期のコンポーネントが入れ子で無いときだけ。
- * 入れ子があると `renderToStaticMarkup` は待てずに落ちる
- */
-async function render(): Promise<string> {
-  return renderToStaticMarkup(await Page());
-}
-
-/** `redirect()` の行き先。追い返されなかったら落とす */
-async function redirectedTo(): Promise<string> {
-  try {
-    await render();
-  } catch (error) {
-    // digest は `NEXT_REDIRECT;replace;/signin;307;` の形（実測）
-    const digest = (error as { digest?: string }).digest;
-    if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT;")) {
-      return digest.split(";")[2];
-    }
-    throw error;
-  }
-  throw new Error("追い返されるはずの画面が描けてしまった");
+async function signIn(email: string): Promise<void> {
+  requestHeaders.current = await signInAs(auth.handler, email);
 }
 
 beforeEach(async () => {
@@ -91,21 +56,21 @@ describe("監査ログの画面", () => {
   it("サインインしていないとサインインの画面へ追い返される", async () => {
     requestHeaders.current = new Headers();
 
-    expect(await redirectedTo()).toBe("/signin");
+    expect(await redirectedTo(Page)).toBe("/signin");
   });
 
   it("管理者ではない入力者は追い返される", async () => {
     // 入力者に監査ログは見せない（入力者を3人にする設計書 §2）。
     // 画面から入口を消すだけでは、URL を直に打つ経路が塞がったか判定できない
-    await signInAs(EDITOR);
+    await signIn(EDITOR);
 
-    expect(await redirectedTo()).toBe("/");
+    expect(await redirectedTo(Page)).toBe("/");
   });
 
   it("記録が0件のとき、その旨が出る", async () => {
-    await signInAs(ADMIN);
+    await signIn(ADMIN);
 
-    expect(await render()).toContain("記録なし");
+    expect(await render(Page)).toContain("記録なし");
   });
 
   it("管理者には日時・操作した人・種別・対象が新しい順に出る", async () => {
@@ -122,9 +87,9 @@ describe("監査ログの画面", () => {
         }),
       ),
     );
-    await signInAs(ADMIN);
+    await signIn(ADMIN);
 
-    const html = await render();
+    const html = await render(Page);
     expect(html).toContain(ADMIN);
     expect(html).toContain("登録");
     // 先に両方が出ていることを確かめる。片方が出ていないと indexOf が -1 になり、
@@ -137,8 +102,8 @@ describe("監査ログの画面", () => {
 
   it("取り込みが入れた記録は操作した人が「取り込み」と出る", async () => {
     await record(null, entriesOf(await createTheme("半導体")));
-    await signInAs(ADMIN);
+    await signIn(ADMIN);
 
-    expect(await render()).toContain("取り込み");
+    expect(await render(Page)).toContain("取り込み");
   });
 });

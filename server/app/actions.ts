@@ -308,7 +308,9 @@ export async function editEvent(
   }
 
   revalidatePath("/");
-  redirect("/");
+  // イベントの一覧は `/events` にある（Issue #112）。`/` へ戻すと、
+  // 今直したイベントが出ていない画面に着く
+  redirect("/events");
 }
 
 /** イベントを削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
@@ -331,7 +333,8 @@ export async function removeEvent(
   }
 
   revalidatePath("/");
-  redirect("/");
+  // 消したイベントが消えたことは `/events` の一覧でしか確かめられない
+  redirect("/events");
 }
 
 /**

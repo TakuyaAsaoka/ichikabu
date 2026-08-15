@@ -99,6 +99,34 @@ describe("設計書が指しているコードが実在する", () => {
       decl: "export async function findGaps(",
       section: "状態画面の設計書 §2",
     },
+    {
+      spec: "../../docs/records/specs/2026-08-16-112-split-admin-screens-design.md",
+      code: "../app/nav.tsx",
+      name: "Nav",
+      decl: "export function Nav(",
+      section: "管理画面を分ける設計書 §3",
+    },
+    {
+      spec: "../../docs/records/specs/2026-08-16-112-split-admin-screens-design.md",
+      code: "../src/db/audit.ts",
+      name: "creatorNamesByEventId",
+      decl: "export async function creatorNamesByEventId(",
+      section: "管理画面を分ける設計書 §4",
+    },
+    {
+      spec: "../../docs/records/specs/2026-08-16-112-split-admin-screens-design.md",
+      code: "../src/db/audit.ts",
+      name: "countByUser",
+      decl: "export async function countByUser(",
+      section: "管理画面を分ける設計書 §5",
+    },
+    {
+      spec: "../../docs/records/specs/2026-08-16-112-split-admin-screens-design.md",
+      code: "../test/render-page.ts",
+      name: "redirectedTo",
+      decl: "export async function redirectedTo(",
+      section: "管理画面を分ける設計書 §6",
+    },
   ];
 
   for (const { spec, code, name, decl, section } of specRefs) {
