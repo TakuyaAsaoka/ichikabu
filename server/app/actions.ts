@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { isAdmin } from "../src/admin";
 import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { record } from "../src/db/audit";
@@ -28,16 +29,6 @@ import { toEventInput } from "./event-input";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
 // 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
-
-// 管理者は1人で、役割はメールアドレスの一致だけで決める（設計書 §9）。
-// 未設定のまま動かすと、誰も管理者にならず削除が全部拒まれる状態に静かになる。
-// src/auth.ts の秘密鍵と同じく、読み込みの時点で落とす
-const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
-if (!adminEmail) {
-  throw new Error(
-    "ADMIN_EMAIL が設定されていない。削除できる管理者のメールアドレスを .env.local に入れること",
-  );
-}
 
 /**
  * サインインしているかを確かめてセッションを返す。
@@ -73,10 +64,7 @@ async function requireUserId(): Promise<string> {
  * 同じセッションをもう1度読むことになる
  */
 function requireAdmin(session: Session): string | null {
-  // seedUser がメールアドレスを小文字にして入れるため、比較も小文字で揃える
-  return session.user.email.toLowerCase() === adminEmail
-    ? null
-    : "削除できるのは管理者だけ";
+  return isAdmin(session.user.email) ? null : "削除できるのは管理者だけ";
 }
 
 /**
