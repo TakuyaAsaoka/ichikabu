@@ -22,7 +22,8 @@ export const PUBLIC_API_CACHE_HEADERS = {
   //
   // `durable` を自分で書く。`@netlify/plugin-nextjs` は自動で足すが、
   // 足す3か所とも「応答が `netlify-cdn-cache-control` を持っていないこと」を
-  // 条件にしている（`dist/run/headers.js`）。こちらが書いた時点で1つも通らない。
+  // 条件にしている（`dist/run/headers.js`。5.15.13 で確認）。
+  // こちらが書いた時点で1つも通らない。
   // 無いとエッジの1台ごとに写しが要り、写しの無い台に当たるたび関数が起動する
   "Netlify-CDN-Cache-Control":
     "public, durable, s-maxage=300, stale-while-revalidate=600",
