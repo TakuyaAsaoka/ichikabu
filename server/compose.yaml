@@ -1,7 +1,7 @@
-# 開発用の PostgreSQL。本番のホスティング・DB は Issue #16 で選定する（設計書 §1.1）。
-# 特定のサービスに合わせず、その時点の安定版を使う。使っているのは PostgreSQL の
-# 標準機能（num_nonnulls・GENERATED ALWAYS AS IDENTITY）だけなので、選定後の移行は
-# pg_dump で足りる（Issue #16「開発中に使う DB は、この選定と切り離す」）。
+# 開発用の PostgreSQL。本番は Supabase 東京（設計書 §1.1）だが、ここは合わせに行かず
+# その時点の安定版を使う。使っているのは PostgreSQL の標準機能（num_nonnulls・
+# GENERATED ALWAYS AS IDENTITY）だけなので、本番を別のところへ移すことになっても
+# pg_dump で足りる。
 services:
   db:
     image: postgres:18
