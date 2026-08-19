@@ -3,13 +3,18 @@ import { isAdmin } from "../src/admin";
 
 /**
  * サインイン済みの画面が共通で出す行き先（Issue #112 で討論して決めた）。
- * 管理者だけの監査ログは下で分けるため、ここには入れない
+ * 管理者だけの監査ログは下で分けるため、ここには入れない。
+ *
+ * **リンクの名前は、着いた先の `<h1>` と1文字ずつ同じにする**（Issue #122 で討論して決めた）。
+ * 違うと、リンクを押して着いたのかどうかが名前では分からない。
+ * 揃っているかは `test/pages.test.ts` が確かめる。この定数の4本と、
+ * 下に直書きした監査ログを合わせた5本が対象
  */
-const LINKS = [
+export const LINKS = [
   { href: "/", label: "銘柄とテーマ" },
   { href: "/events", label: "イベント" },
   { href: "/contributions", label: "貢献度" },
-  { href: "/status", label: "状態（登録の抜け）" },
+  { href: "/status", label: "状態" },
 ] as const;
 
 /**

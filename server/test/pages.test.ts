@@ -32,6 +32,8 @@ const { seedUser } = await import("../src/db/seed-user");
 const { createEvent, createStock, createTheme, createThemeStock } =
   await import("../src/db/write");
 
+const { LINKS } = await import("../app/nav");
+
 const { default: Home } = await import("../app/page");
 const { default: Audit } = await import("../app/audit/page");
 const { default: Contributions } = await import("../app/contributions/page");
@@ -250,6 +252,34 @@ const SCREENS: Screen[] = [
 /** サインインが要る画面。追い返しと `Nav` はここが対象 */
 const GUARDED = SCREENS.filter((screen) => !screen.signedOut);
 
+/** 描いたHTMLから `<h1>` の中身を取り出す */
+const headingOf = (html: string) => /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1];
+
+/** 描いたHTMLから、その行き先へのリンクの名前を取り出す */
+const navLabelOf = (html: string, href: string) =>
+  new RegExp(`<a [^>]*href="${href}"[^>]*>([\\s\\S]*?)</a>`).exec(html)?.[1];
+
+/**
+ * `app/nav.tsx` の行き先と、着いた先の画面を組にしたもの。
+ * 表の `heading` は使わず、画面を描いて出てきた文字どうしを比べる
+ */
+const NAV_SCREENS = LINKS.map((link) => {
+  const dir = link.href === "/" ? "." : link.href.slice(1);
+  const screen = SCREENS.find((candidate) => candidate.dir === dir);
+  if (!screen) {
+    throw new Error(`app/nav.tsx の ${link.href} に当たる画面が上の表に無い`);
+  }
+  return { ...link, dir, open: screen.open };
+});
+
+/**
+ * ナビに出るべき画面。入力者も開けて、IDを受け取らない画面がこれに当たる。
+ * IDを受け取る画面は開くのに行が要るので、行き先として並べられない
+ */
+const NAVIGABLE = GUARDED.filter(
+  (screen) => !screen.adminOnly && !screen.dir.includes("["),
+);
+
 /** 見つからない扱いの検査を、画面をまたいで1つずつ並べたもの */
 const NOT_FOUND = SCREENS.flatMap((screen) =>
   (screen.notFound ?? []).map((testCase) => ({
@@ -313,9 +343,47 @@ describe("管理画面に共通の約束", () => {
       // 見出しが消えても、同じ文字列が `Nav` のリンク名に残る画面がある。
       // `toContain(見出し)` だと消したことに気づけないため、中身を取り出して比べる
       const html = await render(open);
-      expect(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1]).toBe(heading);
+      expect(headingOf(html)).toBe(heading);
     },
   );
+
+  it("ナビの行き先は、入力者が開けてIDの要らない画面と1対1", () => {
+    // 画面を1枚足してナビに入れ忘れると、誰もそこへ行けない。
+    // `LINKS` から1本消しても、`LINKS` だけを見る検査は数が減るだけで
+    // 通ってしまうため、表と数え合わせる
+    expect(NAV_SCREENS.map((screen) => screen.dir).sort()).toEqual(
+      NAVIGABLE.map((screen) => screen.dir).sort(),
+    );
+  });
+
+  it.each(NAV_SCREENS)(
+    "$href の見出しは、`app/nav.tsx` のリンク名「$label」と同じ",
+    async ({ href, label, open }) => {
+      // リンクの名前と着いた先の名前が違うと、押して着いたのかどうかが分からない
+      // （Issue #122）。同じ画面のHTMLから両方を取り出して比べるので、
+      // 片方だけ直すと落ちる。見出しの文字列そのものは上の表が押さえており、
+      // そちらが空でないことも見ているので、両方が空で揃う抜け道は無い
+      await signIn(EDITOR);
+
+      const html = await render(open);
+
+      expect(navLabelOf(html, href)).toBe(label);
+      expect(headingOf(html)).toBe(label);
+    },
+  );
+
+  it("監査ログのリンク名も、着いた先の見出しと同じ", async () => {
+    // 監査ログのリンクは管理者にだけ出すため `LINKS` の外にある。
+    // 上の繰り返しから漏れるので、5本目としてここで見る。
+    // リンクは入力者に出さないので、リンクの側も管理者で開く
+    await signIn(ADMIN);
+
+    const linkSource = await render(Home);
+    const destination = await render(Audit);
+
+    expect(headingOf(destination)).toBeTruthy();
+    expect(navLabelOf(linkSource, "/audit")).toBe(headingOf(destination));
+  });
 
   it.each(GUARDED.filter((screen) => !screen.adminOnly))(
     "$dir は入力者に監査ログへの行き先を出さない",
@@ -331,7 +399,7 @@ describe("管理画面に共通の約束", () => {
     "$dir は管理者に監査ログへの行き先を出す",
     async ({ open }) => {
       // `Nav` を呼び忘れた画面と、`Nav` に別のメールアドレスを渡した画面は、
-      // どちらもここで落ちる。行き先の一覧そのものは `app/page.test.ts` が見る
+      // どちらもここで落ちる。行き先の一覧そのものは上の2件が見ている
       await signIn(ADMIN);
 
       expect(await render(open)).toContain('href="/audit"');
