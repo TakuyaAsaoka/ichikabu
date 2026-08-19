@@ -30,7 +30,8 @@ async function addTheme(name: string): Promise<string> {
   return created.resourceId;
 }
 
-// 追い返しと `Nav` の出し分けは `test/pages.test.ts` の表が全画面ぶん見ている
+// 追い返しと `Nav` の出し分け、行き先の名前と見出しが揃っているかは、
+// `test/pages.test.ts` の表が全画面ぶん見ている
 beforeEach(async () => {
   await resetDatabase();
   await seedUser(EDITOR, PASSWORD);
@@ -38,28 +39,6 @@ beforeEach(async () => {
 });
 
 describe("銘柄とテーマの画面", () => {
-  it("見出しは `app/nav.tsx` がこの画面に付けた名前と同じ", async () => {
-    // リンクの名前と着いた先の名前が違うと、着いたかどうかが分からない。
-    // 両方をこの画面のHTMLから取り出して比べる。片方だけ直すと落ちる。
-    // 見出しの文字列そのものは `test/pages.test.ts` の表が押さえている
-    const html = await render(Page);
-
-    const heading = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1];
-    const navLabel = /<a [^>]*href="\/"[^>]*>([\s\S]*?)<\/a>/.exec(html)?.[1];
-    expect(heading).toBeTruthy();
-    expect(navLabel).toBe(heading);
-  });
-
-  it("画面の行き先が4つとも出る", async () => {
-    // `app/nav.tsx` の `LINKS` を見る場所。`Nav` を呼んでいるかどうかは
-    // `test/pages.test.ts` が全画面ぶん見ている
-    const html = await render(Page);
-
-    for (const href of ["/", "/events", "/contributions", "/status"]) {
-      expect(html).toContain(`href="${href}"`);
-    }
-  });
-
   it("登録フォームが3つとも出る", async () => {
     // フォームを丸ごと落としても、一覧だけ見ていると気づけない。
     // 見出しの文字列（「銘柄を登録」等）はフォームが消えても残るため、
