@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WriteResult } from "../../../../../src/db/write";
-import { entriesOf, resetDatabase } from "../../../../../test/helpers";
+import { entriesOf, idOf, resetDatabase } from "../../../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -16,11 +15,6 @@ const { createStock, createTheme, createThemeStock } = await import(
   "../../../../../src/db/write"
 );
 const { default: Page } = await import("./page");
-
-/** 作った行のIDを返す。書き込みが失敗したらそこで落とす */
-function idOf(result: WriteResult): string {
-  return entriesOf(result)[0].resourceId;
-}
 
 /** 追い返し・見出し・見つからない扱いは `test/pages.test.ts` の表が見ている */
 beforeEach(async () => {

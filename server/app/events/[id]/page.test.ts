@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WriteResult } from "../../../src/db/write";
-import { entriesOf, resetDatabase } from "../../../test/helpers";
+import type { EventInput } from "../../../src/db/write";
+import { idOf, resetDatabase } from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -17,11 +17,6 @@ const { createEvent, createStock, createTheme } = await import(
 );
 const { default: Page } = await import("./page");
 
-/** 作った行のIDを返す。書き込みが失敗したらそこで落とす */
-function idOf(result: WriteResult): string {
-  return entriesOf(result)[0].resourceId;
-}
-
 /** 追い返し・見出し・見つからない扱いは `test/pages.test.ts` の表が見ている */
 beforeEach(async () => {
   await resetDatabase();
@@ -29,8 +24,33 @@ beforeEach(async () => {
   requestHeaders.current = await signInAs(auth.handler, EDITOR);
 });
 
+/** 空にできる欄をすべて空にしたイベント。埋めたい欄だけ上書きする */
+const MINIMAL: EventInput = {
+  title: "CPIの発表",
+  shortLabel: "CPI",
+  startDate: "2026-09-01",
+  endDate: null,
+  time: null,
+  importance: 2,
+  note: null,
+  sourceUrl: null,
+  sourceName: null,
+  market: "JP",
+  themeId: null,
+  stockId: null,
+};
+
+async function addEvent(overrides: Partial<EventInput> = {}): Promise<string> {
+  return idOf(await createEvent({ ...MINIMAL, ...overrides }));
+}
+
 describe("イベントの編集画面", () => {
   it("登録済みの値が、すべての入力欄の初期値として出る", async () => {
+    // 先にイベントを1件捨てて、編集するイベントのIDを 1 から動かす。
+    // `resetDatabase` が採番を1に戻すため、素直に作ると銘柄もテーマもイベントも
+    // IDが 1 になり、画面がIDを取り違えていても気づけない
+    await addEvent();
+
     // 欄ごとに違う値を入れる。同じ値だと欄を取り違えても気づけない。
     // 対象はテーマにする。市場・銘柄の選択肢も並ぶので、選ばれるのが1つだけであることを見る
     const stockId = idOf(
@@ -42,22 +62,18 @@ describe("イベントの編集画面", () => {
       }),
     );
     const themeId = idOf(await createTheme("半導体"));
-    const id = idOf(
-      await createEvent({
-        title: "半導体関連の決算発表",
-        shortLabel: "半導決算",
-        startDate: "2026-09-01",
-        endDate: "2026-09-03",
-        time: "14:30",
-        importance: 1,
-        note: "前回は延期になった",
-        sourceUrl: "https://example.com/ir",
-        sourceName: "内閣府（PDL1.0）",
-        market: null,
-        themeId: Number(themeId),
-        stockId: null,
-      }),
-    );
+    const id = await addEvent({
+      title: "半導体関連の決算発表",
+      shortLabel: "半導決算",
+      endDate: "2026-09-03",
+      time: "14:30",
+      importance: 1,
+      note: "前回は延期になった",
+      sourceUrl: "https://example.com/ir",
+      sourceName: "内閣府（PDL1.0）",
+      market: null,
+      themeId: Number(themeId),
+    });
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
@@ -73,7 +89,6 @@ describe("イベントの編集画面", () => {
     expect(html).toContain('name="time" value="14:30"');
     expect(html).toContain('name="sourceUrl" value="https://example.com/ir"');
     expect(html).toContain('name="sourceName" value="内閣府（PDL1.0）"');
-    expect(html).toContain("<textarea");
     expect(html).toContain(">前回は延期になった</textarea>");
     // 重要度は既定が 2。1 を選んでいるので、初期値を渡し忘れると 2 が選ばれる
     expect(html).toContain('<option value="1" selected="">1</option>');
@@ -84,22 +99,7 @@ describe("イベントの編集画面", () => {
   });
 
   it("削除の確認は、消すイベントの題名を出す", async () => {
-    const id = idOf(
-      await createEvent({
-        title: "半導体関連の決算発表",
-        shortLabel: "半導決算",
-        startDate: "2026-09-01",
-        endDate: null,
-        time: null,
-        importance: 2,
-        note: null,
-        sourceUrl: null,
-        sourceName: null,
-        market: "JP",
-        themeId: null,
-        stockId: null,
-      }),
-    );
+    const id = await addEvent({ title: "半導体関連の決算発表" });
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 

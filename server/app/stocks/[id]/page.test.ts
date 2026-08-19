@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WriteResult } from "../../../src/db/write";
-import { entriesOf, resetDatabase } from "../../../test/helpers";
+import { entriesOf, idOf, resetDatabase } from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -17,11 +16,6 @@ const { createStock, createTheme, createThemeStock } = await import(
 );
 const { default: Page } = await import("./page");
 
-/** 作った行のIDを返す。書き込みが失敗したらそこで落とす */
-function idOf(result: WriteResult): string {
-  return entriesOf(result)[0].resourceId;
-}
-
 /** 追い返し・見出し・見つからない扱いは `test/pages.test.ts` の表が見ている */
 beforeEach(async () => {
   await resetDatabase();
@@ -30,19 +24,28 @@ beforeEach(async () => {
 });
 
 /** 編集する銘柄。決算月の入る JP 銘柄にする */
-async function addStock(): Promise<string> {
+async function addStock(
+  ticker = "7203",
+  name = "トヨタ自動車",
+): Promise<string> {
   return idOf(
-    await createStock({
-      market: "JP",
-      ticker: "7203",
-      name: "トヨタ自動車",
-      fiscalMonth: 3,
-    }),
+    await createStock({ market: "JP", ticker, name, fiscalMonth: 3 }),
   );
+}
+
+/**
+ * 銘柄のIDを 1 から動かす。
+ *
+ * `resetDatabase` が採番を1に戻すため、素直に1件だけ作るとIDが 1 になり、
+ * 画面がIDを取り違えていても気づけない
+ */
+async function shiftStockIds(): Promise<void> {
+  await addStock("6758", "ソニーグループ");
 }
 
 describe("銘柄の編集画面", () => {
   it("登録済みの値が、すべての入力欄の初期値として出る", async () => {
+    await shiftStockIds();
     const id = await addStock();
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
@@ -81,15 +84,8 @@ describe("銘柄の編集画面", () => {
     // 銘柄を消すとテーマ所属も一緒に消える。何が外れるかを画面と確認の両方に出す。
     // 別の銘柄に付いたテーマを1件混ぜる。問い合わせの絞り込みが落ちたら、
     // このテーマまで並んで件数も増える
+    const other = await addStock("6758", "ソニーグループ");
     const id = await addStock();
-    const other = idOf(
-      await createStock({
-        market: "JP",
-        ticker: "6758",
-        name: "ソニーグループ",
-        fiscalMonth: 3,
-      }),
-    );
     const semiconductor = idOf(await createTheme("半導体"));
     const defense = idOf(await createTheme("防衛"));
     const unrelated = idOf(await createTheme("旅行"));

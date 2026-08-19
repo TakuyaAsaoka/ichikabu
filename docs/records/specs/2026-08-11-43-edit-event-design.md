@@ -1,7 +1,5 @@
 # イベントの編集・削除 設計書
 
-> **§4.1 の `onClick` のコードはもう当たらない。** Issue #123 で、確認の文を `data-confirm` 属性に出し、`onClick` はその属性から読む形に変えた。確認を送信ボタンの `onClick` に置くことと、`confirm` を渡した送信ボタンだけが確認を出すことは変わっていない。文をクロージャに閉じ込めると描いたHTMLに1文字も出ず、テストから確かめられなかったのが理由。
-
 - 対応 Issue: [#43 登録済みイベントの出典を管理UIから直せるようにする](https://github.com/TakuyaAsaoka/ichikabu/issues/43)
 - 根拠: [全体設計書](2026-08-02-1-ichikabu-design.md)（§4.2 列の判断）、[管理UI設計書](2026-08-09-6-admin-ui-design.md)（§3 画面構成・§5 登録の失敗の扱い）、[出典表示設計書](2026-08-11-41-event-source-design.md)（§3.1 出典の持ち方・§8 やらないこと）
 
@@ -96,6 +94,8 @@ useActionState(action, null)
 ```tsx
 onClick={confirm ? (e) => { if (!window.confirm(confirm)) e.preventDefault(); } : undefined}
 ```
+
+> **このコードはもう当たらない。** Issue #123 で、確認の文を `data-confirm` 属性に出し、`onClick` はその属性から読む形に変えた。文をクロージャに閉じ込めると描いたHTMLに1文字も出ず、テストから確かめられなかったのが理由。下の「送信ボタンの `onClick` に置く」ことと、`confirm` を渡した送信ボタンだけが確認を出すことは変わっていない。
 
 `<form onSubmit>` ではなく送信ボタンの `onClick` に置く。送信ボタンの click を止めれば送信自体が始まらないという、React を挟まないブラウザの動きだけで済む。
 

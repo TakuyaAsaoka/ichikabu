@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WriteResult } from "../../../src/db/write";
-import { entriesOf, resetDatabase } from "../../../test/helpers";
+import { entriesOf, idOf, resetDatabase } from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -17,11 +16,6 @@ const { createStock, createTheme, createThemeStock } = await import(
 );
 const { default: Page } = await import("./page");
 
-/** 作った行のIDを返す。書き込みが失敗したらそこで落とす */
-function idOf(result: WriteResult): string {
-  return entriesOf(result)[0].resourceId;
-}
-
 /** 追い返し・見出し・見つからない扱いは `test/pages.test.ts` の表が見ている */
 beforeEach(async () => {
   await resetDatabase();
@@ -31,6 +25,9 @@ beforeEach(async () => {
 
 describe("テーマの編集画面", () => {
   it("登録済みのテーマ名が、入力欄の初期値として出る", async () => {
+    // テーマを1件捨ててIDを 1 から動かす。`resetDatabase` が採番を1に戻すため、
+    // 素直に1件だけ作るとIDが 1 になり、画面がIDを取り違えていても気づけない
+    idOf(await createTheme("旅行"));
     const id = idOf(await createTheme("半導体"));
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
