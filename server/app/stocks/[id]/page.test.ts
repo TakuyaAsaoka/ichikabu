@@ -23,7 +23,10 @@ beforeEach(async () => {
   requestHeaders.current = await signInAs(auth.handler, EDITOR);
 });
 
-/** 編集する銘柄。決算月の入る JP 銘柄にする */
+/**
+ * 決算月の入る JP 銘柄を作る。
+ * 書き込みが失敗しても例外は飛ばないため、`idOf` で包んでその場で落とす
+ */
 async function addStock(
   ticker = "7203",
   name = "トヨタ自動車",
@@ -33,19 +36,11 @@ async function addStock(
   );
 }
 
-/**
- * 銘柄のIDを 1 から動かす。
- *
- * `resetDatabase` が採番を1に戻すため、素直に1件だけ作るとIDが 1 になり、
- * 画面がIDを取り違えていても気づけない
- */
-async function shiftStockIds(): Promise<void> {
-  await addStock("6758", "ソニーグループ");
-}
-
 describe("銘柄の編集画面", () => {
   it("登録済みの値が、すべての入力欄の初期値として出る", async () => {
-    await shiftStockIds();
+    // 銘柄を1件捨ててIDを 1 から動かす。`resetDatabase` が採番を1に戻すため、
+    // 素直に1件だけ作るとIDが 1 になり、画面がIDを取り違えていても気づけない
+    await addStock("6758", "ソニーグループ");
     const id = await addStock();
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));

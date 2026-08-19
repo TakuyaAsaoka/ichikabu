@@ -23,12 +23,23 @@ beforeEach(async () => {
   requestHeaders.current = await signInAs(auth.handler, EDITOR);
 });
 
+/** 書き込みが失敗しても例外は飛ばないため、`idOf` で包んでその場で落とす */
+async function addTheme(name = "半導体"): Promise<string> {
+  return idOf(await createTheme(name));
+}
+
+async function addStock(ticker: string, name: string): Promise<string> {
+  return idOf(
+    await createStock({ market: "JP", ticker, name, fiscalMonth: 3 }),
+  );
+}
+
 describe("テーマの編集画面", () => {
   it("登録済みのテーマ名が、入力欄の初期値として出る", async () => {
     // テーマを1件捨ててIDを 1 から動かす。`resetDatabase` が採番を1に戻すため、
     // 素直に1件だけ作るとIDが 1 になり、画面がIDを取り違えていても気づけない
-    idOf(await createTheme("旅行"));
-    const id = idOf(await createTheme("半導体"));
+    await addTheme("旅行");
+    const id = await addTheme();
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
@@ -43,32 +54,11 @@ describe("テーマの編集画面", () => {
     // テーマを消すと所属も一緒に消える。何が外れるかを画面と確認の両方に出す。
     // 別のテーマに付いた銘柄を1件混ぜる。問い合わせの絞り込みが落ちたら、
     // この銘柄まで並んで件数も増える
-    const id = idOf(await createTheme("半導体"));
-    const other = idOf(await createTheme("旅行"));
-    const toyota = idOf(
-      await createStock({
-        market: "JP",
-        ticker: "7203",
-        name: "トヨタ自動車",
-        fiscalMonth: 3,
-      }),
-    );
-    const sony = idOf(
-      await createStock({
-        market: "JP",
-        ticker: "6758",
-        name: "ソニーグループ",
-        fiscalMonth: 3,
-      }),
-    );
-    const ana = idOf(
-      await createStock({
-        market: "JP",
-        ticker: "9202",
-        name: "ANAホールディングス",
-        fiscalMonth: 3,
-      }),
-    );
+    const id = await addTheme();
+    const other = await addTheme("旅行");
+    const toyota = await addStock("7203", "トヨタ自動車");
+    const sony = await addStock("6758", "ソニーグループ");
+    const ana = await addStock("9202", "ANAホールディングス");
     entriesOf(await createThemeStock(Number(id), Number(toyota)));
     entriesOf(await createThemeStock(Number(id), Number(sony)));
     entriesOf(await createThemeStock(Number(other), Number(ana)));
@@ -85,7 +75,7 @@ describe("テーマの編集画面", () => {
   });
 
   it("所属している銘柄が無いときは、確認の文に外れる件数を出さない", async () => {
-    const id = idOf(await createTheme("半導体"));
+    const id = await addTheme();
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
