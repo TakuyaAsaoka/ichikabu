@@ -80,7 +80,10 @@ export async function expectViolation(
  *
  * ページ全体から拾うため、`<ul>` が2つ以上あるページでは別の一覧の項目まで
  * 混ざる。混ざれば期待する配列と一致せず赤くなるので、黙って別の一覧を
- * 見ていることにはならない
+ * 見ていることにはならない。
+ *
+ * ただし `<ul>` が入れ子になったページ（`app/page.tsx`）には使えない。
+ * 外側の `<li>` が内側の `</li>` で閉じたことにされ、中身が途中で切れる
  */
 export function listItemsOf(html: string): string[] {
   return [...html.matchAll(/<li[^>]*>(.*?)<\/li>/gs)].map((m) => m[1]);

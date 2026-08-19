@@ -38,7 +38,8 @@ async function addStock(
   name: string,
   market: "JP" | "US" = "JP",
 ): Promise<string> {
-  // 決算月はJP銘柄にだけ入れられる（`src/db/write.ts` の検査）
+  // 決算月はJP銘柄にだけ入れられる
+  // （`src/db/schema.ts` の `stock_fiscal_month_market_check`）
   return idOf(
     await createStock({
       market,
@@ -73,7 +74,9 @@ describe("テーマの編集画面", () => {
     const other = await addTheme("旅行");
     // ティッカーが後になる 7203 を先に作る。作った順で並べても市場+ティッカー順で
     // 並べても同じになる題材だと、`orderBy` が落ちても緑のまま通る。
-    // US を1件混ぜて、市場が第1のキーであること（US AAPL が JP のあとに来ること）も見る
+    // US を1件混ぜて、市場をまたいでも1つの一覧に並ぶことを見る。ただし JP は
+    // 数字・US は英字で数字が先に来るため、`orderBy` から `stock.market` を
+    // 落としても並びは変わらない。第1のキーが市場であることは見ていない
     const toyota = await addStock("7203", "トヨタ自動車");
     const sony = await addStock("6758", "ソニーグループ");
     const apple = await addStock("AAPL", "Apple", "US");
@@ -85,8 +88,6 @@ describe("テーマの編集画面", () => {
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    // 並び・件数・余計な行の混入をまとめて見る。`toContain` を並べる形は順不同で、
-    // `orderBy` が落ちても気づけない（Issue #128）
     expect(listItemsOf(html)).toEqual([
       "JP 6758 ソニーグループ",
       "JP 7203 トヨタ自動車",
