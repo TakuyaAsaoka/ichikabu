@@ -38,6 +38,11 @@ export function entriesOf(result: WriteResult): AuditEntry[] {
   return result;
 }
 
+/** 書き込みが採番したIDを取り出す。1から始まることに頼らない */
+export function idOf(result: WriteResult): string {
+  return entriesOf(result)[0].resourceId;
+}
+
 /**
  * 公開API（`/api/events`・`/api/stocks`）がCDNに載せるヘッダを確かめる
  * （公開APIのキャッシュ 設計書 §2）。

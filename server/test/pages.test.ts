@@ -2,8 +2,7 @@ import { readdirSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { ReactNode } from "react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WriteResult } from "../src/db/write";
-import { entriesOf, resetDatabase } from "./helpers";
+import { entriesOf, idOf, resetDatabase } from "./helpers";
 import {
   expectNotFound,
   PASSWORD,
@@ -50,11 +49,6 @@ const { default: ThemeStockRemove } = await import(
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {
   requestHeaders.current = await signInAs(auth.handler, email);
-}
-
-/** 書き込みが採番したIDを取り出す。1から始まることに頼らない */
-function idOf(result: WriteResult): string {
-  return entriesOf(result)[0].resourceId;
 }
 
 async function addStock(ticker = "7203", name = "トヨタ自動車") {

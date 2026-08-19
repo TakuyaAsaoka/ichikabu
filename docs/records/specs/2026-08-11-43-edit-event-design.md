@@ -95,6 +95,8 @@ useActionState(action, null)
 onClick={confirm ? (e) => { if (!window.confirm(confirm)) e.preventDefault(); } : undefined}
 ```
 
+> **このコードはもう当たらない。** Issue #123 で、確認の文を `data-confirm` 属性に出し、`onClick` はその属性から読む形に変えた。文をクロージャに閉じ込めると描いたHTMLに1文字も出ず、テストから確かめられなかったのが理由。下の「送信ボタンの `onClick` に置く」ことと、`confirm` を渡した送信ボタンだけが確認を出すことは変わっていない。
+
 `<form onSubmit>` ではなく送信ボタンの `onClick` に置く。送信ボタンの click を止めれば送信自体が始まらないという、React を挟まないブラウザの動きだけで済む。
 
 **`useActionState` が `ActionForm` に移るため、5つのフォームから `"use client"` が消える。** どれも初期値を出すだけの素のコンポーネントになる。Server Component から Client Component へ `children` を渡す形になり、これは通常の使い方。

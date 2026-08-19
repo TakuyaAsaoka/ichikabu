@@ -44,17 +44,17 @@ export function ActionForm({
       <button
         type="submit"
         disabled={pending}
+        // 確認の文は属性に出し、onClick はそこから読む。クロージャに閉じ込めると
+        // 描いたHTMLに1文字も出ず、テストから確かめられない（Issue #123）
+        data-confirm={confirm}
         // 確認は <form onSubmit> ではなくここに置く。送信ボタンの click を止めれば
         // 送信自体が始まらず、React を挟まないブラウザの動きだけで済む（設計書 §4.1）
-        onClick={
-          confirm
-            ? (e) => {
-                if (!window.confirm(confirm)) {
-                  e.preventDefault();
-                }
-              }
-            : undefined
-        }
+        onClick={(e) => {
+          const message = e.currentTarget.dataset.confirm;
+          if (message && !window.confirm(message)) {
+            e.preventDefault();
+          }
+        }}
         className="rounded border border-border p-2 disabled:opacity-50"
       >
         {pending ? "送信中" : submitLabel}
