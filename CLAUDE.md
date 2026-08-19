@@ -91,7 +91,7 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 | `pnpm db:seed` | 利用者を1件投入する（何度実行しても増えない） |
 | `pnpm db:dump` | バックアップを取る（**本番は週1回、手で実行する**。→ `docs/guides/backup.md`） |
 | `pnpm auth:gen` | Better Auth のテーブル定義を再生成する |
-| `pnpm import:stat` | 総務省統計局の公表予定から日本CPI を取り込む（月1回を目安に手で実行する。→ `docs/records/specs/2026-08-12-64-import-stat-schedule-design.md`） |
+| `pnpm import:stat` | 総務省統計局の公表予定から日本CPI を取り込む（**本番は週1回のバックアップと同じ回に手で実行する**。決まった間隔での自動実行は入れない。→ `docs/guides/backup.md`） |
 
 ## 規約
 
