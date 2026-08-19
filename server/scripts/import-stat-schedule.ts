@@ -10,8 +10,9 @@ import { upsertMarketEvents } from "../src/db/write";
 /**
  * 総務省統計局の消費者物価指数の公表予定を取り込む（設計書 §1）。
  *
- * 決まった間隔での自動実行は作っていない。XML は16ヶ月先まで載っているので
- * 月1回この手で叩けば足りる。何を入れて何が変わったかはここに出す
+ * 決まった間隔での自動実行は入れないと決めた（設計書 §7・Issue #107）。
+ * XML は16ヶ月先まで載っているので月1回で足り、本番へは週1回のバックアップと
+ * 同じ回に手で叩く（docs/guides/backup.md §1.5）。何を入れて何が変わったかはここに出す
  */
 const events = toStatEvents(await fetchStatSchedule());
 if (events.length === 0) {

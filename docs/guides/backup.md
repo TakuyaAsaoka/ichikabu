@@ -55,6 +55,47 @@ event の行が1件も無い。<接続URL> が空か、違うDBを指してい�
 
 `pg_dump` 自体が途中で落ちたときも、書きかけの `.part` が残る。**`.part` は自動では消えない**ので、原因を直したあとに `rm backups/*.part` する。
 
+## 1.5 続けて公表予定を取り込む
+
+**バックアップを取った直後に、同じ回で日本CPI の公表予定を本番へ取り込む。**
+
+```bash
+( set -a; . ./.env.deploy.local; set +a; pnpm import:stat )
+```
+
+```
+公表予定から 15 件を読んだ
+登録した: 12 件
+  + 消費者物価指数（2026年9月分）
+  …
+公表日時が変わった: 0 件
+非アクティブにした: 0 件
+```
+
+- **`pnpm import:stat` の定義は `.env.local`（開発用）を読む形だが、シェルに `DATABASE_URL` があるとそちらが勝つ**（Node の `--env-file` は既にある値を上書きしない。実測）。`pnpm db:seed` と同じ形で、裏返すと **`( )` の中に `.env.deploy.local` を読み込まずに叩くと開発用DBに入る**（`docs/guides/deploy.md` §3 の ⚠️ と同じ落とし穴）
+- **決まった間隔での自動実行は入れない**（Issue #107 で討論して決めた。→ `docs/records/specs/2026-08-12-64-import-stat-schedule-design.md` §7）。週1回のこの手順にぶら下げるのが、いま存在する唯一の定期作業だから
+- 月1回で足りるものを週1回叩いてよいのは、**変わっていなければ何も書かないから**（`登録した: 0 件` で終わる）
+- **止まったときは何も書かれていない。** 「非アクティブにする回が多すぎる」で止まったら、まず公表予定の XML の形が変わって読み落としていることを疑う（`docs/records/specs/2026-08-12-64-import-stat-schedule-design.md` §7）。**本物の中止が2件重なった場合も同じ文で止まる**ため、次の順で見分ける
+  1. 止まった文に並んだ対象期を、**取り込みが読んでいる XML そのもの**で1件ずつ数える（`https://www.stat.go.jp/data/cpi/` は出典として表示するページで、公表予定の一覧は載っていない）
+
+     ```bash
+     curl -s https://www.stat.go.jp/data/kouhyou/e-stat_cpi.xml \
+       | iconv -f UTF-16LE -t UTF-8 | grep -c '2026年9月分'
+     ```
+
+     `grep` は XML として解釈しないので、`iconv` で UTF-8 に直してよい（取り込み本体が `iconv` を使えないのは、XML パーサに宣言の食い違いで弾かれるため。→ 取り込みの設計書 §2.1）。**`0` でなければ載っている**（全国と東京都区部の両方に同じ対象期があるので、今日の実物では2以上が返る）
+  2. **載っていれば読み落とし。** 管理UIでは何もせず、取り込みのコードを直す（`app/stat-schedule.ts` の正規表現）
+  3. **どれも載っていなければ本物の中止。** 管理UIでその回を消してから流し直す。**消した行は画面からは戻せない**（監査ログの `previous_values` から戻す手順が 監査ログ 設計書 §5.4 にある）
+
+流したかどうかは、iPhone が見ているのと同じ入口で数えられる。
+
+```bash
+curl -s https://ichikabu.netlify.app/api/events \
+  | python3 -c "import json,sys; print(len([e for e in json.load(sys.stdin) if e['shortLabel']=='日本CPI']))"
+```
+
+CDNに5分載るため、取り込んだ直後は前の数が返る（`docs/records/specs/2026-08-16-118-public-api-cache-design.md`）。
+
 ## 2. 戻し方
 
 **表の定義を先に作る。** ダンプにはデータしか入っていない。
