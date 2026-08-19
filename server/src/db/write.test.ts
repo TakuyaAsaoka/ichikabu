@@ -1175,6 +1175,27 @@ describe("upsertMarketEvents", () => {
     expect(rows[1].active).toBe(false);
   });
 
+  it("これからの回が2件以上消えると、非アクティブにせずに投げる", async () => {
+    // 中止・延期は1回ずつ起きる。まとめて消えるのは公表予定の読み落としで、
+    // XML の class_2 に属性が1つ増えただけで実物の15件が9件になり、
+    // 残りのこれからの回が非アクティブ化の対象に入った（Issue #107 の実測）。
+    // 上の「空の並び」の守りは全部読めなくなったときにしか効かない
+    const FUTURE2 = statEvent({
+      title: "消費者物価指数（2099年2月分）",
+      startDate: "2099-03-19",
+    });
+    await upsertMarketEvents([FUTURE, FUTURE2], STAT_TITLE_PATTERN);
+
+    await expect(
+      upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN),
+    ).rejects.toThrow("非アクティブにする回が多すぎる（2件）");
+
+    // 取り引きごと巻き戻る。渡した回の登録も残らない
+    const rows = await db.select().from(event);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.active)).toBe(true);
+  });
+
   it("公表予定から消えても公表済みの回はアクティブのまま残る", async () => {
     // 窓から落ちただけで、その日に発表はあった。過去のカレンダーの記録になる
     await upsertMarketEvents([PAST], STAT_TITLE_PATTERN);
