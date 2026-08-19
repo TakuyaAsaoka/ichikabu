@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { entriesOf, idOf, resetDatabase } from "../../../test/helpers";
+import {
+  entriesOf,
+  idOf,
+  listItemsOf,
+  resetDatabase,
+} from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -28,9 +33,20 @@ async function addTheme(name = "半導体"): Promise<string> {
   return idOf(await createTheme(name));
 }
 
-async function addStock(ticker: string, name: string): Promise<string> {
+async function addStock(
+  ticker: string,
+  name: string,
+  market: "JP" | "US" = "JP",
+): Promise<string> {
+  // 決算月はJP銘柄にだけ入れられる
+  // （`src/db/schema.ts` の `stock_fiscal_month_market_check`）
   return idOf(
-    await createStock({ market: "JP", ticker, name, fiscalMonth: 3 }),
+    await createStock({
+      market,
+      ticker,
+      name,
+      fiscalMonth: market === "JP" ? 3 : null,
+    }),
   );
 }
 
@@ -56,21 +72,29 @@ describe("テーマの編集画面", () => {
     // この銘柄まで並んで件数も増える
     const id = await addTheme();
     const other = await addTheme("旅行");
+    // ティッカーが後になる 7203 を先に作る。作った順で並べても市場+ティッカー順で
+    // 並べても同じになる題材だと、`orderBy` が落ちても緑のまま通る。
+    // US を1件混ぜて、市場をまたいでも1つの一覧に並ぶことを見る。ただし JP は
+    // 数字・US は英字で数字が先に来るため、`orderBy` から `stock.market` を
+    // 落としても並びは変わらない。第1のキーが市場であることは見ていない
     const toyota = await addStock("7203", "トヨタ自動車");
     const sony = await addStock("6758", "ソニーグループ");
+    const apple = await addStock("AAPL", "Apple", "US");
     const ana = await addStock("9202", "ANAホールディングス");
     entriesOf(await createThemeStock(Number(id), Number(toyota)));
     entriesOf(await createThemeStock(Number(id), Number(sony)));
+    entriesOf(await createThemeStock(Number(id), Number(apple)));
     entriesOf(await createThemeStock(Number(other), Number(ana)));
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(html).toContain(">JP 7203 トヨタ自動車</li>");
-    expect(html).toContain(">JP 6758 ソニーグループ</li>");
-    expect(html).not.toContain("ANAホールディングス");
-    expect(html).not.toContain("所属している銘柄なし");
+    expect(listItemsOf(html)).toEqual([
+      "JP 6758 ソニーグループ",
+      "JP 7203 トヨタ自動車",
+      "US AAPL Apple",
+    ]);
     expect(html).toContain(
-      'data-confirm="「半導体」を削除する。所属している銘柄2件も外れる。取り消せない。"',
+      'data-confirm="「半導体」を削除する。所属している銘柄3件も外れる。取り消せない。"',
     );
   });
 
@@ -79,7 +103,7 @@ describe("テーマの編集画面", () => {
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(html).toContain("所属している銘柄なし");
+    expect(listItemsOf(html)).toEqual(["所属している銘柄なし"]);
     expect(html).toContain(
       'data-confirm="「半導体」を削除する。取り消せない。"',
     );
