@@ -24,6 +24,8 @@ $ grep -rn "@testing-library\|jsdom\|happy-dom" server/package.json server/vites
 （0件）
 ```
 
+> **この2つはもう当たらない。** 「描画する仕組みが無い」は翌日の #112 が `server/test/render-page.ts` の `render`（`renderToStaticMarkup(await page())`）を入れた時点で成り立たなくなった。上の grep も、#127 で `jsdom` と `@testing-library/react` と `@testing-library/user-event` を入れたため0件ではなくなった。**判定を `src/status.ts` に置く結論は変えない。** 下の段落のとおり、置き場所を決めたのは「5種類 × 抜けあり・なしの10件を回したい」からで、描けるかどうかではない。10件を `app/status/page.tsx` で回すと、1件ごとにサインインと画面全体の描画を通ることになる。#127 で描けるようになったのも、送信ボタンの `onClick` のような描いた後にブラウザで起きることだけで、`findGaps` の判定はそこに入らない。
+
 Issue #110 の受け入れ条件は「5種類の抜けそれぞれに、抜けがある場合とない場合のテストがある」で、判定が `app/status/page.tsx` にあるとその置き場所が作れない。`src/status.ts` に出せば、`src/db/write.test.ts` と同じく実際の PostgreSQL に対して流せる（`test/helpers.ts` の `resetDatabase`）。
 
 `src/db/` ではなく `src/` 直下にする理由は2つ。
