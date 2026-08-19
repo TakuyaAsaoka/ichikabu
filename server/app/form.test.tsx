@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // この1本だけブラウザの真似（jsdom）で動かす。`vitest.config.ts` に書くと
-// DBを触るテスト28本まで jsdom の読み込みに引きずられる
+// 他のテストファイル全部が jsdom の読み込みに引きずられる
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -50,6 +50,9 @@ describe("送信前の確認", () => {
     await userEvent.click(button);
 
     expect(confirmed).toHaveBeenCalledWith(MESSAGE);
+    // ここだけ待たずにその場で見る。React は押した中で Server Action を呼ぶため、
+    // 押し終わった時点で送信は始まっている。`vi.waitFor` で包むと、待つ前に
+    // 始まった送信を見逃せるようになり、検査が弱くなる
     expect(submitted).not.toHaveBeenCalled();
   });
 
