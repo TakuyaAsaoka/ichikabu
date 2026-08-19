@@ -50,9 +50,10 @@ describe("送信前の確認", () => {
     await userEvent.click(button);
 
     expect(confirmed).toHaveBeenCalledWith(MESSAGE);
-    // ここだけ待たずにその場で見る。React は押した中で Server Action を呼ぶため、
-    // 押し終わった時点で送信は始まっている。`vi.waitFor` で包むと、待つ前に
-    // 始まった送信を見逃せるようになり、検査が弱くなる
+    // ここだけ待たずにその場で見る。押すと送信のイベントがその場で飛び、React は
+    // その中で Server Action を呼ぶため、押し終わった時点で送信は始まっている。
+    // `vi.waitFor` で包んでも待ったことにはならない。1回目の検査が通ればその場で
+    // 返るので、落ちるときに1秒遅くなるだけ
     expect(submitted).not.toHaveBeenCalled();
   });
 
