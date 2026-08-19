@@ -71,3 +71,20 @@ export async function expectViolation(
   }
   throw new Error("制約違反になるはずの操作が成功した");
 }
+
+/**
+ * 画面に出た `<li>` の中身を、出た順に取り出す。
+ *
+ * 一覧の並び順を見るために使う。`toContain` を並べる形では順不同になり、
+ * 問い合わせから `orderBy` が落ちても緑のまま通る（Issue #128）。
+ *
+ * ページ全体から拾うため、`<ul>` が2つ以上あるページでは別の一覧の項目まで
+ * 混ざる。混ざれば期待する配列と一致せず赤くなるので、黙って別の一覧を
+ * 見ていることにはならない。
+ *
+ * ただし `<ul>` が入れ子になったページ（`app/page.tsx`）には使えない。
+ * 外側の `<li>` が内側の `</li>` で閉じたことにされ、中身が途中で切れる
+ */
+export function listItemsOf(html: string): string[] {
+  return [...html.matchAll(/<li[^>]*>(.*?)<\/li>/gs)].map((m) => m[1]);
+}

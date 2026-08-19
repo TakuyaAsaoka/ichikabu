@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { entriesOf, idOf, resetDatabase } from "../../../test/helpers";
+import {
+  entriesOf,
+  idOf,
+  listItemsOf,
+  resetDatabase,
+} from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -81,19 +86,22 @@ describe("銘柄の編集画面", () => {
     // このテーマまで並んで件数も増える
     const other = await addStock("6758", "ソニーグループ");
     const id = await addStock();
-    const semiconductor = idOf(await createTheme("半導体"));
+    // 名前順で後になる「防衛」を先に作る。作った順で並べても名前順で並べても
+    // 同じになる題材だと、`orderBy(theme.name)` が落ちても緑のまま通る
     const defense = idOf(await createTheme("防衛"));
+    const semiconductor = idOf(await createTheme("半導体"));
     const unrelated = idOf(await createTheme("旅行"));
-    entriesOf(await createThemeStock(Number(semiconductor), Number(id)));
     entriesOf(await createThemeStock(Number(defense), Number(id)));
+    entriesOf(await createThemeStock(Number(semiconductor), Number(id)));
     entriesOf(await createThemeStock(Number(unrelated), Number(other)));
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(html).toContain(">半導体</li>");
-    expect(html).toContain(">防衛</li>");
-    expect(html).not.toContain(">旅行</li>");
-    expect(html).not.toContain("所属しているテーマなし");
+    // 「半導体」「防衛」は、DBの照合順序がどれでも前後が入れ替わらない2語を
+    // 選んでいる（開発用DBが持つ 879 件を総当たりして、逆になるものが0件）。
+    // `theme.name` 順は五十音順ではないため、「宇宙」「旅行」のように照合順序で
+    // 前後が動く語をここへ足すと、実装が正しくても赤くなる
+    expect(listItemsOf(html)).toEqual(["半導体", "防衛"]);
     expect(html).toContain(
       'data-confirm="「トヨタ自動車」を削除する。所属しているテーマ2件も外れる。取り消せない。"',
     );
@@ -104,7 +112,7 @@ describe("銘柄の編集画面", () => {
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(html).toContain("所属しているテーマなし");
+    expect(listItemsOf(html)).toEqual(["所属しているテーマなし"]);
     expect(html).toContain(
       'data-confirm="「トヨタ自動車」を削除する。取り消せない。"',
     );
