@@ -372,6 +372,19 @@ describe("管理画面に共通の約束", () => {
     },
   );
 
+  it("監査ログのリンク名も、着いた先の見出しと同じ", async () => {
+    // 監査ログのリンクは管理者にだけ出すため `LINKS` の外にある。
+    // 上の繰り返しから漏れるので、5本目としてここで見る。
+    // リンクは入力者に出さないので、リンクの側も管理者で開く
+    await signIn(ADMIN);
+
+    const linkSource = await render(Home);
+    const destination = await render(Audit);
+
+    expect(headingOf(destination)).toBeTruthy();
+    expect(navLabelOf(linkSource, "/audit")).toBe(headingOf(destination));
+  });
+
   it.each(GUARDED.filter((screen) => !screen.adminOnly))(
     "$dir は入力者に監査ログへの行き先を出さない",
     async ({ open }) => {
