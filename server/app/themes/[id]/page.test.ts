@@ -1,0 +1,100 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { WriteResult } from "../../../src/db/write";
+import { entriesOf, resetDatabase } from "../../../test/helpers";
+import { PASSWORD, render, signInAs } from "../../../test/render-page";
+
+const EDITOR = "editor@example.com";
+
+const requestHeaders = { current: new Headers() };
+vi.mock("next/headers", () => ({
+  headers: async () => requestHeaders.current,
+}));
+
+const { auth } = await import("../../../src/auth");
+const { seedUser } = await import("../../../src/db/seed-user");
+const { createStock, createTheme, createThemeStock } = await import(
+  "../../../src/db/write"
+);
+const { default: Page } = await import("./page");
+
+/** 作った行のIDを返す。書き込みが失敗したらそこで落とす */
+function idOf(result: WriteResult): string {
+  return entriesOf(result)[0].resourceId;
+}
+
+/** 追い返し・見出し・見つからない扱いは `test/pages.test.ts` の表が見ている */
+beforeEach(async () => {
+  await resetDatabase();
+  await seedUser(EDITOR, PASSWORD);
+  requestHeaders.current = await signInAs(auth.handler, EDITOR);
+});
+
+describe("テーマの編集画面", () => {
+  it("登録済みのテーマ名が、入力欄の初期値として出る", async () => {
+    const id = idOf(await createTheme("半導体"));
+
+    const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+
+    // 更新先のID。ここが抜けると、更新のつもりで別の行を書き換える。
+    // 削除のフォームにも同じ `name="id"` が入るため、最初の <form>（更新）に絞る。
+    // 絞らないと、更新のフォームから消しても削除のフォームの分で緑のまま通る（実測）
+    expect(html.split("</form>")[0]).toContain(`name="id" value="${id}"`);
+    expect(html).toContain('name="name" value="半導体"');
+  });
+
+  it("所属している銘柄の一覧と、その件数を出した確認の文が出る", async () => {
+    // テーマを消すと所属も一緒に消える。何が外れるかを画面と確認の両方に出す。
+    // 別のテーマに付いた銘柄を1件混ぜる。問い合わせの絞り込みが落ちたら、
+    // この銘柄まで並んで件数も増える
+    const id = idOf(await createTheme("半導体"));
+    const other = idOf(await createTheme("旅行"));
+    const toyota = idOf(
+      await createStock({
+        market: "JP",
+        ticker: "7203",
+        name: "トヨタ自動車",
+        fiscalMonth: 3,
+      }),
+    );
+    const sony = idOf(
+      await createStock({
+        market: "JP",
+        ticker: "6758",
+        name: "ソニーグループ",
+        fiscalMonth: 3,
+      }),
+    );
+    const ana = idOf(
+      await createStock({
+        market: "JP",
+        ticker: "9202",
+        name: "ANAホールディングス",
+        fiscalMonth: 3,
+      }),
+    );
+    entriesOf(await createThemeStock(Number(id), Number(toyota)));
+    entriesOf(await createThemeStock(Number(id), Number(sony)));
+    entriesOf(await createThemeStock(Number(other), Number(ana)));
+
+    const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+
+    expect(html).toContain(">JP 7203 トヨタ自動車</li>");
+    expect(html).toContain(">JP 6758 ソニーグループ</li>");
+    expect(html).not.toContain("ANAホールディングス");
+    expect(html).not.toContain("所属している銘柄なし");
+    expect(html).toContain(
+      'data-confirm="「半導体」を削除する。所属している銘柄2件も外れる。取り消せない。"',
+    );
+  });
+
+  it("所属している銘柄が無いときは、確認の文に外れる件数を出さない", async () => {
+    const id = idOf(await createTheme("半導体"));
+
+    const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+
+    expect(html).toContain("所属している銘柄なし");
+    expect(html).toContain(
+      'data-confirm="「半導体」を削除する。取り消せない。"',
+    );
+  });
+});
