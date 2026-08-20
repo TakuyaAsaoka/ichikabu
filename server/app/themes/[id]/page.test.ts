@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  entriesOf,
-  idOf,
-  listItemsOf,
-  resetDatabase,
-} from "../../../test/helpers";
+import { htmlOf } from "../../../test/dom";
+import { entriesOf, idOf, resetDatabase } from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -88,7 +84,7 @@ describe("テーマの編集画面", () => {
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(listItemsOf(html)).toEqual([
+    expect(htmlOf(html, "li")).toEqual([
       "JP 6758 ソニーグループ",
       "JP 7203 トヨタ自動車",
       "US AAPL Apple",
@@ -103,7 +99,7 @@ describe("テーマの編集画面", () => {
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(listItemsOf(html)).toEqual(["所属している銘柄なし"]);
+    expect(htmlOf(html, "li")).toEqual(["所属している銘柄なし"]);
     expect(html).toContain(
       'data-confirm="「半導体」を削除する。取り消せない。"',
     );

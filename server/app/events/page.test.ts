@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { entriesOf, idOf, listItemsOf, resetDatabase } from "../../test/helpers";
+import { htmlOf } from "../../test/dom";
+import { entriesOf, idOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
 
 const ADMIN = "admin@example.com";
@@ -13,7 +14,7 @@ vi.mock("next/headers", () => ({
 const { auth } = await import("../../src/auth");
 const { record } = await import("../../src/db/audit");
 const { seedUser } = await import("../../src/db/seed-user");
-const { createEvent, createTheme, updateEvent } = await import(
+const { createEvent, createStock, createTheme, updateEvent } = await import(
   "../../src/db/write"
 );
 const { default: Page } = await import("./page");
@@ -43,6 +44,11 @@ async function addEvent(shortLabel: string, startDate?: string) {
   return createEvent(toInput(shortLabel, startDate));
 }
 
+/** 銘柄を1件作る */
+async function addStock(ticker: string, name: string) {
+  return createStock({ market: "JP", ticker, name, fiscalMonth: 3 });
+}
+
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {
   requestHeaders.current = await signInAs(auth.handler, email);
@@ -69,9 +75,33 @@ describe("イベントの画面", () => {
 
     const html = await render(Page);
 
-    expect(listItemsOf(html)).toEqual([
+    expect(htmlOf(html, "li")).toEqual([
       `2026-08-01 ★3 雇用統計<span class="text-muted"> / JP / 雇用統計の発表 / 出典: 表示名なし / 入力: 記録なし</span> <a class="underline" href="/events/${earlier}">編集</a>`,
       `2026-09-01 ★3 CPI<span class="text-muted"> / JP / CPIの発表 / 出典: 表示名なし / 入力: 記録なし</span> <a class="underline" href="/events/${later}">編集</a>`,
+    ]);
+  });
+
+  it("登録フォームの対象は、テーマ名順・市場ティッカー順に並ぶ", async () => {
+    // テーマと銘柄はこの画面では選択肢にしか出ない。作った順と並び順がずれる
+    // 題材にする。「半導体」「防衛」は、DBの照合順序がどれでも前後が入れ替わらない
+    // 2語（`app/stocks/[id]/page.test.ts` に選んだ経緯がある）
+    await createTheme("防衛");
+    await createTheme("半導体");
+    await addStock("7203", "トヨタ自動車");
+    await addStock("6758", "ソニーグループ");
+    await signIn(EDITOR);
+
+    const html = await render(Page);
+
+    // 対象は1つの `<select>` に市場・テーマ・銘柄をまとめている。
+    // `<optgroup>` で絞ると、問い合わせ1本ぶんの並びだけを見られる
+    expect(htmlOf(html, 'optgroup[label="テーマ"] option')).toEqual([
+      "半導体",
+      "防衛",
+    ]);
+    expect(htmlOf(html, 'optgroup[label="銘柄"] option')).toEqual([
+      "JP 6758 ソニーグループ",
+      "JP 7203 トヨタ自動車",
     ]);
   });
 

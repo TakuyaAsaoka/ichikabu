@@ -48,6 +48,13 @@ async function gapsOf(kind: GapKind, today = TODAY): Promise<string[]> {
   return gaps.filter((gap) => gap.kind === kind).map((gap) => gap.label);
 }
 
+// 銘柄を市場・ティッカー順に並べる2つの検査（この下と「決算月なし」）は、
+// 並び順そのものを比べているが、**`orderBy` を落としても赤くならないことがある。**
+// `stock` には `(market, ticker)` の一意索引があり、PostgreSQL がその索引を
+// たどる計画を選ぶと、`ORDER BY` を書かなくても同じ順で返るため
+// （テスト用DBで `Index Scan using stock_market_ticker_unique` を実測。
+// 表を頭から読む計画のときは作った順で返り、赤くなる）。
+// 索引と同じ順に並べる限り、データの選び方では決められない（Issue #130）
 describe("次の決算日が未登録", () => {
   it("今日以降のイベントが無い銘柄が出る", async () => {
     const id = await addStock();

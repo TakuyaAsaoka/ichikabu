@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventInput } from "../../../src/db/write";
+import { htmlOf } from "../../../test/dom";
 import { idOf, resetDatabase } from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
@@ -96,6 +97,40 @@ describe("イベントの編集画面", () => {
     expect(html).toContain(`<option value="theme:${themeId}" selected="">`);
     expect(html).not.toContain(`<option value="stock:${stockId}" selected="">`);
     expect(html).not.toContain('<option value="market:JP" selected="">');
+  });
+
+  it("対象の選択肢は、テーマ名順・市場ティッカー順に並ぶ", async () => {
+    // テーマと銘柄はこの画面では選択肢にしか出ない。作った順と並び順がずれる
+    // 題材にする。「半導体」「防衛」は、DBの照合順序がどれでも前後が入れ替わらない
+    // 2語（`app/stocks/[id]/page.test.ts` に選んだ経緯がある）
+    await createTheme("防衛");
+    await createTheme("半導体");
+    await createStock({
+      market: "JP",
+      ticker: "7203",
+      name: "トヨタ自動車",
+      fiscalMonth: 3,
+    });
+    await createStock({
+      market: "JP",
+      ticker: "6758",
+      name: "ソニーグループ",
+      fiscalMonth: 3,
+    });
+    const id = await addEvent();
+
+    const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+
+    // 対象は1つの `<select>` に市場・テーマ・銘柄をまとめている。
+    // `<optgroup>` で絞ると、問い合わせ1本ぶんの並びだけを見られる
+    expect(htmlOf(html, 'optgroup[label="テーマ"] option')).toEqual([
+      "半導体",
+      "防衛",
+    ]);
+    expect(htmlOf(html, 'optgroup[label="銘柄"] option')).toEqual([
+      "JP 6758 ソニーグループ",
+      "JP 7203 トヨタ自動車",
+    ]);
   });
 
   it("削除の確認は、消すイベントの題名を出す", async () => {
