@@ -117,6 +117,8 @@ export function noFiscalMonthQuery() {
 export async function findGaps(today: string): Promise<Gap[]> {
   const year = Number(today.slice(0, 4));
 
+  // この2つだけ関数に切り出してあるのは、並び順を `toSQL()` で見るため。
+  // 残り2つは走らせた結果で守れるので切り出さない
   const noNextEarnings = await noNextEarningsQuery(today);
   const noFiscalMonth = await noFiscalMonthQuery();
 
