@@ -68,7 +68,7 @@ DBのコンテナとデータはWorktree間で共有される（compose のプ�
 
 - 複数のWorktreeで同時にテストを流すと互いのデータを消し合う
 - 片方のWorktreeで `db:migrate` すると、共有しているDBのスキーマがもう片方のブランチより先に進む。ブランチを行き来するときは、そのブランチで `db:migrate` を流し直す
-- 片方のWorktreeで `compose.yaml` のイメージを書き換えて `docker compose up -d` すると、共有しているコンテナがそのイメージで作り直される。まだ取り込んでいないWorktreeでは `test/image-tag.test.ts` が赤くなるので、そのブランチで最新の main を取り込む
+- 片方のWorktreeで `server/compose.yaml` のイメージを書き換えて `docker compose up -d` すると、共有しているコンテナがそのイメージで作り直される。まだ書き換えを取り込んでいないWorktreeでは `server/test/image-tag.test.ts` が赤くなる。書き換えたブランチがマージされるまでは赤いままで想定どおり。マージ後は、そのブランチで最新の main を取り込めば直る
 
 ## 配信先
 
