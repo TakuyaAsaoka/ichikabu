@@ -4,7 +4,11 @@
 # pg_dump で足りる。
 services:
   db:
-    image: postgres:18
+    # ダイジェストまで書く。同じ 18.4 でも土台の debian:trixie-slim が上がると
+    # 中の libc6 が変わり、日本語の並び順（照合順序）がコードを変えずに動く。
+    # 上げるときは両方を書き換える。ダイジェストは次で取れる
+    #   docker buildx imagetools inspect postgres:<版> --format '{{.Manifest.Digest}}'
+    image: postgres:18.4@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ichikabu
