@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { entriesOf, resetDatabase } from "../../test/helpers";
+import { entriesOf, idOf, listItemsOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
 
 const ADMIN = "admin@example.com";
@@ -21,11 +21,11 @@ const { default: Page } = await import("./page");
 type EventInput = Parameters<typeof createEvent>[0];
 
 /** 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める（全体設計書 §5） */
-function toInput(shortLabel: string): EventInput {
+function toInput(shortLabel: string, startDate = "2026-09-01"): EventInput {
   return {
     title: `${shortLabel}の発表`,
     shortLabel,
-    startDate: "2026-09-01",
+    startDate,
     endDate: null,
     time: null,
     importance: 3,
@@ -39,8 +39,8 @@ function toInput(shortLabel: string): EventInput {
 }
 
 /** イベントを1件作る */
-async function addEvent(shortLabel: string) {
-  return createEvent(toInput(shortLabel));
+async function addEvent(shortLabel: string, startDate?: string) {
+  return createEvent(toInput(shortLabel, startDate));
 }
 
 /** サインインして、以降の描画がそのセッションで動くようにする */
@@ -60,6 +60,21 @@ beforeEach(async () => {
 // 追い返しと `Nav` の出し分けは `test/pages.test.ts` の表が全画面ぶん見ている。
 // ここに置くのは、この画面にしか無い「入れた人」の出し方だけにする
 describe("イベントの画面", () => {
+  it("イベント一覧は開始日順に並ぶ", async () => {
+    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
+    // `orderBy(event.startDate)` が落ちても緑のまま通る
+    const later = idOf(await addEvent("CPI", "2026-09-01"));
+    const earlier = idOf(await addEvent("雇用統計", "2026-08-01"));
+    await signIn(EDITOR);
+
+    const html = await render(Page);
+
+    expect(listItemsOf(html)).toEqual([
+      `2026-08-01 ★3 雇用統計<span class="text-muted"> / JP / 雇用統計の発表 / 出典: 表示名なし / 入力: 記録なし</span> <a class="underline" href="/events/${earlier}">編集</a>`,
+      `2026-09-01 ★3 CPI<span class="text-muted"> / JP / CPIの発表 / 出典: 表示名なし / 入力: 記録なし</span> <a class="underline" href="/events/${later}">編集</a>`,
+    ]);
+  });
+
   it("入れた人が名前で出る", async () => {
     await record(userIds.editor, entriesOf(await addEvent("CPI")));
     await signIn(EDITOR);

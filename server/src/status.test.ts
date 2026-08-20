@@ -59,7 +59,14 @@ describe("次の決算日が未登録", () => {
       startDate: `${LAST_YEAR - 2}-05-01`,
     });
 
+    // ティッカーが先になる 6758 を後から作る。作った順と市場・ティッカー順が
+    // 同じ題材だと、`orderBy` が落ちても緑のまま通る。
+    // JP は数字・US は英字で数字が先に来るため、US を混ぜても第1のキーが
+    // 市場であることは見られない（`app/themes/[id]/page.test.ts` と同じ）
+    await addStock({ ticker: "6758", name: "ソニーグループ" });
+
     expect(await gapsOf("nextEarnings", `${LAST_YEAR - 1}-06-02`)).toEqual([
+      "JP 6758 ソニーグループ",
       "JP 7203 トヨタ自動車",
     ]);
   });
@@ -82,10 +89,20 @@ describe("次の決算日が未登録", () => {
 });
 
 describe("決算月なし", () => {
-  it("決算月が空のJP銘柄が出る", async () => {
+  it("決算月が空のJP銘柄が、ティッカー順に出る", async () => {
     await addStock({ fiscalMonth: null });
+    // ティッカーが先になる 6758 を後から作る。作った順とティッカー順が同じ
+    // 題材だと、`orderBy` が落ちても緑のまま通る
+    await addStock({
+      ticker: "6758",
+      name: "ソニーグループ",
+      fiscalMonth: null,
+    });
 
-    expect(await gapsOf("fiscalMonth")).toEqual(["JP 7203 トヨタ自動車"]);
+    expect(await gapsOf("fiscalMonth")).toEqual([
+      "JP 6758 ソニーグループ",
+      "JP 7203 トヨタ自動車",
+    ]);
   });
 
   it("決算月が入っていれば出ない。US銘柄は決算月が空でも出ない", async () => {
@@ -104,13 +121,21 @@ describe("決算月なし", () => {
 });
 
 describe("出典の表示名なし", () => {
-  it("出典URLはあるが表示名が無い行が出る", async () => {
+  it("出典URLはあるが表示名が無い行が、開始日順に出る", async () => {
     await addEvent({
       title: "消費者物価指数（2027年1月分）",
       sourceUrl: "https://www.stat.go.jp/data/cpi/",
     });
+    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
+    // `orderBy` が落ちても緑のまま通る
+    await addEvent({
+      title: "消費者物価指数（2026年12月分）",
+      startDate: `${LAST_YEAR}-01-23`,
+      sourceUrl: "https://www.stat.go.jp/data/cpi/",
+    });
 
     expect(await gapsOf("sourceName")).toEqual([
+      `${LAST_YEAR}-01-23 消費者物価指数（2026年12月分）`,
       `${LAST_YEAR}-05-01 消費者物価指数（2027年1月分）`,
     ]);
   });
@@ -127,14 +152,22 @@ describe("出典の表示名なし", () => {
 });
 
 describe("過ぎた非アクティブ", () => {
-  it("非アクティブのまま日付が過ぎた行が出る", async () => {
+  it("非アクティブのまま日付が過ぎた行が、開始日順に出る", async () => {
     await addEvent({
       title: "消費者物価指数（2026年1月分）",
       startDate: `${LAST_YEAR - 2}-01-23`,
       active: false,
     });
+    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
+    // `orderBy` が落ちても緑のまま通る
+    await addEvent({
+      title: "消費者物価指数（2025年12月分）",
+      startDate: `${LAST_YEAR - 3}-01-23`,
+      active: false,
+    });
 
     expect(await gapsOf("pastInactive")).toEqual([
+      `${LAST_YEAR - 3}-01-23 消費者物価指数（2025年12月分）`,
       `${LAST_YEAR - 2}-01-23 消費者物価指数（2026年1月分）`,
     ]);
   });
