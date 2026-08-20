@@ -16,7 +16,7 @@ import { JSDOM } from "jsdom";
  * 返すのは `textContent` ではなく `innerHTML`。`textContent` はタグを落とすため、
  * 行から編集ページへのリンクが消えて、一覧の検出力が1段落ちる。
  *
- * `jsdom` はここでしか読み込まない。多くのテストが読む `test/helpers.ts` に
+ * `jsdom` を `import` するのはここだけにする。多くのテストが読む `test/helpers.ts` に
  * 置くと、DOMを見ないテストまで jsdom を読むことになる
  * （21ファイルに読ませた実測で、読み込みが 9.6秒 → 20.4秒）
  */

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { htmlOf } from "../../test/dom";
-import { entriesOf, idOf, resetDatabase } from "../../test/helpers";
+import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
 
 const ADMIN = "admin@example.com";
@@ -67,18 +67,29 @@ beforeEach(async () => {
 // ここに置くのは、この画面にしか無い「入れた人」の出し方だけにする
 describe("イベントの画面", () => {
   it("イベント一覧は開始日順に並ぶ", async () => {
-    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
-    // `orderBy(event.startDate)` が落ちても緑のまま通る
-    const later = idOf(await addEvent("CPI", "2026-09-01"));
-    const earlier = idOf(await addEvent("雇用統計", "2026-08-01"));
+    // 作った順と開始日順がずれる題材にする。同じだと `orderBy(event.startDate)`
+    // が落ちても緑のまま通る。
+    // 4件入れるのは、2件だと落としたときも順番が合ってしまうことがあるため。
+    // 一覧の問い合わせはテーマと銘柄を外部結合しており、`ORDER BY` が無いと
+    // 結合の作りが返す順（作った順でも開始日順でもない）になる。
+    // 2件だとその順がたまたま開始日順と一致した（実測）
+    for (const [shortLabel, startDate] of [
+      ["CPI", "2026-09-01"],
+      ["雇用統計", "2026-08-01"],
+      ["日銀会合", "2026-12-01"],
+      ["GDP", "2026-07-01"],
+    ]) {
+      await addEvent(shortLabel, startDate);
+    }
     await signIn(EDITOR);
 
     const html = await render(Page);
 
-    expect(htmlOf(html, "li")).toEqual([
-      `2026-08-01 ★3 雇用統計<span class="text-muted"> / JP / 雇用統計の発表 / 出典: 表示名なし / 入力: 記録なし</span> <a class="underline" href="/events/${earlier}">編集</a>`,
-      `2026-09-01 ★3 CPI<span class="text-muted"> / JP / CPIの発表 / 出典: 表示名なし / 入力: 記録なし</span> <a class="underline" href="/events/${later}">編集</a>`,
-    ]);
+    // 行の先頭は開始日。ここで見たいのは並び順だけなので先頭だけを比べる。
+    // 行の中身は、この下の「入れた人が名前で出る」以降が見ている
+    expect(
+      htmlOf(html, "li").map((row) => row.slice(0, "2026-08-01".length)),
+    ).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-12-01"]);
   });
 
   it("登録フォームの対象は、テーマ名順・市場ティッカー順に並ぶ", async () => {

@@ -3,7 +3,13 @@ import { resetDatabase } from "../test/helpers";
 import { db } from "./db";
 import { event, stock } from "./db/schema";
 import { RIGHTS_YEARS } from "./rights";
-import { findGaps, type GapKind, jstToday } from "./status";
+import {
+  findGaps,
+  type GapKind,
+  jstToday,
+  noFiscalMonthQuery,
+  noNextEarningsQuery,
+} from "./status";
 
 beforeEach(resetDatabase);
 
@@ -48,13 +54,27 @@ async function gapsOf(kind: GapKind, today = TODAY): Promise<string[]> {
   return gaps.filter((gap) => gap.kind === kind).map((gap) => gap.label);
 }
 
-// 銘柄を市場・ティッカー順に並べる2つの検査（この下と「決算月なし」）は、
-// 並び順そのものを比べているが、**`orderBy` を落としても赤くならないことがある。**
+// 銘柄を並べる2つの問い合わせは、**走らせた結果では並び順を守れない。**
 // `stock` には `(market, ticker)` の一意索引があり、PostgreSQL がその索引を
-// たどる計画を選ぶと、`ORDER BY` を書かなくても同じ順で返るため
-// （テスト用DBで `Index Scan using stock_market_ticker_unique` を実測。
-// 表を頭から読む計画のときは作った順で返り、赤くなる）。
-// 索引と同じ順に並べる限り、データの選び方では決められない（Issue #130）
+// たどる計画を選ぶと、`ORDER BY` を書かなくても同じ順で返る（テスト用DBで
+// `Index Scan using stock_market_ticker_unique` を実測）。索引と同じ順に
+// 並べる以上、どんなデータを選んでも消したことに気づけない。
+// そこで問い合わせ文そのものを見る（`src/db/audit.test.ts` の
+// 「並び順は created_at と id の両方で決める」と同じ手。Issue #130）
+describe("銘柄の並び順", () => {
+  it("次の決算日が未登録は、市場・ティッカー順に並べる", () => {
+    expect(noNextEarningsQuery(TODAY).toSQL().sql).toContain(
+      'order by "stock"."market", "stock"."ticker"',
+    );
+  });
+
+  it("決算月なしは、ティッカー順に並べる", () => {
+    expect(noFiscalMonthQuery().toSQL().sql).toContain(
+      'order by "stock"."ticker"',
+    );
+  });
+});
+
 describe("次の決算日が未登録", () => {
   it("今日以降のイベントが無い銘柄が出る", async () => {
     const id = await addStock();
