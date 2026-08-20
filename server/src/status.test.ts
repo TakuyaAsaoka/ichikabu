@@ -3,7 +3,13 @@ import { resetDatabase } from "../test/helpers";
 import { db } from "./db";
 import { event, stock } from "./db/schema";
 import { RIGHTS_YEARS } from "./rights";
-import { findGaps, type GapKind, jstToday } from "./status";
+import {
+  findGaps,
+  type GapKind,
+  jstToday,
+  noFiscalMonthQuery,
+  noNextEarningsQuery,
+} from "./status";
 
 beforeEach(resetDatabase);
 
@@ -48,6 +54,27 @@ async function gapsOf(kind: GapKind, today = TODAY): Promise<string[]> {
   return gaps.filter((gap) => gap.kind === kind).map((gap) => gap.label);
 }
 
+// 銘柄を並べる2つの問い合わせは、**走らせた結果では並び順を守れない。**
+// `stock` には `(market, ticker)` の一意索引があり、PostgreSQL がその索引を
+// たどる計画を選ぶと、`ORDER BY` を書かなくても同じ順で返る（テスト用DBで
+// `Index Scan using stock_market_ticker_unique` を実測）。索引と同じ順に
+// 並べる以上、どんなデータを選んでも消したことに気づけない。
+// そこで問い合わせ文そのものを見る（`src/db/audit.test.ts` の
+// 「並び順は created_at と id の両方で決める」と同じ手。Issue #130）
+describe("銘柄の並び順", () => {
+  it("次の決算日が未登録は、市場・ティッカー順に並べる", () => {
+    expect(noNextEarningsQuery(TODAY).toSQL().sql).toContain(
+      'order by "stock"."market", "stock"."ticker"',
+    );
+  });
+
+  it("決算月なしは、ティッカー順に並べる", () => {
+    expect(noFiscalMonthQuery().toSQL().sql).toContain(
+      'order by "stock"."ticker"',
+    );
+  });
+});
+
 describe("次の決算日が未登録", () => {
   it("今日以降のイベントが無い銘柄が出る", async () => {
     const id = await addStock();
@@ -59,7 +86,14 @@ describe("次の決算日が未登録", () => {
       startDate: `${LAST_YEAR - 2}-05-01`,
     });
 
+    // ティッカーが先になる 6758 を後から作る。作った順と市場・ティッカー順が
+    // 同じ題材だと、`orderBy` が落ちても緑のまま通る。
+    // JP は数字・US は英字で数字が先に来るため、US を混ぜても第1のキーが
+    // 市場であることは見られない（`app/themes/[id]/page.test.ts` と同じ）
+    await addStock({ ticker: "6758", name: "ソニーグループ" });
+
     expect(await gapsOf("nextEarnings", `${LAST_YEAR - 1}-06-02`)).toEqual([
+      "JP 6758 ソニーグループ",
       "JP 7203 トヨタ自動車",
     ]);
   });
@@ -82,10 +116,20 @@ describe("次の決算日が未登録", () => {
 });
 
 describe("決算月なし", () => {
-  it("決算月が空のJP銘柄が出る", async () => {
+  it("決算月が空のJP銘柄が、ティッカー順に出る", async () => {
     await addStock({ fiscalMonth: null });
+    // ティッカーが先になる 6758 を後から作る。作った順とティッカー順が同じ
+    // 題材だと、`orderBy` が落ちても緑のまま通る
+    await addStock({
+      ticker: "6758",
+      name: "ソニーグループ",
+      fiscalMonth: null,
+    });
 
-    expect(await gapsOf("fiscalMonth")).toEqual(["JP 7203 トヨタ自動車"]);
+    expect(await gapsOf("fiscalMonth")).toEqual([
+      "JP 6758 ソニーグループ",
+      "JP 7203 トヨタ自動車",
+    ]);
   });
 
   it("決算月が入っていれば出ない。US銘柄は決算月が空でも出ない", async () => {
@@ -104,13 +148,21 @@ describe("決算月なし", () => {
 });
 
 describe("出典の表示名なし", () => {
-  it("出典URLはあるが表示名が無い行が出る", async () => {
+  it("出典URLはあるが表示名が無い行が、開始日順に出る", async () => {
     await addEvent({
       title: "消費者物価指数（2027年1月分）",
       sourceUrl: "https://www.stat.go.jp/data/cpi/",
     });
+    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
+    // `orderBy` が落ちても緑のまま通る
+    await addEvent({
+      title: "消費者物価指数（2026年12月分）",
+      startDate: `${LAST_YEAR}-01-23`,
+      sourceUrl: "https://www.stat.go.jp/data/cpi/",
+    });
 
     expect(await gapsOf("sourceName")).toEqual([
+      `${LAST_YEAR}-01-23 消費者物価指数（2026年12月分）`,
       `${LAST_YEAR}-05-01 消費者物価指数（2027年1月分）`,
     ]);
   });
@@ -127,14 +179,22 @@ describe("出典の表示名なし", () => {
 });
 
 describe("過ぎた非アクティブ", () => {
-  it("非アクティブのまま日付が過ぎた行が出る", async () => {
+  it("非アクティブのまま日付が過ぎた行が、開始日順に出る", async () => {
     await addEvent({
       title: "消費者物価指数（2026年1月分）",
       startDate: `${LAST_YEAR - 2}-01-23`,
       active: false,
     });
+    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
+    // `orderBy` が落ちても緑のまま通る
+    await addEvent({
+      title: "消費者物価指数（2025年12月分）",
+      startDate: `${LAST_YEAR - 3}-01-23`,
+      active: false,
+    });
 
     expect(await gapsOf("pastInactive")).toEqual([
+      `${LAST_YEAR - 3}-01-23 消費者物価指数（2025年12月分）`,
       `${LAST_YEAR - 2}-01-23 消費者物価指数（2026年1月分）`,
     ]);
   });

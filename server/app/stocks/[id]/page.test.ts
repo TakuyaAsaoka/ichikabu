@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  entriesOf,
-  idOf,
-  listItemsOf,
-  resetDatabase,
-} from "../../../test/helpers";
+import { htmlOf } from "../../../test/dom";
+import { entriesOf, idOf, resetDatabase } from "../../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 
 const EDITOR = "editor@example.com";
@@ -101,7 +97,7 @@ describe("銘柄の編集画面", () => {
     // 選んでいる（開発用DBが持つ 879 件を総当たりして、逆になるものが0件）。
     // `theme.name` 順は五十音順ではないため、「宇宙」「旅行」のように照合順序で
     // 前後が動く語をここへ足すと、実装が正しくても赤くなる
-    expect(listItemsOf(html)).toEqual(["半導体", "防衛"]);
+    expect(htmlOf(html, "li")).toEqual(["半導体", "防衛"]);
     expect(html).toContain(
       'data-confirm="「トヨタ自動車」を削除する。所属しているテーマ2件も外れる。取り消せない。"',
     );
@@ -112,7 +108,7 @@ describe("銘柄の編集画面", () => {
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
-    expect(listItemsOf(html)).toEqual(["所属しているテーマなし"]);
+    expect(htmlOf(html, "li")).toEqual(["所属しているテーマなし"]);
     expect(html).toContain(
       'data-confirm="「トヨタ自動車」を削除する。取り消せない。"',
     );

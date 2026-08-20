@@ -58,18 +58,18 @@ export const jstToday = (now: Date): string =>
   now.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
 /**
- * 抜けを全部集める。`today` は日本時間の暦日（`YYYY-MM-DD`）。
+ * 銘柄を対象にした、今日以降のイベントが1件も無い銘柄。
+ * イベントに種別の列は無いため、対象が自分の銘柄で日付が未来のものを決算とみなす
+ * （状態画面 設計書 §2）。
  *
- * 今日を引数で受け取る。中で時計を読むと、日をまたいだ瞬間に結果が変わる判定を
- * テストから固定できない
+ * 組み立てだけを切り出してあるのは、**テストから並び順を確かめるため**
+ * （`src/db/audit.ts` の `recentQuery` と同じ理由）。走らせた結果では
+ * `orderBy` を守れない。`stock` には `(market, ticker)` の一意索引があり、
+ * PostgreSQL がその索引をたどる計画を選ぶと `ORDER BY` を書かなくても
+ * 同じ順で返るため、消しても緑のまま通ることがある（実測）
  */
-export async function findGaps(today: string): Promise<Gap[]> {
-  const year = Number(today.slice(0, 4));
-
-  // 銘柄を対象にした、今日以降のイベントが1件も無い銘柄。
-  // イベントに種別の列は無いため、対象が自分の銘柄で日付が未来のものを決算とみなす
-  // （状態画面 設計書 §2）
-  const noNextEarnings = await db
+export function noNextEarningsQuery(today: string) {
+  return db
     .select({
       id: stock.id,
       market: stock.market,
@@ -91,15 +91,36 @@ export async function findGaps(today: string): Promise<Gap[]> {
       ),
     )
     .orderBy(stock.market, stock.ticker);
+}
 
-  // 決算月が無いJP銘柄。権利付最終日が計算されず、カレンダーに出ない
-  // （`app/api/events/route.ts` の `rightsEvents`）。
-  // US銘柄に決算月は入らない（CHECK 制約 `stock_fiscal_month_market_check`）
-  const noFiscalMonth = await db
+/**
+ * 決算月が無いJP銘柄。権利付最終日が計算されず、カレンダーに出ない
+ * （`app/api/events/route.ts` の `rightsEvents`）。
+ * US銘柄に決算月は入らない（CHECK 制約 `stock_fiscal_month_market_check`）。
+ *
+ * 切り出してある理由は `noNextEarningsQuery` と同じ
+ */
+export function noFiscalMonthQuery() {
+  return db
     .select({ id: stock.id, ticker: stock.ticker, name: stock.name })
     .from(stock)
     .where(and(eq(stock.market, "JP"), isNull(stock.fiscalMonth)))
     .orderBy(stock.ticker);
+}
+
+/**
+ * 抜けを全部集める。`today` は日本時間の暦日（`YYYY-MM-DD`）。
+ *
+ * 今日を引数で受け取る。中で時計を読むと、日をまたいだ瞬間に結果が変わる判定を
+ * テストから固定できない
+ */
+export async function findGaps(today: string): Promise<Gap[]> {
+  const year = Number(today.slice(0, 4));
+
+  // この2つだけ関数に切り出してあるのは、並び順を `toSQL()` で見るため。
+  // 残り2つは走らせた結果で守れるので切り出さない
+  const noNextEarnings = await noNextEarningsQuery(today);
+  const noFiscalMonth = await noFiscalMonthQuery();
 
   // 出典URLはあるが表示名が無い行。出典の記載を条件とする出典では規約の条件を
   // 満たさず、`GET /events` が出典を返さない（出典表示 設計書 §3.1）。

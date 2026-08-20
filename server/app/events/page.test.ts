@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { htmlOf } from "../../test/dom";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
 
@@ -13,7 +14,7 @@ vi.mock("next/headers", () => ({
 const { auth } = await import("../../src/auth");
 const { record } = await import("../../src/db/audit");
 const { seedUser } = await import("../../src/db/seed-user");
-const { createEvent, createTheme, updateEvent } = await import(
+const { createEvent, createStock, createTheme, updateEvent } = await import(
   "../../src/db/write"
 );
 const { default: Page } = await import("./page");
@@ -21,11 +22,11 @@ const { default: Page } = await import("./page");
 type EventInput = Parameters<typeof createEvent>[0];
 
 /** 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める（全体設計書 §5） */
-function toInput(shortLabel: string): EventInput {
+function toInput(shortLabel: string, startDate = "2026-09-01"): EventInput {
   return {
     title: `${shortLabel}の発表`,
     shortLabel,
-    startDate: "2026-09-01",
+    startDate,
     endDate: null,
     time: null,
     importance: 3,
@@ -39,8 +40,13 @@ function toInput(shortLabel: string): EventInput {
 }
 
 /** イベントを1件作る */
-async function addEvent(shortLabel: string) {
-  return createEvent(toInput(shortLabel));
+async function addEvent(shortLabel: string, startDate?: string) {
+  return createEvent(toInput(shortLabel, startDate));
+}
+
+/** 銘柄を1件作る */
+async function addStock(ticker: string, name: string) {
+  return createStock({ market: "JP", ticker, name, fiscalMonth: 3 });
 }
 
 /** サインインして、以降の描画がそのセッションで動くようにする */
@@ -60,6 +66,56 @@ beforeEach(async () => {
 // 追い返しと `Nav` の出し分けは `test/pages.test.ts` の表が全画面ぶん見ている。
 // ここに置くのは、この画面にしか無い「入れた人」の出し方だけにする
 describe("イベントの画面", () => {
+  it("イベント一覧は開始日順に並ぶ", async () => {
+    // 作った順と開始日順がずれる題材にする。同じだと `orderBy(event.startDate)`
+    // が落ちても緑のまま通る。
+    // 4件入れるのは、2件だと落としたときも順番が合ってしまうことがあるため。
+    // 一覧の問い合わせはテーマと銘柄を外部結合しており、`ORDER BY` が無いと
+    // 結合の作りが返す順（作った順でも開始日順でもない）になる。
+    // 2件だとその順がたまたま開始日順と一致した（実測）
+    for (const [shortLabel, startDate] of [
+      ["CPI", "2026-09-01"],
+      ["雇用統計", "2026-08-01"],
+      ["日銀会合", "2026-12-01"],
+      ["GDP", "2026-07-01"],
+    ]) {
+      await addEvent(shortLabel, startDate);
+    }
+    await signIn(EDITOR);
+
+    const html = await render(Page);
+
+    // 行の先頭は開始日。ここで見たいのは並び順だけなので先頭だけを比べる。
+    // 行の中身は、この下の「入れた人が名前で出る」以降が見ている
+    expect(
+      htmlOf(html, "li").map((row) => row.slice(0, "2026-08-01".length)),
+    ).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-12-01"]);
+  });
+
+  it("登録フォームの対象は、テーマ名順・市場ティッカー順に並ぶ", async () => {
+    // テーマと銘柄はこの画面では選択肢にしか出ない。作った順と並び順がずれる
+    // 題材にする。「半導体」「防衛」は、DBの照合順序がどれでも前後が入れ替わらない
+    // 2語（`app/stocks/[id]/page.test.ts` に選んだ経緯がある）
+    await createTheme("防衛");
+    await createTheme("半導体");
+    await addStock("7203", "トヨタ自動車");
+    await addStock("6758", "ソニーグループ");
+    await signIn(EDITOR);
+
+    const html = await render(Page);
+
+    // 対象は1つの `<select>` に市場・テーマ・銘柄をまとめている。
+    // `<optgroup>` で絞ると、問い合わせ1本ぶんの並びだけを見られる
+    expect(htmlOf(html, 'optgroup[label="テーマ"] option')).toEqual([
+      "半導体",
+      "防衛",
+    ]);
+    expect(htmlOf(html, 'optgroup[label="銘柄"] option')).toEqual([
+      "JP 6758 ソニーグループ",
+      "JP 7203 トヨタ自動車",
+    ]);
+  });
+
   it("入れた人が名前で出る", async () => {
     await record(userIds.editor, entriesOf(await addEvent("CPI")));
     await signIn(EDITOR);
