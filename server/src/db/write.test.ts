@@ -505,8 +505,8 @@ describe("deleteEvent", () => {
  * 銘柄名は、あとで「更新されずに残ったこと」を突き合わせるテストのために
  * 呼ぶ側から渡せるようにしてある（既定値に任せない）
  */
-async function onlyStockId(name?: string): Promise<number> {
-  await createStock(name === undefined ? TOYOTA : stockInput({ name }));
+async function onlyStockId(name = TOYOTA.name): Promise<number> {
+  await createStock(stockInput({ name }));
   const [row] = await db.select({ id: stock.id }).from(stock);
   return row.id;
 }
