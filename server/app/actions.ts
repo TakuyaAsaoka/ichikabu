@@ -62,6 +62,73 @@ async function audited(
 }
 
 /**
+ * FormData を受け取って書き込みを実行する部分。Server Action ごとに違うのはここだけ。
+ *
+ * 失敗を投げずに戻す。`WriteResult` は失敗のとき画面に出す日本語のエラー文
+ * （`src/db/write.ts`）なので、書き込みの前に弾いた入力の誤りも同じ形で返せる
+ * （→ `addEvents`）
+ */
+type Write = (formData: FormData) => Promise<WriteResult>;
+
+/** Server Action の形。`useActionState` が前の状態と FormData を渡す */
+type Action = (
+  previous: string | null,
+  formData: FormData,
+) => Promise<string | null>;
+
+/**
+ * Server Action の外枠を作る。**12本すべてがこれを通る。**
+ *
+ * 寄せる前は12本が同じ外枠を書き写しており、合わせて235行あった（Issue #141）。
+ * 書き写す形だと、新しい Server Action を1本足すときに `audited` や
+ * `revalidatePath` を書き忘れてもエラーにならず、記録の残らない書き込みや
+ * 画面に出ない更新が黙って1本増える。
+ *
+ * **`app/guard.ts` へは出せない。** ここは書き込み関数を呼ぶ場所で、
+ * `src/db/write-boundary.test.ts` が「書き込み関数を呼べるのは記録を差し込んだ
+ * 2つだけ」を見ている。外へ出すと3つ目の経路として落ちる。あの検査は
+ * うっかり増えた経路を鳴らすためのもので、緩めない。
+ *
+ * @param write 書き込みの中身。Server Action ごとに違うのはここだけ
+ * @param options.adminOnly 管理者だけができる操作（削除）に付ける
+ * @param options.redirectTo 成功したときの行き先。省くとその画面に留まる
+ */
+function action(
+  write: Write,
+  options: { adminOnly?: boolean; redirectTo?: string } = {},
+): Action {
+  return async (_previous, formData) => {
+    // 管理者の判定が要るときだけセッションを丸ごと読む。要らないときに読むと、
+    // 記録に残す利用者IDを取るためだけにメールアドレスまで持ち回ることになる
+    let userId: string;
+    if (options.adminOnly) {
+      const session = await requireSession();
+      const denied = requireAdmin(session);
+      if (denied) {
+        return denied;
+      }
+      userId = session.user.id;
+    } else {
+      userId = await requireUserId();
+    }
+
+    const message = await audited(userId, write(formData));
+    if (message) {
+      return message;
+    }
+
+    // 更新・削除は成功したら一覧に戻す（設計書 §5.3）。編集ページに留まらせると
+    // 「更新した」を出すための状態を別に持つことになる。
+    // redirect() は例外を投げて動くため、revalidatePath() を先に呼ぶ
+    revalidatePath("/");
+    if (options.redirectTo) {
+      redirect(options.redirectTo);
+    }
+    return null;
+  };
+}
+
+/**
  * 決算月の入力を読む。
  * フォームの空欄は FormData で "" になり、そのまま smallint に入れると
  * 制約違反ではない型変換エラーで 500 になる（設計書 §7 A）
@@ -83,250 +150,43 @@ function toStockInput(formData: FormData): StockInput {
   };
 }
 
-/** 銘柄を登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function addStock(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
+/** URL やフォームの隠し欄から来るID。値の妥当性は `src/db/write.ts` の `isId` が見る */
+const idOf = (formData: FormData, name: string): number =>
+  Number(formData.get(name));
 
-  const message = await audited(userId, createStock(toStockInput(formData)));
-  if (message) {
-    return message;
-  }
+// 以下が12本の Server Action。戻り値はどれも失敗したときのエラー文で、
+// `useActionState` の状態になる（画面に出すのは `app/form.tsx` の ActionForm）
 
-  revalidatePath("/");
-  return null;
-}
+/** 銘柄を登録する */
+export const addStock = action((formData) =>
+  createStock(toStockInput(formData)),
+);
 
-/** テーマを登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function addTheme(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
+/** テーマを登録する */
+export const addTheme = action((formData) =>
+  createTheme(String(formData.get("name") ?? "")),
+);
 
-  const message = await audited(
-    userId,
-    createTheme(String(formData.get("name") ?? "")),
-  );
-  if (message) {
-    return message;
-  }
+/** テーマ所属を登録する */
+export const addThemeStock = action((formData) =>
+  createThemeStock(idOf(formData, "themeId"), idOf(formData, "stockId")),
+);
 
-  revalidatePath("/");
-  return null;
-}
-
-/** テーマ所属を登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function addThemeStock(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(
-    userId,
-    createThemeStock(
-      Number(formData.get("themeId")),
-      Number(formData.get("stockId")),
-    ),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  return null;
-}
-
-/** イベントを登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function addEvent(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(userId, createEvent(toEventInput(formData)));
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  return null;
-}
-
-// 更新・削除は成功したら一覧に戻す（設計書 §5.3）。編集ページに留まらせると
-// 「更新した」を出すための状態を別に持つことになる。
-// redirect() は例外を投げて動くため、revalidatePath() を先に呼ぶ
-
-/** 銘柄を更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function editStock(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(
-    userId,
-    updateStock(Number(formData.get("id")), toStockInput(formData)),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  redirect("/");
-}
-
-/** 銘柄を削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function removeStock(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const session = await requireSession();
-  const denied = requireAdmin(session);
-  if (denied) {
-    return denied;
-  }
-
-  const message = await audited(
-    session.user.id,
-    deleteStock(Number(formData.get("id"))),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  redirect("/");
-}
-
-/** テーマを更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function editTheme(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(
-    userId,
-    updateTheme(Number(formData.get("id")), String(formData.get("name") ?? "")),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  redirect("/");
-}
-
-/** テーマを削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function removeTheme(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const session = await requireSession();
-  const denied = requireAdmin(session);
-  if (denied) {
-    return denied;
-  }
-
-  const message = await audited(
-    session.user.id,
-    deleteTheme(Number(formData.get("id"))),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  redirect("/");
-}
-
-/** テーマ所属を外す。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function removeThemeStock(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const session = await requireSession();
-  const denied = requireAdmin(session);
-  if (denied) {
-    return denied;
-  }
-
-  const message = await audited(
-    session.user.id,
-    deleteThemeStock(
-      Number(formData.get("themeId")),
-      Number(formData.get("stockId")),
-    ),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  redirect("/");
-}
-
-/** イベントを更新する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function editEvent(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
-  const message = await audited(
-    userId,
-    updateEvent(Number(formData.get("id")), toEventInput(formData)),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  // イベントの一覧は `/events` にある（Issue #112）。`/` へ戻すと、
-  // 今直したイベントが出ていない画面に着く
-  redirect("/events");
-}
-
-/** イベントを削除する。戻り値は失敗したときのエラー文で、useActionState の状態になる */
-export async function removeEvent(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const session = await requireSession();
-  const denied = requireAdmin(session);
-  if (denied) {
-    return denied;
-  }
-
-  const message = await audited(
-    session.user.id,
-    deleteEvent(Number(formData.get("id"))),
-  );
-  if (message) {
-    return message;
-  }
-
-  revalidatePath("/");
-  // 消したイベントが消えたことは `/events` の一覧でしか確かめられない
-  redirect("/events");
-}
+/** イベントを登録する */
+export const addEvent = action((formData) =>
+  createEvent(toEventInput(formData)),
+);
 
 /**
- * イベントをまとめて登録する。戻り値は失敗したときのエラー文で、useActionState の状態になる。
+ * イベントをまとめて登録する。
  *
  * 対象はティッカーとテーマ名で書くため、IDを引くための対応表をここで読む（設計書 §3）。
- * 行ごとに問い合わせず、2回の読み出しで済ませる
+ * 行ごとに問い合わせず、2回の読み出しで済ませる。
+ *
+ * 貼り付けた行が読めなかったときの文言も、書き込みの失敗と同じ形で返す
+ * （`WriteResult` は失敗のとき日本語のエラー文なので、そのまま戻せる）
  */
-export async function addEvents(
-  _previous: string | null,
-  formData: FormData,
-): Promise<string | null> {
-  const userId = await requireUserId();
-
+export const addEvents = action(async (formData) => {
   const [stocks, themes] = await Promise.all([
     db
       .select({ id: stock.id, market: stock.market, ticker: stock.ticker })
@@ -338,15 +198,56 @@ export async function addEvents(
     stocks,
     themes,
   });
-  if (typeof inputs === "string") {
-    return inputs;
-  }
+  return typeof inputs === "string" ? inputs : createEvents(inputs);
+});
 
-  const message = await audited(userId, createEvents(inputs));
-  if (message) {
-    return message;
-  }
+/** 銘柄を更新する */
+export const editStock = action(
+  (formData) => updateStock(idOf(formData, "id"), toStockInput(formData)),
+  { redirectTo: "/" },
+);
 
-  revalidatePath("/");
-  return null;
-}
+/** テーマを更新する */
+export const editTheme = action(
+  (formData) =>
+    updateTheme(idOf(formData, "id"), String(formData.get("name") ?? "")),
+  { redirectTo: "/" },
+);
+
+/**
+ * イベントを更新する。
+ * 戻す先が `/` ではないのは、イベントの一覧が `/events` にあるため（Issue #112）。
+ * `/` へ戻すと、今直したイベントが出ていない画面に着く
+ */
+export const editEvent = action(
+  (formData) => updateEvent(idOf(formData, "id"), toEventInput(formData)),
+  { redirectTo: "/events" },
+);
+
+/** 銘柄を削除する */
+export const removeStock = action(
+  (formData) => deleteStock(idOf(formData, "id")),
+  { adminOnly: true, redirectTo: "/" },
+);
+
+/** テーマを削除する */
+export const removeTheme = action(
+  (formData) => deleteTheme(idOf(formData, "id")),
+  { adminOnly: true, redirectTo: "/" },
+);
+
+/** テーマ所属を外す */
+export const removeThemeStock = action(
+  (formData) =>
+    deleteThemeStock(idOf(formData, "themeId"), idOf(formData, "stockId")),
+  { adminOnly: true, redirectTo: "/" },
+);
+
+/**
+ * イベントを削除する。
+ * 戻す先が `/events` なのは、消したイベントが消えたことをそこでしか確かめられないため
+ */
+export const removeEvent = action(
+  (formData) => deleteEvent(idOf(formData, "id")),
+  { adminOnly: true, redirectTo: "/events" },
+);
