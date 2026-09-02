@@ -1,6 +1,11 @@
 # Claude Code の作業ディレクトリ（worktree を .claude/worktrees/ 配下に作る運用のため）
 .claude/worktrees/
 
+# 依存の実物。pnpm は server/ の中だけで回すが、最上位から vitest 等を叩くと
+# ここにも node_modules/.vite/ ができる。server/.gitignore だけでは最上位を
+# 覆えないため、こちらにも書く（Issue #140 で実際に1ファイル紛れ込んだ）
+node_modules/
+
 # 実装計画を進めるときの作業メモ（進捗台帳・レビュー用の差分ファイル）
 .superpowers/
 

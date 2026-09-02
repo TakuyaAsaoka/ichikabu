@@ -1,12 +1,10 @@
 import { and, eq } from "drizzle-orm";
-import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "../../../../../src/auth";
+import { notFound } from "next/navigation";
 import { db } from "../../../../../src/db";
 import { stock, theme, themeStock } from "../../../../../src/db/schema";
-import { isId } from "../../../../../src/db/write";
 import { removeThemeStock } from "../../../../actions";
 import { ActionForm } from "../../../../form";
+import { requireId, requireSession } from "../../../../guard";
 import { Nav } from "../../../../nav";
 
 /**
@@ -19,18 +17,12 @@ export default async function Page({
 }: {
   params: Promise<{ id: string; stockId: string }>;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
 
   // 複合主キーなので2列とも判定する（設計書 §4）
   const { id, stockId: rawStockId } = await params;
-  const themeId = Number(id);
-  const stockId = Number(rawStockId);
-  if (!isId(themeId) || !isId(stockId)) {
-    notFound();
-  }
+  const themeId = requireId(id);
+  const stockId = requireId(rawStockId);
 
   const [row] = await db
     .select({

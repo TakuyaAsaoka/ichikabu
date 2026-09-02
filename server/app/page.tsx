@@ -1,11 +1,9 @@
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { stock, theme, themeStock } from "../src/db/schema";
 import { addStock, addTheme } from "./actions";
+import { requireSession } from "./guard";
 import { Nav } from "./nav";
 import { StockForm } from "./stock-form";
 import { ThemeForm } from "./theme-form";
@@ -23,10 +21,7 @@ import { ThemeStockForm } from "./theme-stock-form";
  * ここを指しているため
  */
 export default async function Page() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
 
   const stocks = await db
     .select({

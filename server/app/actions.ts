@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isAdmin } from "../src/admin";
-import { auth } from "../src/auth";
 import { db } from "../src/db";
 import { record } from "../src/db/audit";
 import { stock, theme } from "../src/db/schema";
@@ -26,30 +24,10 @@ import {
 } from "../src/db/write";
 import { toEventInputs } from "./bulk-event-input";
 import { toEventInput } from "./event-input";
+import { requireSession, requireUserId, type Session } from "./guard";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
 // 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
-
-/**
- * サインインしているかを確かめてセッションを返す。
- * Server Action は画面を通さず直接POSTできるため、画面側の確認とは別にここでも確かめる
- * （Next.js 同梱ドキュメント 01-app/01-getting-started/07-mutating-data.md の警告）
- */
-async function requireSession(): Promise<Session> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
-  return session;
-}
-
-/** サインインしている利用者。監査ログに残す利用者IDの出どころでもある */
-type Session = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
-
-/** セッションを確かめて利用者IDを返す */
-async function requireUserId(): Promise<string> {
-  return (await requireSession()).user.id;
-}
 
 /**
  * 管理者かどうかを確かめる。管理者なら null、そうでなければ拒む理由を返す。

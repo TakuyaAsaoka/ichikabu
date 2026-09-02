@@ -1,12 +1,10 @@
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "../../../src/auth";
+import { notFound } from "next/navigation";
 import { db } from "../../../src/db";
 import { stock, theme, themeStock } from "../../../src/db/schema";
-import { isId } from "../../../src/db/write";
 import { editStock, removeStock } from "../../actions";
 import { ActionForm } from "../../form";
+import { requireId, requireSession } from "../../guard";
 import { Nav } from "../../nav";
 import { StockForm } from "../../stock-form";
 
@@ -19,18 +17,10 @@ export default async function Page({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
 
-  // 問い合わせに渡せないIDは、integer 列に渡す前に弾く。渡すと型変換エラーで
-  // 500 になる。判定は Server Action と同じものを使う（イベントの編集・削除 設計書 §6）
   const { id } = await params;
-  const stockId = Number(id);
-  if (!isId(stockId)) {
-    notFound();
-  }
+  const stockId = requireId(id);
 
   const [row] = await db.select().from(stock).where(eq(stock.id, stockId));
   if (!row) {
