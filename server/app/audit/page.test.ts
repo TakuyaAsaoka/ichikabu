@@ -1,4 +1,8 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { auth } from "../../src/auth";
+import { record } from "../../src/db/audit";
+import { seedUser } from "../../src/db/seed-user";
+import { createStock, createTheme } from "../../src/db/write";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import {
   PASSWORD,
@@ -6,30 +10,14 @@ import {
   render,
   signInAs,
 } from "../../test/render-page";
+import { requestHeaders } from "../../test/setup";
+import Page from "./page";
 
+// この画面は管理者だけが開ける。管理者のメールアドレスは `test/setup.ts` が
+// `Admin@Example.com` に差し替えており、下の ADMIN はそれと同じ人を指す
+// （`seedUser` が小文字にして入れるため、大文字違いで同じ人になる）
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-
-// 画面は読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる。
-// 大文字を混ぜてあるのは `app/actions.test.ts` と同じ理由（seedUser が
-// メールアドレスを小文字にして入れるので、揃えずに比べると管理者が居なくなる）
-vi.stubEnv("ADMIN_EMAIL", "Admin@Example.com");
-afterAll(() => {
-  vi.unstubAllEnvs();
-});
-
-// next/headers は Next.js のリクエストの中でしか動かない。
-// セッションは差し替えず、本物の Better Auth のトークンを headers に載せる
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-
-const { auth } = await import("../../src/auth");
-const { record } = await import("../../src/db/audit");
-const { seedUser } = await import("../../src/db/seed-user");
-const { createTheme, createStock } = await import("../../src/db/write");
-const { default: Page } = await import("./page");
 
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {

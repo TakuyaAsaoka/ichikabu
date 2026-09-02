@@ -1,22 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { auth } from "../../src/auth";
+import { record } from "../../src/db/audit";
+import { seedUser } from "../../src/db/seed-user";
+import { createTheme, deleteTheme, updateTheme } from "../../src/db/write";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
+import { requestHeaders } from "../../test/setup";
+import Page from "./page";
 
 const ALICE = "alice@example.com";
 const BOB = "bob@example.com";
-
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-
-const { auth } = await import("../../src/auth");
-const { record } = await import("../../src/db/audit");
-const { seedUser } = await import("../../src/db/seed-user");
-const { createTheme, updateTheme, deleteTheme } = await import(
-  "../../src/db/write"
-);
-const { default: Page } = await import("./page");
 
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {

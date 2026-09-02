@@ -28,6 +28,9 @@ export default defineConfig({
     // 開発用DBを壊さないよう、テストは専用のデータベースに向ける
     env: { DATABASE_URL: testDatabaseUrl },
     globalSetup: ["./test/global-setup.ts"],
+    // テストファイルが読み込まれる前に走る前置き。`next/headers` と `ADMIN_EMAIL` を
+    // 差し替える。**ここに置くから各テストは素の `import` で書ける**（→ `test/setup.ts`）
+    setupFiles: ["./test/setup.ts"],
     // DBを共有するテストが並行して互いのデータを消し合わないよう直列で流す
     fileParallelism: false,
   },
