@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { resetDatabase } from "../../test/helpers";
+import { eventInput, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { event, stock, theme, themeStock } from "./schema";
 import {
@@ -21,12 +22,8 @@ import {
   upsertMarketEvents,
 } from "./write";
 
-const TOYOTA = {
-  market: "JP",
-  ticker: "7203",
-  name: "トヨタ自動車",
-  fiscalMonth: 3,
-} as const;
+/** 決算月ありのJP銘柄1件。ティッカーと名前を見るテストは自分で渡す（→ `test/inputs.ts`） */
+const TOYOTA = stockInput();
 
 /**
  * 書き込みが成功したことの判定。失敗すると日本語のエラー文（文字列）が返り、
@@ -189,24 +186,8 @@ describe("createThemeStock", () => {
   });
 });
 
-/**
- * 対象3列がすべて null の土台。各テストが1列だけ埋める。
- * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の判定には引っかからない
- */
-const BASE: EventInput = {
-  title: "日本銀行 金融政策決定会合",
-  shortLabel: "日銀会合",
-  startDate: "2026-09-18",
-  endDate: null,
-  time: null,
-  importance: 3,
-  note: null,
-  sourceUrl: null,
-  sourceName: null,
-  market: null,
-  themeId: null,
-  stockId: null,
-};
+/** 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`） */
+const BASE: EventInput = eventInput();
 
 /** イベントの行が1件だけ入ったことを確かめ、その行を返す */
 async function onlyEvent() {

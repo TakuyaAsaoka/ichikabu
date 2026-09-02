@@ -18,6 +18,7 @@ import {
   createThemeStock,
 } from "../src/db/write";
 import { resetDatabase } from "../test/helpers";
+import { eventInput, stockInput } from "../test/inputs";
 import { redirectedTo } from "../test/render-page";
 import { requestHeaders } from "../test/setup";
 import {
@@ -70,28 +71,17 @@ function form(values: Record<string, string>): FormData {
 
 /** 削除の対象を1件ずつ作る。作るのは write 層で、Server Action の権限判定を通さない */
 async function seedTargets(): Promise<void> {
-  await createStock({
-    market: "JP",
-    ticker: "7203",
-    name: "トヨタ自動車",
-    fiscalMonth: 3,
-  });
+  await createStock(stockInput());
   await createTheme("ドローン");
   await createThemeStock(1, 1);
-  await createEvent({
-    title: "日銀の金融政策決定会合",
-    shortLabel: "日銀",
-    startDate: "2026-03-31",
-    endDate: null,
-    time: null,
-    importance: 3,
-    note: null,
-    sourceUrl: null,
-    sourceName: null,
-    market: "JP",
-    themeId: null,
-    stockId: null,
-  });
+  await createEvent(
+    eventInput({
+      title: "日銀の金融政策決定会合",
+      shortLabel: "日銀",
+      startDate: "2026-03-31",
+      market: "JP",
+    }),
+  );
 }
 
 beforeEach(async () => {

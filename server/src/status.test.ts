@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../test/helpers";
+import { stockInput } from "../test/inputs";
 import { db } from "./db";
 import { event, stock } from "./db/schema";
 import { RIGHTS_YEARS } from "./rights";
@@ -23,13 +24,7 @@ async function addStock(
 ): Promise<number> {
   const [row] = await db
     .insert(stock)
-    .values({
-      market: "JP",
-      ticker: "7203",
-      name: "トヨタ自動車",
-      fiscalMonth: 3,
-      ...values,
-    })
+    .values(stockInput(values))
     .returning({ id: stock.id });
   return row.id;
 }

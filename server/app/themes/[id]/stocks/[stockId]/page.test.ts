@@ -7,6 +7,7 @@ import {
   createThemeStock,
 } from "../../../../../src/db/write";
 import { entriesOf, idOf, resetDatabase } from "../../../../../test/helpers";
+import { stockInput } from "../../../../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../../../../test/render-page";
 import { requestHeaders } from "../../../../../test/setup";
 import Page from "./page";
@@ -30,14 +31,7 @@ describe("テーマ所属を外す画面", () => {
       name: "ソニーグループ",
       fiscalMonth: 3,
     });
-    const stockId = idOf(
-      await createStock({
-        market: "JP",
-        ticker: "7203",
-        name: "トヨタ自動車",
-        fiscalMonth: 3,
-      }),
-    );
+    const stockId = idOf(await createStock(stockInput()));
     const themeId = idOf(await createTheme("半導体"));
     entriesOf(await createThemeStock(Number(themeId), Number(stockId)));
 

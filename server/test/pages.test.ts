@@ -22,6 +22,7 @@ import {
   createThemeStock,
 } from "../src/db/write";
 import { entriesOf, idOf, resetDatabase } from "./helpers";
+import { eventInput } from "./inputs";
 import {
   expectNotFound,
   PASSWORD,
@@ -53,20 +54,14 @@ async function addTheme(name = "半導体") {
 
 async function addEvent(): Promise<string> {
   return idOf(
-    await createEvent({
-      title: "CPIの発表",
-      shortLabel: "CPI",
-      startDate: "2026-09-01",
-      endDate: null,
-      time: null,
-      importance: 3,
-      note: null,
-      sourceUrl: null,
-      sourceName: null,
-      market: "JP",
-      themeId: null,
-      stockId: null,
-    }),
+    await createEvent(
+      eventInput({
+        title: "CPIの発表",
+        shortLabel: "CPI",
+        startDate: "2026-09-01",
+        market: "JP",
+      }),
+    ),
   );
 }
 

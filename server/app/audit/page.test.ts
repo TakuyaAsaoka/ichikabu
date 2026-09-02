@@ -4,6 +4,7 @@ import { record } from "../../src/db/audit";
 import { seedUser } from "../../src/db/seed-user";
 import { createStock, createTheme } from "../../src/db/write";
 import { entriesOf, resetDatabase } from "../../test/helpers";
+import { stockInput } from "../../test/inputs";
 import {
   PASSWORD,
   redirectedTo,
@@ -52,17 +53,7 @@ describe("監査ログの画面", () => {
 
   it("管理者には日時・操作した人・種別・対象が新しい順に出る", async () => {
     await record(userIds.admin, entriesOf(await createTheme("半導体")));
-    await record(
-      userIds.admin,
-      entriesOf(
-        await createStock({
-          market: "JP",
-          ticker: "7203",
-          name: "トヨタ自動車",
-          fiscalMonth: 3,
-        }),
-      ),
-    );
+    await record(userIds.admin, entriesOf(await createStock(stockInput())));
     await signIn(ADMIN);
 
     const html = await render(Page);

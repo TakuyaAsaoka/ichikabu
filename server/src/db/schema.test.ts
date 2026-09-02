@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
+import { stockInput } from "../../test/inputs";
 import { db } from ".";
 import { AUDIT_RESOURCES, event, stock, theme, themeStock } from "./schema";
 
@@ -17,7 +18,7 @@ const eventBase = {
 async function createStock(ticker = "7203") {
   const [row] = await db
     .insert(stock)
-    .values({ market: "JP", ticker, name: "トヨタ自動車", fiscalMonth: 3 })
+    .values(stockInput({ ticker }))
     .returning();
   return row;
 }
