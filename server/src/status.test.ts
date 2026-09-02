@@ -72,7 +72,8 @@ describe("銘柄の並び順", () => {
 
 describe("次の決算日が未登録", () => {
   it("今日以降のイベントが無い銘柄が出る", async () => {
-    const id = await addStock();
+    // 並び順の題材なので、**2件とも**ティッカーと名前を明示する
+    const id = await addStock({ ticker: "7203", name: "トヨタ自動車" });
     // 過ぎたイベントしか無い銘柄は「次の決算日」が埋まっていない
     await addEvent({ market: null, stockId: id, startDate: `${TODAY}` });
     await addEvent({
@@ -112,7 +113,8 @@ describe("次の決算日が未登録", () => {
 
 describe("決算月なし", () => {
   it("決算月が空のJP銘柄が、ティッカー順に出る", async () => {
-    await addStock({ fiscalMonth: null });
+    // 並び順の題材なので、**2件とも**ティッカーと名前を明示する
+    await addStock({ ticker: "7203", name: "トヨタ自動車", fiscalMonth: null });
     // ティッカーが先になる 6758 を後から作る。作った順とティッカー順が同じ
     // 題材だと、`orderBy` が落ちても緑のまま通る
     await addStock({
@@ -254,7 +256,12 @@ describe("findGaps", () => {
     // イベントは出典の表示名が無いまま非アクティブで日付を過ぎている。
     // 種類をまたいだ並びは `findGaps` の return の順。画面は種類ごとに
     // 取り出すため見た目は変わらないが、ここで固定しておく
-    const stockId = await addStock({ fiscalMonth: null });
+    // 下の期待値に銘柄名が出るので、既定値に任せず明示する
+    const stockId = await addStock({
+      ticker: "7203",
+      name: "トヨタ自動車",
+      fiscalMonth: null,
+    });
     await addEvent({
       title: "消費者物価指数（2026年1月分）",
       startDate: `${LAST_YEAR - 1}-01-23`,

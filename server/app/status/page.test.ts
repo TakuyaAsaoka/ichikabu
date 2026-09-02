@@ -37,8 +37,10 @@ describe("状態の画面", () => {
   it("抜けのある行は直す先へのリンクを出す", async () => {
     // 決算月の無い銘柄は「決算月なし」に出る。行から編集ページへ行ける
     const [created] = entriesOf(
-      // 決算月なしがこのテストの主題。それ以外は既定のまま
-      await createStock(stockInput({ fiscalMonth: null })),
+      // 決算月なしが主題。銘柄名は下で画面に出ているかを見るので明示する
+      await createStock(
+        stockInput({ name: "トヨタ自動車", fiscalMonth: null }),
+      ),
     );
 
     const html = await render(Page);

@@ -23,7 +23,7 @@ import {
 beforeEach(resetDatabase);
 
 /** 市場が JP の市場イベント。対象の3列は1つだけ埋める（→ `test/inputs.ts`） */
-const EVENT: EventInput = eventInput({ market: "JP" });
+const EVENT = eventInput({ market: "JP" });
 
 /** 取り込みが入れる形の市場イベント。名称は STAT_TITLE_PATTERN に当たる */
 function statEvent(overrides: Partial<EventInput> = {}): EventInput {

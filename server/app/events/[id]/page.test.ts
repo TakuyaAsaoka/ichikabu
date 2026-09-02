@@ -24,7 +24,7 @@ beforeEach(async () => {
 });
 
 /** 空にできる欄をすべて空にしたイベント。埋めたい欄だけ上書きする */
-const MINIMAL: EventInput = eventInput({
+const MINIMAL = eventInput({
   title: "CPIの発表",
   shortLabel: "CPI",
   startDate: "2026-09-01",
@@ -89,13 +89,9 @@ describe("イベントの編集画面", () => {
     // 2語（`app/stocks/[id]/page.test.ts` に選んだ経緯がある）
     await createTheme("防衛");
     await createTheme("半導体");
-    await createStock(stockInput());
-    await createStock({
-      market: "JP",
-      ticker: "6758",
-      name: "ソニーグループ",
-      fiscalMonth: 3,
-    });
+    // 並び順の題材なので、**2件とも**ティッカーと名前を明示する
+    await createStock(stockInput({ ticker: "7203", name: "トヨタ自動車" }));
+    await createStock(stockInput({ ticker: "6758", name: "ソニーグループ" }));
     const id = await addEvent();
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));

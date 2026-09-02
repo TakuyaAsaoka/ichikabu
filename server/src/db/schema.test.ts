@@ -15,7 +15,8 @@ const eventBase = {
   importance: 2,
 } as const;
 
-async function createStock(ticker = "7203") {
+/** 既定のティッカーは `test/inputs.ts` から取る（同じ値を2か所に書かない） */
+async function createStock(ticker = stockInput().ticker) {
   const [row] = await db
     .insert(stock)
     .values(stockInput({ ticker }))

@@ -36,7 +36,12 @@ beforeEach(resetDatabase);
 
 describe("createStock", () => {
   it("銘柄を登録するとDBに行が入る", async () => {
-    expect(await createStock({ ...TOYOTA })).toEqual(succeeded);
+    // 渡した値がそのまま列に入ることが主題。**下で突き合わせる2列は、
+    // 既定値に任せずここで渡す**（`test/inputs.ts` の既定を変えても、
+    // このテストは同じことを確かめ続ける）
+    expect(
+      await createStock(stockInput({ ticker: "7203", fiscalMonth: 3 })),
+    ).toEqual(succeeded);
 
     const rows = await db.select().from(stock);
     expect(rows).toHaveLength(1);
@@ -187,7 +192,7 @@ describe("createThemeStock", () => {
 });
 
 /** 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`） */
-const BASE: EventInput = eventInput();
+const BASE = eventInput();
 
 /** イベントの行が1件だけ入ったことを確かめ、その行を返す */
 async function onlyEvent() {
@@ -350,9 +355,13 @@ describe("createEvent", () => {
 });
 
 describe("updateEvent", () => {
-  /** 市場イベントを1件登録し、そのIDを返す */
+  /**
+   * 市場イベントを1件登録し、そのIDを返す。
+   * 短縮ラベルを明示するのは、下の「長すぎる更新は弾かれ**前の値が残る**」が
+   * この値と突き合わせるため（既定値に任せない）
+   */
   async function registerEvent(): Promise<number> {
-    await createEvent({ ...BASE, market: "JP" });
+    await createEvent({ ...BASE, market: "JP", shortLabel: "日銀会合" });
     return (await onlyEvent()).id;
   }
 
@@ -491,9 +500,13 @@ describe("deleteEvent", () => {
   });
 });
 
-/** トヨタを1件だけ登録し、その id を返す */
-async function onlyStockId(): Promise<number> {
-  await createStock({ ...TOYOTA });
+/**
+ * 銘柄を1件だけ登録し、その id を返す。
+ * 銘柄名は、あとで「更新されずに残ったこと」を突き合わせるテストのために
+ * 呼ぶ側から渡せるようにしてある（既定値に任せない）
+ */
+async function onlyStockId(name?: string): Promise<number> {
+  await createStock(name === undefined ? TOYOTA : stockInput({ name }));
   const [row] = await db.select({ id: stock.id }).from(stock);
   return row.id;
 }
@@ -570,7 +583,7 @@ describe("updateStock", () => {
   });
 
   it("空白だけの銘柄名に更新するとエラー文が返る", async () => {
-    const id = await onlyStockId();
+    const id = await onlyStockId("トヨタ自動車");
 
     expect(await updateStock(id, { ...TOYOTA, name: "   " })).toBe(
       "銘柄名を入れる",
@@ -580,7 +593,7 @@ describe("updateStock", () => {
   });
 
   it("存在しないIDの更新は何も起きない", async () => {
-    await onlyStockId();
+    await onlyStockId("トヨタ自動車");
 
     expect(await updateStock(999999, { ...TOYOTA, name: "別名" })).toEqual(
       succeeded,

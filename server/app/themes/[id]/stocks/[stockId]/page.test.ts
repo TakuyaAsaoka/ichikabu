@@ -31,7 +31,10 @@ describe("テーマ所属を外す画面", () => {
       name: "ソニーグループ",
       fiscalMonth: 3,
     });
-    const stockId = idOf(await createStock(stockInput()));
+    // 銘柄名は下で画面に出ているかを見るので明示する
+    const stockId = idOf(
+      await createStock(stockInput({ name: "トヨタ自動車" })),
+    );
     const themeId = idOf(await createTheme("半導体"));
     entriesOf(await createThemeStock(Number(themeId), Number(stockId)));
 

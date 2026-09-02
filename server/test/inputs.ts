@@ -1,4 +1,4 @@
-import type { EventInput } from "../src/db/write";
+import type { EventInput, StockInput } from "../src/db/write";
 
 /**
  * テストが書き込みに渡す入力の作り置き（Issue #139）。
@@ -10,6 +10,17 @@ import type { EventInput } from "../src/db/write";
  * 呼ぶ側に書かせる。既定値の中に隠すと、そのテストが何を確かめているのかが
  * 読めなくなる（並び順を見るテストのティッカー、幅の判定を見るテストの
  * 短縮ラベルなど）。
+ *
+ * **守れているかは、下の既定値を1つずつ書き換えて `pnpm test:run` を流せば分かる。**
+ * 1本でも赤くなったら、そのテストは見ている列をここに隠している。全列で緑に
+ * なることを確かめてある（2026-09-03 実測。7列を1つずつ回して 373件すべて緑。
+ * 最初に回したときは `importance` で1本、`shortLabel` で1本、`ticker` で5本、
+ * `name` で8本、`fiscalMonth` で1本が赤くなり、全部を呼ぶ側に出した）。
+ *
+ * **`{ ticker: undefined }` のように `undefined` を渡さないこと。** 展開が既定値を
+ * `undefined` で上書きするため、NOT NULL 違反になる（この直しの最中に実際に踏んで
+ * 7件落ちた）。省きたい欄は渡さない。省けるようにしたい引数は、
+ * `src/db/schema.test.ts` の `createStock` のように既定値をここから取る。
  *
  * このファイルは型しか読み込まない。多くのテストが読むため、重いものを
  * 足さないこと（`test/dom.ts` の冒頭に、`jsdom` を `test/helpers.ts` に
@@ -52,14 +63,12 @@ export function eventInput(overrides: Partial<EventInput> = {}): EventInput {
  * 列の型どおり `"JP" | "US"` を求めるためである。
  *
  * 狭いほうは広いほうに渡せるので、この型にしておくと
- * `createStock()` と `db.insert(stock)` の**両方**に渡せる
+ * `createStock()` と `db.insert(stock)` の**両方**に渡せる。
+ *
+ * 列を書き写さず `StockInput` から作る。写すと、列が1本増えたときに直す場所が
+ * 2つになり、このファイルを置いた意味が無くなる
  */
-type StockValues = {
-  market: "JP" | "US";
-  ticker: string;
-  name: string;
-  fiscalMonth: number | null;
-};
+type StockValues = StockInput & { market: "JP" | "US" };
 
 /**
  * 銘柄の入力。既定はJPのトヨタ自動車で、決算月あり。
