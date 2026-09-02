@@ -1,19 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { auth } from "../../src/auth";
+import { seedUser } from "../../src/db/seed-user";
+import { createStock } from "../../src/db/write";
+import { GAP_KINDS, GAP_TITLES } from "../../src/status";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
+import { requestHeaders } from "../../test/setup";
+import Page from "./page";
 
 const EDITOR = "editor@example.com";
-
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-
-const { auth } = await import("../../src/auth");
-const { seedUser } = await import("../../src/db/seed-user");
-const { createStock } = await import("../../src/db/write");
-const { GAP_KINDS, GAP_TITLES } = await import("../../src/status");
-const { default: Page } = await import("./page");
 
 beforeEach(async () => {
   await resetDatabase();

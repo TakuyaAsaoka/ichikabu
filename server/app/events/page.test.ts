@@ -1,23 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { auth } from "../../src/auth";
+import { record } from "../../src/db/audit";
+import { seedUser } from "../../src/db/seed-user";
+import {
+  createEvent,
+  createStock,
+  createTheme,
+  updateEvent,
+} from "../../src/db/write";
 import { htmlOf } from "../../test/dom";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
+import { requestHeaders } from "../../test/setup";
+import Page from "./page";
 
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-
-const { auth } = await import("../../src/auth");
-const { record } = await import("../../src/db/audit");
-const { seedUser } = await import("../../src/db/seed-user");
-const { createEvent, createStock, createTheme, updateEvent } = await import(
-  "../../src/db/write"
-);
-const { default: Page } = await import("./page");
 
 type EventInput = Parameters<typeof createEvent>[0];
 

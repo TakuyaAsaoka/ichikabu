@@ -1,7 +1,26 @@
 import { readdirSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { ReactNode } from "react";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import Audit from "../app/audit/page";
+import Contributions from "../app/contributions/page";
+import EventEdit from "../app/events/[id]/page";
+import Events from "../app/events/page";
+import { LINKS } from "../app/nav";
+import Home from "../app/page";
+import SignIn from "../app/signin/page";
+import Status from "../app/status/page";
+import StockEdit from "../app/stocks/[id]/page";
+import ThemeEdit from "../app/themes/[id]/page";
+import ThemeStockRemove from "../app/themes/[id]/stocks/[stockId]/page";
+import { auth } from "../src/auth";
+import { seedUser } from "../src/db/seed-user";
+import {
+  createEvent,
+  createStock,
+  createTheme,
+  createThemeStock,
+} from "../src/db/write";
 import { entriesOf, idOf, resetDatabase } from "./helpers";
 import {
   expectNotFound,
@@ -10,41 +29,12 @@ import {
   render,
   signInAs,
 } from "./render-page";
+import { requestHeaders } from "./setup";
 
+// ADMIN は `test/setup.ts` が入れた `Admin@Example.com` と同じ人を指す
+// （`seedUser` が小文字にして入れるため、大文字違いで同じ人になる）
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-
-// 画面は読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる
-// （`app/audit/page.test.ts` と同じ理由）
-vi.stubEnv("ADMIN_EMAIL", "Admin@Example.com");
-afterAll(() => {
-  vi.unstubAllEnvs();
-});
-
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-
-const { auth } = await import("../src/auth");
-const { seedUser } = await import("../src/db/seed-user");
-const { createEvent, createStock, createTheme, createThemeStock } =
-  await import("../src/db/write");
-
-const { LINKS } = await import("../app/nav");
-
-const { default: Home } = await import("../app/page");
-const { default: Audit } = await import("../app/audit/page");
-const { default: Contributions } = await import("../app/contributions/page");
-const { default: Events } = await import("../app/events/page");
-const { default: EventEdit } = await import("../app/events/[id]/page");
-const { default: SignIn } = await import("../app/signin/page");
-const { default: Status } = await import("../app/status/page");
-const { default: StockEdit } = await import("../app/stocks/[id]/page");
-const { default: ThemeEdit } = await import("../app/themes/[id]/page");
-const { default: ThemeStockRemove } = await import(
-  "../app/themes/[id]/stocks/[stockId]/page"
-);
 
 /** サインインして、以降の描画がそのセッションで動くようにする */
 async function signIn(email: string): Promise<void> {

@@ -1,21 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { auth } from "../src/auth";
+import { seedUser } from "../src/db/seed-user";
+import { createStock, createTheme, createThemeStock } from "../src/db/write";
 import { htmlOf } from "../test/dom";
 import { entriesOf, resetDatabase } from "../test/helpers";
 import { PASSWORD, render, signInAs } from "../test/render-page";
+import { requestHeaders } from "../test/setup";
+import Page from "./page";
 
 const EDITOR = "editor@example.com";
-
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-
-const { auth } = await import("../src/auth");
-const { seedUser } = await import("../src/db/seed-user");
-const { createStock, createTheme, createThemeStock } = await import(
-  "../src/db/write"
-);
-const { default: Page } = await import("./page");
 
 /** 銘柄を1件作り、採番されたIDを返す */
 async function addStock(ticker: string, name: string): Promise<string> {

@@ -1,47 +1,47 @@
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { auth } from "../src/auth";
+import { db } from "../src/db";
+import {
+  auditLog,
+  event,
+  stock,
+  theme,
+  themeStock,
+  user,
+} from "../src/db/schema";
+import { seedUser } from "../src/db/seed-user";
+import {
+  createEvent,
+  createStock,
+  createTheme,
+  createThemeStock,
+} from "../src/db/write";
 import { resetDatabase } from "../test/helpers";
 import { redirectedTo } from "../test/render-page";
-
-// Server Action を画面を通さず直接呼ぶ（設計書 §4）。画面から削除の欄を消すだけでは、
-// 直接POSTされる経路が塞がっているかを判定できない
-const ADMIN = "admin@example.com";
-const EDITOR = "editor@example.com";
-const PASSWORD = "correct-horse-battery-staple";
-
-// src/admin.ts が読み込みの時点で ADMIN_EMAIL を読むため、読み込む前に入れる
-// （app/actions.ts はそこから isAdmin を借りる）。
-// ここで入れると、テストの結果が .env.local の中身に左右されなくなる。
-// 大文字を混ぜてあるのは、seedUser がメールアドレスを小文字にして入れるためで、
-// 揃えずに比べると設定に大文字が1つ入っただけで管理者が誰も居なくなる。
-// stubEnv で入れるのは、テストファイルをまたいで値を持ち越さないため
-vi.stubEnv("ADMIN_EMAIL", "Admin@Example.com");
-afterAll(() => {
-  vi.unstubAllEnvs();
-});
-
-// next/headers と next/cache は Next.js のリクエストの中でしか動かない。
-// セッションだけは差し替えず、本物の Better Auth のトークンを headers に載せる
-const requestHeaders = { current: new Headers() };
-vi.mock("next/headers", () => ({
-  headers: async () => requestHeaders.current,
-}));
-vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
-
-const { auth } = await import("../src/auth");
-const { db } = await import("../src/db");
-const { auditLog, event, stock, theme, themeStock, user } = await import(
-  "../src/db/schema"
-);
-const { seedUser } = await import("../src/db/seed-user");
-const {
+import { requestHeaders } from "../test/setup";
+import {
   addEvent,
   editEvent,
   removeEvent,
   removeStock,
   removeTheme,
   removeThemeStock,
-} = await import("./actions");
+} from "./actions";
+
+// next/cache も Next.js のリクエストの中でしか動かない。next/headers と
+// ADMIN_EMAIL の差し替えは `test/setup.ts` が全ファイルぶん行うが、これはこの1本
+// でしか要らないのでここに置く（Server Action を直に呼ぶのはこのテストだけ）。
+// vi.mock は import より前に巻き上げられるので、上の import より後に書いてよい
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+
+// Server Action を画面を通さず直接呼ぶ（設計書 §4）。画面から削除の欄を消すだけでは、
+// 直接POSTされる経路が塞がっているかを判定できない。
+// ADMIN は `test/setup.ts` が入れた `Admin@Example.com` と同じ人を指す
+// （seedUser が小文字にして入れるため、大文字違いで同じ人になる）
+const ADMIN = "admin@example.com";
+const EDITOR = "editor@example.com";
+const PASSWORD = "correct-horse-battery-staple";
 
 /** サインインして、以降の Server Action がそのセッションで動くようにする */
 async function signInAs(email: string): Promise<void> {
@@ -70,9 +70,6 @@ function form(values: Record<string, string>): FormData {
 
 /** 削除の対象を1件ずつ作る。作るのは write 層で、Server Action の権限判定を通さない */
 async function seedTargets(): Promise<void> {
-  const { createEvent, createStock, createTheme, createThemeStock } =
-    await import("../src/db/write");
-
   await createStock({
     market: "JP",
     ticker: "7203",
