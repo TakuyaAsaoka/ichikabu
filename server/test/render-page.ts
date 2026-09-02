@@ -7,7 +7,14 @@ export const PASSWORD = "correct-horse-battery-staple";
 /** 画面が返す React の要素。Server Component は非同期の関数 */
 type Page = () => Promise<ReactNode>;
 
-/** `auth.handler` の型。テストが `src/auth` を読み込む順を縛らないために受け取る */
+/**
+ * `auth.handler` の型。呼ぶ側から受け取ることで、このファイルは `src/auth` を
+ * 読み込まない。
+ *
+ * 元は「テストが `src/auth` を読み込む順を縛らないため」と書いてあったが、
+ * その縛りは Issue #138 で `test/setup.ts` に移り、無くなった。
+ * **引数を残すかどうかは別の話**として Issue #144 に切ってある
+ */
 type Handler = (request: Request) => Promise<Response>;
 
 /**

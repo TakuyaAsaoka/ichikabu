@@ -32,7 +32,7 @@ import {
 // next/cache も Next.js のリクエストの中でしか動かない。next/headers と
 // ADMIN_EMAIL の差し替えは `test/setup.ts` が全ファイルぶん行うが、これはこの1本
 // でしか要らないのでここに置く（Server Action を直に呼ぶのはこのテストだけ）。
-// vi.mock は import より前に巻き上げられるので、下の import と順序を気にしなくてよい
+// vi.mock は import より前に巻き上げられるので、上の import より後に書いてよい
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 // Server Action を画面を通さず直接呼ぶ（設計書 §4）。画面から削除の欄を消すだけでは、
