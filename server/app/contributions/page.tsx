@@ -1,7 +1,5 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { auth } from "../../src/auth";
 import { countByUser } from "../../src/db/audit";
+import { requireSession } from "../guard";
 import { Nav } from "../nav";
 
 /**
@@ -14,10 +12,7 @@ import { Nav } from "../nav";
  * 監査ログ（前後の値まで出る）とは見えるものの重さが違う
  */
 export default async function Page() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
 
   const rows = await countByUser();
   // 取り込みスクリプトの行も1行返るが、人ではないので人数には数えない

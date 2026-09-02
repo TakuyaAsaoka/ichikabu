@@ -90,9 +90,9 @@ describe("設計書が指しているコードが実在する", () => {
     },
     {
       spec: "../../docs/records/specs/2026-08-14-82-multi-editor-audit-design.md",
-      code: "../app/actions.ts",
+      code: "../app/guard.ts",
       name: "requireSession",
-      decl: "async function requireSession(",
+      decl: "export async function requireSession(",
       section: "監査ログの設計書 §4",
     },
     {

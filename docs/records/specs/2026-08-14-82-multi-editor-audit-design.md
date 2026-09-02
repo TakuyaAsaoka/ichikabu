@@ -45,9 +45,9 @@
 
 `server/app/actions.ts` の削除は5つ（銘柄・保有・テーマ・テーマ所属・イベント）。今はどれも `requireUserId()` を呼ぶだけで、サインインしていれば誰でも実行できる。
 
-`requireUserId()` の隣に管理者を確かめる関数を置き、**削除5つのうち4つ**（銘柄・テーマ・テーマ所属・イベント）がそれを呼ぶ。保有を外すのは含めない（理由はこの節の末尾）。
+`requireUserId()`（Issue #140 で `server/app/guard.ts` へ移した）を呼ぶ側、つまり `server/app/actions.ts` に管理者を確かめる関数を置き、**削除5つのうち4つ**（銘柄・テーマ・テーマ所属・イベント）がそれを呼ぶ。保有を外すのは含めない（理由はこの節の末尾）。
 
-**画面から削除のリンクを消すだけでは足りない。** Server Action は画面を通さず直接POSTできる（`server/app/actions.ts` の `requireSession` に書いた注記と同じ理由）。判定はサーバー側で行い、テストも Server Action を直接呼ぶ形で書く。
+**画面から削除のリンクを消すだけでは足りない。** Server Action は画面を通さず直接POSTできる（`server/app/guard.ts` の `requireSession` に書いた注記と同じ理由。Issue #140 で `app/actions.ts` から移した。画面も同じ判定を通すため）。判定はサーバー側で行い、テストも Server Action を直接呼ぶ形で書く。
 
 管理者かどうかは、環境変数 `ADMIN_EMAIL` とセッションのメールアドレスを比べて決める。両方を小文字にしてから比べる（`seedUser` がメールアドレスを小文字にして入れるため、揃えないと設定に大文字が1つ入っただけで管理者が誰も居なくなる）。`ADMIN_EMAIL` が未設定なら `app/actions.ts` が読み込みの時点で落ちる。
 

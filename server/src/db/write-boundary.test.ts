@@ -35,7 +35,7 @@ const ALLOWED_DIRECT_WRITERS = [
 
 /**
  * 書き込み関数ではない値の export。読み込んでも実データは変わらないため、
- * どのファイルから読んでもよい（`isId` は画面5つが URL のIDの判定に使う）
+ * どのファイルから読んでもよい（`isId` は `app/guard.ts` が URL のIDの判定に使う）
  */
 const READ_ONLY_EXPORTS = ["isId"];
 

@@ -1,14 +1,12 @@
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth } from "../../src/auth";
 import { db } from "../../src/db";
 import { creatorNamesByEventId } from "../../src/db/audit";
 import { event, stock, theme } from "../../src/db/schema";
 import { addEvent } from "../actions";
 import { BulkEventForm } from "../bulk-event-form";
 import { EventForm } from "../event-form";
+import { requireSession } from "../guard";
 import { Nav } from "../nav";
 
 /**
@@ -17,10 +15,7 @@ import { Nav } from "../nav";
  * 並べ替え・絞り込みは付けない
  */
 export default async function Page() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
 
   // 登録フォームの対象の選択肢。イベントは銘柄かテーマかマーケットに紐づく
   const stocks = await db

@@ -1,12 +1,9 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { isAdmin } from "../../src/admin";
-import { auth } from "../../src/auth";
 import {
   type AuditAction,
   type AuditResource,
   listRecent,
 } from "../../src/db/audit";
+import { requireAdminSession } from "../guard";
 import { Nav } from "../nav";
 
 /** 操作の区分の見出し。足し忘れは Record の型が落とす */
@@ -39,15 +36,9 @@ const formatJst = (at: Date): string =>
  * 並び順の判定をここに書くと、DBを繋いで確かめる場所が無くなる
  */
 export default async function Page() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
-  // 画面から入口を消すだけでは足りない。URL を直に打てば開ける。
-  // `redirect` で追い返す。ここで止めれば、下の読み出しに進めない
-  if (!isAdmin(session.user.email)) {
-    redirect("/");
-  }
+  // 管理者でなければ追い返す。画面から入口を消すだけでは足りない
+  // （URL を直に打てば開ける。→ `app/guard.ts`）
+  const session = await requireAdminSession();
 
   const rows = await listRecent();
 

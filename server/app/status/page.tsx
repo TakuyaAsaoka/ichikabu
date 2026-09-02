@@ -1,8 +1,6 @@
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth } from "../../src/auth";
 import { findGaps, GAP_KINDS, GAP_TITLES, jstToday } from "../../src/status";
+import { requireSession } from "../guard";
 import { Nav } from "../nav";
 
 /**
@@ -12,10 +10,7 @@ import { Nav } from "../nav";
  * （画面そのものも検査できる。→ `src/status.ts` の注記）
  */
 export default async function Page() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    redirect("/signin");
-  }
+  const session = await requireSession();
 
   const gaps = await findGaps(jstToday(new Date()));
 
