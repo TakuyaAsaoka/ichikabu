@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
+import { stockInput } from "../../test/inputs";
 import { db } from ".";
 import { AUDIT_RESOURCES, event, stock, theme, themeStock } from "./schema";
 
@@ -14,10 +15,11 @@ const eventBase = {
   importance: 2,
 } as const;
 
-async function createStock(ticker = "7203") {
+/** 既定のティッカーは `test/inputs.ts` から取る（同じ値を2か所に書かない） */
+async function createStock(ticker = stockInput().ticker) {
   const [row] = await db
     .insert(stock)
-    .values({ market: "JP", ticker, name: "トヨタ自動車", fiscalMonth: 3 })
+    .values(stockInput({ ticker }))
     .returning();
   return row;
 }

@@ -9,6 +9,7 @@ import {
 } from "../../../src/db/write";
 import { htmlOf } from "../../../test/dom";
 import { idOf, resetDatabase } from "../../../test/helpers";
+import { eventInput, stockInput } from "../../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 import { requestHeaders } from "../../../test/setup";
 import Page from "./page";
@@ -23,20 +24,13 @@ beforeEach(async () => {
 });
 
 /** 空にできる欄をすべて空にしたイベント。埋めたい欄だけ上書きする */
-const MINIMAL: EventInput = {
+const MINIMAL = eventInput({
   title: "CPIの発表",
   shortLabel: "CPI",
   startDate: "2026-09-01",
-  endDate: null,
-  time: null,
   importance: 2,
-  note: null,
-  sourceUrl: null,
-  sourceName: null,
   market: "JP",
-  themeId: null,
-  stockId: null,
-};
+});
 
 async function addEvent(overrides: Partial<EventInput> = {}): Promise<string> {
   return idOf(await createEvent({ ...MINIMAL, ...overrides }));
@@ -51,14 +45,7 @@ describe("イベントの編集画面", () => {
 
     // 欄ごとに違う値を入れる。同じ値だと欄を取り違えても気づけない。
     // 対象はテーマにする。市場・銘柄の選択肢も並ぶので、選ばれるのが1つだけであることを見る
-    const stockId = idOf(
-      await createStock({
-        market: "JP",
-        ticker: "7203",
-        name: "トヨタ自動車",
-        fiscalMonth: 3,
-      }),
-    );
+    const stockId = idOf(await createStock(stockInput()));
     const themeId = idOf(await createTheme("半導体"));
     const id = await addEvent({
       title: "半導体関連の決算発表",
@@ -102,18 +89,9 @@ describe("イベントの編集画面", () => {
     // 2語（`app/stocks/[id]/page.test.ts` に選んだ経緯がある）
     await createTheme("防衛");
     await createTheme("半導体");
-    await createStock({
-      market: "JP",
-      ticker: "7203",
-      name: "トヨタ自動車",
-      fiscalMonth: 3,
-    });
-    await createStock({
-      market: "JP",
-      ticker: "6758",
-      name: "ソニーグループ",
-      fiscalMonth: 3,
-    });
+    // 並び順の題材なので、**2件とも**ティッカーと名前を明示する
+    await createStock(stockInput({ ticker: "7203", name: "トヨタ自動車" }));
+    await createStock(stockInput({ ticker: "6758", name: "ソニーグループ" }));
     const id = await addEvent();
 
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));

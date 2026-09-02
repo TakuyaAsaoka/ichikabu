@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { resetDatabase } from "../../test/helpers";
+import { eventInput, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { event, stock, theme, themeStock } from "./schema";
 import {
@@ -21,12 +22,8 @@ import {
   upsertMarketEvents,
 } from "./write";
 
-const TOYOTA = {
-  market: "JP",
-  ticker: "7203",
-  name: "トヨタ自動車",
-  fiscalMonth: 3,
-} as const;
+/** 決算月ありのJP銘柄1件。ティッカーと名前を見るテストは自分で渡す（→ `test/inputs.ts`） */
+const TOYOTA = stockInput();
 
 /**
  * 書き込みが成功したことの判定。失敗すると日本語のエラー文（文字列）が返り、
@@ -39,7 +36,12 @@ beforeEach(resetDatabase);
 
 describe("createStock", () => {
   it("銘柄を登録するとDBに行が入る", async () => {
-    expect(await createStock({ ...TOYOTA })).toEqual(succeeded);
+    // 渡した値がそのまま列に入ることが主題。**下で突き合わせる2列は、
+    // 既定値に任せずここで渡す**（`test/inputs.ts` の既定を変えても、
+    // このテストは同じことを確かめ続ける）
+    expect(
+      await createStock(stockInput({ ticker: "7203", fiscalMonth: 3 })),
+    ).toEqual(succeeded);
 
     const rows = await db.select().from(stock);
     expect(rows).toHaveLength(1);
@@ -189,24 +191,8 @@ describe("createThemeStock", () => {
   });
 });
 
-/**
- * 対象3列がすべて null の土台。各テストが1列だけ埋める。
- * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の判定には引っかからない
- */
-const BASE: EventInput = {
-  title: "日本銀行 金融政策決定会合",
-  shortLabel: "日銀会合",
-  startDate: "2026-09-18",
-  endDate: null,
-  time: null,
-  importance: 3,
-  note: null,
-  sourceUrl: null,
-  sourceName: null,
-  market: null,
-  themeId: null,
-  stockId: null,
-};
+/** 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`） */
+const BASE = eventInput();
 
 /** イベントの行が1件だけ入ったことを確かめ、その行を返す */
 async function onlyEvent() {
@@ -369,9 +355,13 @@ describe("createEvent", () => {
 });
 
 describe("updateEvent", () => {
-  /** 市場イベントを1件登録し、そのIDを返す */
+  /**
+   * 市場イベントを1件登録し、そのIDを返す。
+   * 短縮ラベルを明示するのは、下の「長すぎる更新は弾かれ**前の値が残る**」が
+   * この値と突き合わせるため（既定値に任せない）
+   */
   async function registerEvent(): Promise<number> {
-    await createEvent({ ...BASE, market: "JP" });
+    await createEvent({ ...BASE, market: "JP", shortLabel: "日銀会合" });
     return (await onlyEvent()).id;
   }
 
@@ -510,9 +500,13 @@ describe("deleteEvent", () => {
   });
 });
 
-/** トヨタを1件だけ登録し、その id を返す */
-async function onlyStockId(): Promise<number> {
-  await createStock({ ...TOYOTA });
+/**
+ * 銘柄を1件だけ登録し、その id を返す。
+ * 銘柄名は、あとで「更新されずに残ったこと」を突き合わせるテストのために
+ * 呼ぶ側から渡せるようにしてある（既定値に任せない）
+ */
+async function onlyStockId(name = TOYOTA.name): Promise<number> {
+  await createStock(stockInput({ name }));
   const [row] = await db.select({ id: stock.id }).from(stock);
   return row.id;
 }
@@ -589,7 +583,7 @@ describe("updateStock", () => {
   });
 
   it("空白だけの銘柄名に更新するとエラー文が返る", async () => {
-    const id = await onlyStockId();
+    const id = await onlyStockId("トヨタ自動車");
 
     expect(await updateStock(id, { ...TOYOTA, name: "   " })).toBe(
       "銘柄名を入れる",
@@ -599,7 +593,7 @@ describe("updateStock", () => {
   });
 
   it("存在しないIDの更新は何も起きない", async () => {
-    await onlyStockId();
+    await onlyStockId("トヨタ自動車");
 
     expect(await updateStock(999999, { ...TOYOTA, name: "別名" })).toEqual(
       succeeded,

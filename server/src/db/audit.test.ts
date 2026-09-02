@@ -2,6 +2,7 @@ import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { entriesOf, resetDatabase } from "../../test/helpers";
+import { eventInput, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { listRecent, recentQuery, record } from "./audit";
 import { auditLog, event, stock, theme, themeStock } from "./schema";
@@ -21,20 +22,8 @@ import {
 
 beforeEach(resetDatabase);
 
-const EVENT: EventInput = {
-  title: "日本銀行 金融政策決定会合",
-  shortLabel: "日銀会合",
-  startDate: "2026-09-18",
-  endDate: null,
-  time: null,
-  importance: 3,
-  note: null,
-  sourceUrl: null,
-  sourceName: null,
-  market: "JP",
-  themeId: null,
-  stockId: null,
-};
+/** 市場が JP の市場イベント。対象の3列は1つだけ埋める（→ `test/inputs.ts`） */
+const EVENT = eventInput({ market: "JP" });
 
 /** 取り込みが入れる形の市場イベント。名称は STAT_TITLE_PATTERN に当たる */
 function statEvent(overrides: Partial<EventInput> = {}): EventInput {
@@ -163,12 +152,7 @@ describe("削除の記録", () => {
 
   it("銘柄の削除で道連れになるテーマ所属も記録に残る", async () => {
     // theme_stock は CASCADE で一緒に消え、DBに任せると行がどこにも残らない
-    await createStock({
-      market: "JP",
-      ticker: "7203",
-      name: "トヨタ自動車",
-      fiscalMonth: 3,
-    });
+    await createStock(stockInput());
     await createTheme("自動車");
     const [{ id: stockId }] = await db.select().from(stock);
     const [{ id: themeId }] = await db.select().from(theme);
@@ -191,12 +175,7 @@ describe("削除の記録", () => {
   });
 
   it("テーマの削除で道連れになるテーマ所属も記録に残る", async () => {
-    await createStock({
-      market: "JP",
-      ticker: "7203",
-      name: "トヨタ自動車",
-      fiscalMonth: 3,
-    });
+    await createStock(stockInput());
     await createTheme("自動車");
     const [{ id: stockId }] = await db.select().from(stock);
     const [{ id: themeId }] = await db.select().from(theme);
@@ -214,7 +193,10 @@ describe("削除の記録", () => {
 
 describe("更新の記録", () => {
   it("変更前と変更後の両方が残る", async () => {
-    await createEvent(EVENT);
+    // 重要度は 3 → 1 に変える。**このテストが見ている列なので、前の値も
+    // `test/inputs.ts` の既定値に任せず自分で入れる**（既定値を書き換えても
+    // このテストが黙って別のことを確かめる状態にしない）
+    await createEvent({ ...EVENT, importance: 3 });
     const [before] = await db.select().from(event);
 
     await record(

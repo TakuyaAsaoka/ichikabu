@@ -10,6 +10,7 @@ import {
 } from "../../src/db/write";
 import { htmlOf } from "../../test/dom";
 import { entriesOf, resetDatabase } from "../../test/helpers";
+import { eventInput } from "../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
 import { requestHeaders } from "../../test/setup";
 import Page from "./page";
@@ -21,20 +22,12 @@ type EventInput = Parameters<typeof createEvent>[0];
 
 /** 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める（全体設計書 §5） */
 function toInput(shortLabel: string, startDate = "2026-09-01"): EventInput {
-  return {
+  return eventInput({
     title: `${shortLabel}の発表`,
     shortLabel,
     startDate,
-    endDate: null,
-    time: null,
-    importance: 3,
-    note: null,
-    sourceUrl: null,
-    sourceName: null,
     market: "JP",
-    themeId: null,
-    stockId: null,
-  };
+  });
 }
 
 /** イベントを1件作る */
