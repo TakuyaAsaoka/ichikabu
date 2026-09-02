@@ -33,7 +33,7 @@ import { requireSession, requireUserId, type Session } from "./guard";
  * 管理者かどうかを確かめる。管理者なら null、そうでなければ拒む理由を返す。
  * 削除は取り返せないため、管理者だけができる（設計書 §9）。
  *
- * 拒み方を `redirect()` にしない。削除は成功しても `redirect("/")` するため、
+ * 拒み方を `redirect()` にしない。削除は成功しても `redirect()` するため、
  * 拒否と成功が同じ `NEXT_REDIRECT` になり、拒まれたことを画面でもテストでも
  * 見分けられなくなる（実測。→ 入力者を3人にする設計書 §4）。
  * 戻り値のエラー文は、他の Server Action と同じく ActionForm が表示する。
@@ -91,7 +91,9 @@ type Action = (
  *
  * @param write 書き込みの中身。Server Action ごとに違うのはここだけ
  * @param options.adminOnly 管理者だけができる操作（削除）に付ける
- * @param options.redirectTo 成功したときの行き先。省くとその画面に留まる
+ * @param options.redirectTo 成功したときの行き先。省くとその画面に留まる。
+ *   更新・削除は一覧に戻す（設計書 §5.3）。編集ページに留まらせると
+ *   「更新した」を出すための状態を別に持つことになる
  */
 function action(
   write: Write,
@@ -117,9 +119,8 @@ function action(
       return message;
     }
 
-    // 更新・削除は成功したら一覧に戻す（設計書 §5.3）。編集ページに留まらせると
-    // 「更新した」を出すための状態を別に持つことになる。
-    // redirect() は例外を投げて動くため、revalidatePath() を先に呼ぶ
+    // 画面の作り直しは12本すべてが通る。redirect() は例外を投げて動くため、
+    // 戻す先があるときも revalidatePath() を先に呼ぶ
     revalidatePath("/");
     if (options.redirectTo) {
       redirect(options.redirectTo);
