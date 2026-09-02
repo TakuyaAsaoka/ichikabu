@@ -89,8 +89,13 @@ xcodebuild build test -scheme Ichikabu -destination 'platform=iOS Simulator,name
 ```
 
 ビルド時に契約から型が再生成されるため、このコマンドが契約とのズレの検証を兼ねる（全体設計書 §8）。
-`openapi.yaml` の `Health.status` を `type: integer` に変えると
-`type 'Int' has no member 'ok'` で落ちることを実際に確認した。
+`openapi.yaml` の `Event.importance` を `type: string` に変えると
+`binary operator '==' cannot be applied to operands of type 'String' and 'Int'` で
+落ちることを実際に確認した（2026-09-03 実測。落ちるのは `Ichikabu/EventLayout.swift:83`）。
+
+例に使う型は**アプリが実際に読む経路のもの**にする。`Health.status` で確かめていた時期が
+あったが、アプリは `GET /api/health` を叩かず、その型を参照するのがテスト1本だけだった。
+そのテストを消したとき（Issue #136）にこの根拠も一緒に消えた。
 
 コマンドが Issue 本文の記載と2点違う。理由は次のとおり。
 
