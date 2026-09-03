@@ -16,9 +16,9 @@ import { afterAll, vi } from "vitest";
 // 画面と Server Action は `next/headers` の `headers()` を呼ぶが、これは Next.js の
 // リクエストの中でしか動かない。テストが自分で入れた Headers を返す形に差し替える。
 //
-// セッションは差し替えない。本物の Better Auth のトークンを Cookie として
-// この Headers に載せる（`test/render-page.ts` の `signInAs`）。差し替えると、
-// 画面が本当にサインインを見ているかを確かめられなくなる
+// セッションは差し替えない。`test/render-page.ts` の `signInAs` が、この `current` を
+// 「本物の Better Auth のトークンを Cookie に持つ Headers」へ丸ごと差し替える。
+// セッションの側を差し替えると、画面が本当にサインインを見ているかを確かめられなくなる
 export const requestHeaders = { current: new Headers() };
 
 vi.mock("next/headers", () => ({
