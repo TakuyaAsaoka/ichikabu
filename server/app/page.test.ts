@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../src/auth";
 import { seedUser } from "../src/db/seed-user";
 import { createStock, createTheme, createThemeStock } from "../src/db/write";
 import { htmlOf } from "../test/dom";
 import { entriesOf, resetDatabase } from "../test/helpers";
 import { PASSWORD, render, signInAs } from "../test/render-page";
-import { requestHeaders } from "../test/setup";
 import Page from "./page";
 
 const EDITOR = "editor@example.com";
@@ -29,7 +27,7 @@ async function addTheme(name: string): Promise<string> {
 beforeEach(async () => {
   await resetDatabase();
   await seedUser(EDITOR, PASSWORD);
-  requestHeaders.current = await signInAs(auth.handler, EDITOR);
+  await signInAs(EDITOR);
 });
 
 describe("銘柄とテーマの画面", () => {

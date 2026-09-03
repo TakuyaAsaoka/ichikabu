@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { auth } from "../src/auth";
 import { db } from "../src/db";
 import {
   auditLog,
@@ -19,8 +18,7 @@ import {
 } from "../src/db/write";
 import { resetDatabase } from "../test/helpers";
 import { eventInput, stockInput } from "../test/inputs";
-import { redirectedTo } from "../test/render-page";
-import { requestHeaders } from "../test/setup";
+import { PASSWORD, redirectedTo, signInAs } from "../test/render-page";
 import {
   addEvent,
   editEvent,
@@ -42,24 +40,6 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 // （seedUser が小文字にして入れるため、大文字違いで同じ人になる）
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-const PASSWORD = "correct-horse-battery-staple";
-
-/** サインインして、以降の Server Action がそのセッションで動くようにする */
-async function signInAs(email: string): Promise<void> {
-  const res = await auth.handler(
-    new Request("http://localhost:3000/api/auth/sign-in/email", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password: PASSWORD }),
-    }),
-  );
-  const cookie = res.headers.get("set-cookie");
-  if (!cookie) {
-    throw new Error(`サインインできなかった: ${email}`);
-  }
-  // `;` の前が「名前=値」で、後ろは有効期限などの属性
-  requestHeaders.current = new Headers({ cookie: cookie.split(";")[0] });
-}
 
 function form(values: Record<string, string>): FormData {
   const formData = new FormData();

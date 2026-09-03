@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { auth } from "../src/auth";
+import { requestHeaders } from "./setup";
 
 /** サインインの画面が受け付けるパスワード。テストの利用者はこれで作る */
 export const PASSWORD = "correct-horse-battery-staple";
@@ -8,26 +10,19 @@ export const PASSWORD = "correct-horse-battery-staple";
 type Page = () => Promise<ReactNode>;
 
 /**
- * `auth.handler` の型。呼ぶ側から受け取ることで、このファイルは `src/auth` を
- * 読み込まない。
- *
- * 元は「テストが `src/auth` を読み込む順を縛らないため」と書いてあったが、
- * その縛りは Issue #138 で `test/setup.ts` に移り、無くなった。
- * **引数を残すかどうかは別の話**として Issue #144 に切ってある
- */
-type Handler = (request: Request) => Promise<Response>;
-
-/**
- * サインインして、以降の描画に載せる Cookie の入った Headers を返す。
+ * サインインして、以降の描画と Server Action がそのセッションで動くようにする。
  *
  * セッションは差し替えず、本物の Better Auth のトークンを使う。
- * 差し替えると、画面が本当にサインインを見ているかを確かめられなくなる
+ * 差し替えると、画面が本当にサインインを見ているかを確かめられなくなる。
+ *
+ * `src/auth` は `test/setup.ts` ではなくここで読む。`test/setup.ts` は
+ * `setupFiles` として全テストより先に無条件で走るため、あちらで読むと
+ * サインインしないテスト（`test/spec-refs.test.ts` 等）まで `src/auth` の
+ * 読み込みに巻き込まれる（Issue #144 で実測。`GOOGLE_CLIENT_ID` が未設定だと
+ * 全滅した）。このファイルは呼ぶテストだけが読む
  */
-export async function signInAs(
-  handler: Handler,
-  email: string,
-): Promise<Headers> {
-  const res = await handler(
+export async function signInAs(email: string): Promise<void> {
+  const res = await auth.handler(
     new Request("http://localhost:3000/api/auth/sign-in/email", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -38,7 +33,8 @@ export async function signInAs(
   if (!cookie) {
     throw new Error(`サインインできなかった: ${email}`);
   }
-  return new Headers({ cookie: cookie.split(";")[0] });
+  // `;` の前が「名前=値」で、後ろは有効期限などの属性
+  requestHeaders.current = new Headers({ cookie: cookie.split(";")[0] });
 }
 
 /**

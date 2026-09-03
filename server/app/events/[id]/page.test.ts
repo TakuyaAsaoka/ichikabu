@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../../src/auth";
 import { seedUser } from "../../../src/db/seed-user";
 import {
   createEvent,
@@ -11,7 +10,6 @@ import { htmlOf } from "../../../test/dom";
 import { idOf, resetDatabase } from "../../../test/helpers";
 import { eventInput, stockInput } from "../../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
-import { requestHeaders } from "../../../test/setup";
 import Page from "./page";
 
 const EDITOR = "editor@example.com";
@@ -20,7 +18,7 @@ const EDITOR = "editor@example.com";
 beforeEach(async () => {
   await resetDatabase();
   await seedUser(EDITOR, PASSWORD);
-  requestHeaders.current = await signInAs(auth.handler, EDITOR);
+  await signInAs(EDITOR);
 });
 
 /** 空にできる欄をすべて空にしたイベント。埋めたい欄だけ上書きする */

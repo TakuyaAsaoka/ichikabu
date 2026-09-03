@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../src/auth";
 import { record } from "../../src/db/audit";
 import { seedUser } from "../../src/db/seed-user";
 import {
@@ -12,7 +11,6 @@ import { htmlOf } from "../../test/dom";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { eventInput } from "../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
-import { requestHeaders } from "../../test/setup";
 import Page from "./page";
 
 const ADMIN = "admin@example.com";
@@ -38,11 +36,6 @@ async function addEvent(shortLabel: string, startDate?: string) {
 /** 銘柄を1件作る */
 async function addStock(ticker: string, name: string) {
   return createStock({ market: "JP", ticker, name, fiscalMonth: 3 });
-}
-
-/** サインインして、以降の描画がそのセッションで動くようにする */
-async function signIn(email: string): Promise<void> {
-  requestHeaders.current = await signInAs(auth.handler, email);
 }
 
 /** 各テストの前に作り直す利用者のID。記録に残す人の出どころ */
@@ -72,7 +65,7 @@ describe("イベントの画面", () => {
     ]) {
       await addEvent(shortLabel, startDate);
     }
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     const html = await render(Page);
 
@@ -91,7 +84,7 @@ describe("イベントの画面", () => {
     await createTheme("半導体");
     await addStock("7203", "トヨタ自動車");
     await addStock("6758", "ソニーグループ");
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     const html = await render(Page);
 
@@ -109,7 +102,7 @@ describe("イベントの画面", () => {
 
   it("入れた人が名前で出る", async () => {
     await record(userIds.editor, entriesOf(await addEvent("CPI")));
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     expect(await render(Page)).toContain(EDITOR);
   });
@@ -117,7 +110,7 @@ describe("イベントの画面", () => {
   it("取り込みが入れたイベントは「取り込み」と出る", async () => {
     // 取り込みスクリプトは記録を残すが、操作した人は NULL になる
     await record(null, entriesOf(await addEvent("CPI")));
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     const html = await render(Page);
     expect(html).toContain("取り込み");
@@ -129,7 +122,7 @@ describe("イベントの画面", () => {
     // 記録を書かない）。取り込みが入れたことにすると、取り込みがやっていない
     // 登録を取り込みの手柄にする
     await addEvent("CPI");
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     const html = await render(Page);
     expect(html).toContain("記録なし");
@@ -162,7 +155,7 @@ describe("イベントの画面", () => {
         }),
       ),
     );
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     const html = await render(Page);
     expect(html).toContain("記録なし");

@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../src/auth";
 import { seedUser } from "../../src/db/seed-user";
 import { createStock } from "../../src/db/write";
 import { GAP_KINDS, GAP_TITLES } from "../../src/status";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { stockInput } from "../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
-import { requestHeaders } from "../../test/setup";
 import Page from "./page";
 
 const EDITOR = "editor@example.com";
@@ -14,7 +12,7 @@ const EDITOR = "editor@example.com";
 beforeEach(async () => {
   await resetDatabase();
   await seedUser(EDITOR, PASSWORD);
-  requestHeaders.current = await signInAs(auth.handler, EDITOR);
+  await signInAs(EDITOR);
 });
 
 describe("状態の画面", () => {

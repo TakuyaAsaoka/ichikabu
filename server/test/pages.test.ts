@@ -13,7 +13,6 @@ import Status from "../app/status/page";
 import StockEdit from "../app/stocks/[id]/page";
 import ThemeEdit from "../app/themes/[id]/page";
 import ThemeStockRemove from "../app/themes/[id]/stocks/[stockId]/page";
-import { auth } from "../src/auth";
 import { seedUser } from "../src/db/seed-user";
 import {
   createEvent,
@@ -36,11 +35,6 @@ import { requestHeaders } from "./setup";
 // （`seedUser` が小文字にして入れるため、大文字違いで同じ人になる）
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-
-/** サインインして、以降の描画がそのセッションで動くようにする */
-async function signIn(email: string): Promise<void> {
-  requestHeaders.current = await signInAs(auth.handler, email);
-}
 
 async function addStock(ticker = "7203", name = "トヨタ自動車") {
   return idOf(
@@ -316,7 +310,7 @@ describe("管理画面に共通の約束", () => {
       if (signedOut) {
         requestHeaders.current = new Headers();
       } else {
-        await signIn(adminOnly ? ADMIN : EDITOR);
+        await signInAs(adminOnly ? ADMIN : EDITOR);
       }
 
       // 見出しが消えても、同じ文字列が `Nav` のリンク名に残る画面がある。
@@ -342,7 +336,7 @@ describe("管理画面に共通の約束", () => {
       // （Issue #122）。同じ画面のHTMLから両方を取り出して比べるので、
       // 片方だけ直すと落ちる。見出しの文字列そのものは上の表が押さえており、
       // そちらが空でないことも見ているので、両方が空で揃う抜け道は無い
-      await signIn(EDITOR);
+      await signInAs(EDITOR);
 
       const html = await render(open);
 
@@ -355,7 +349,7 @@ describe("管理画面に共通の約束", () => {
     // 監査ログのリンクは管理者にだけ出すため `LINKS` の外にある。
     // 上の繰り返しから漏れるので、5本目としてここで見る。
     // リンクは入力者に出さないので、リンクの側も管理者で開く
-    await signIn(ADMIN);
+    await signInAs(ADMIN);
 
     const linkSource = await render(Home);
     const destination = await render(Audit);
@@ -368,7 +362,7 @@ describe("管理画面に共通の約束", () => {
     "$dir は入力者に監査ログへの行き先を出さない",
     async ({ open }) => {
       // 開いても追い返されるリンクを見せない
-      await signIn(EDITOR);
+      await signInAs(EDITOR);
 
       expect(await render(open)).not.toContain('href="/audit"');
     },
@@ -379,7 +373,7 @@ describe("管理画面に共通の約束", () => {
     async ({ open }) => {
       // `Nav` を呼び忘れた画面と、`Nav` に別のメールアドレスを渡した画面は、
       // どちらもここで落ちる。行き先の一覧そのものは上の2件が見ている
-      await signIn(ADMIN);
+      await signInAs(ADMIN);
 
       expect(await render(open)).toContain('href="/audit"');
     },
@@ -390,7 +384,7 @@ describe("管理画面に共通の約束", () => {
     async ({ open }) => {
       // 数でないIDは integer 列に渡す前に弾く。渡すと型変換エラーで 500 になる。
       // 無いIDは、読めた行が無いまま画面を組み立てると 500 になる
-      await signIn(EDITOR);
+      await signInAs(EDITOR);
 
       await expectNotFound(() => render(open));
     },

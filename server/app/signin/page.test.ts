@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../src/auth";
 import { seedUser } from "../../src/db/seed-user";
 import { resetDatabase } from "../../test/helpers";
 import {
@@ -26,7 +25,7 @@ beforeEach(async () => {
 
 describe("サインインの画面", () => {
   it("サインイン済みで開くと管理画面へ戻される", async () => {
-    requestHeaders.current = await signInAs(auth.handler, EDITOR);
+    await signInAs(EDITOR);
 
     expect(await redirectedTo(open())).toBe("/");
   });
