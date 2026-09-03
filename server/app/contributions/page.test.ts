@@ -1,20 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../src/auth";
 import { record } from "../../src/db/audit";
 import { seedUser } from "../../src/db/seed-user";
 import { createTheme, deleteTheme, updateTheme } from "../../src/db/write";
 import { entriesOf, resetDatabase } from "../../test/helpers";
 import { PASSWORD, render, signInAs } from "../../test/render-page";
-import { requestHeaders } from "../../test/setup";
 import Page from "./page";
 
 const ALICE = "alice@example.com";
 const BOB = "bob@example.com";
-
-/** サインインして、以降の描画がそのセッションで動くようにする */
-async function signIn(email: string): Promise<void> {
-  requestHeaders.current = await signInAs(auth.handler, email);
-}
 
 /** 各テストの前に作り直す利用者のID。記録に残す人の出どころ */
 const userIds = { alice: "", bob: "" };
@@ -28,7 +21,7 @@ beforeEach(async () => {
 // 追い返しは `test/pages.test.ts` の表が全画面ぶん見ている
 describe("貢献度の画面", () => {
   it("記録が0件のとき、その旨が出る", async () => {
-    await signIn(ALICE);
+    await signInAs(ALICE);
 
     expect(await render(Page)).toContain("記録なし");
   });
@@ -40,7 +33,7 @@ describe("貢献度の画面", () => {
       entriesOf(await updateTheme(1, "半導体・製造装置")),
     );
     await record(userIds.alice, entriesOf(await deleteTheme(1)));
-    await signIn(ALICE);
+    await signInAs(ALICE);
 
     const html = await render(Page);
     expect(html).toContain(ALICE);
@@ -53,7 +46,7 @@ describe("貢献度の画面", () => {
     await record(userIds.alice, entriesOf(await createTheme("半導体")));
     await record(userIds.bob, entriesOf(await createTheme("防衛")));
     await record(userIds.bob, entriesOf(await createTheme("造船")));
-    await signIn(ALICE);
+    await signInAs(ALICE);
 
     const html = await render(Page);
     // 先に両方が出ていることを確かめる。片方が出ていないと indexOf が -1 になり、
@@ -65,7 +58,7 @@ describe("貢献度の画面", () => {
 
   it("取り込みが入れた記録は「取り込み」として数えられる", async () => {
     await record(null, entriesOf(await createTheme("半導体")));
-    await signIn(ALICE);
+    await signInAs(ALICE);
 
     const html = await render(Page);
     expect(html).toContain("取り込み");
@@ -75,7 +68,7 @@ describe("貢献度の画面", () => {
   it("入力者ごとに分かれて数えられる", async () => {
     await record(userIds.alice, entriesOf(await createTheme("半導体")));
     await record(userIds.bob, entriesOf(await createTheme("防衛")));
-    await signIn(ALICE);
+    await signInAs(ALICE);
 
     // まとめて数えると「登録 2件」の1行になる。人数もそこで狂う
     expect(await render(Page)).toContain("（2人）");
@@ -84,7 +77,7 @@ describe("貢献度の画面", () => {
   it("取り込みは人数に数えない", async () => {
     await record(userIds.alice, entriesOf(await createTheme("半導体")));
     await record(null, entriesOf(await createTheme("防衛")));
-    await signIn(ALICE);
+    await signInAs(ALICE);
 
     // 行は2つ出るが、人は1人。取り込みを人数に混ぜると「2人」になる
     expect(await render(Page)).toContain("（1人）");

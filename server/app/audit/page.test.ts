@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { auth } from "../../src/auth";
 import { record } from "../../src/db/audit";
 import { seedUser } from "../../src/db/seed-user";
 import { createStock, createTheme } from "../../src/db/write";
@@ -11,7 +10,6 @@ import {
   render,
   signInAs,
 } from "../../test/render-page";
-import { requestHeaders } from "../../test/setup";
 import Page from "./page";
 
 // この画面は管理者だけが開ける。管理者のメールアドレスは `test/setup.ts` が
@@ -19,11 +17,6 @@ import Page from "./page";
 // （`seedUser` が小文字にして入れるため、大文字違いで同じ人になる）
 const ADMIN = "admin@example.com";
 const EDITOR = "editor@example.com";
-
-/** サインインして、以降の描画がそのセッションで動くようにする */
-async function signIn(email: string): Promise<void> {
-  requestHeaders.current = await signInAs(auth.handler, email);
-}
 
 /** 各テストの前に作り直す利用者のID。記録に残す人の出どころ */
 const userIds = { admin: "", editor: "" };
@@ -40,13 +33,13 @@ describe("監査ログの画面", () => {
   it("管理者ではない入力者は追い返される", async () => {
     // 入力者に監査ログは見せない（入力者を3人にする設計書 §2）。
     // 画面から入口を消すだけでは、URL を直に打つ経路が塞がったか判定できない
-    await signIn(EDITOR);
+    await signInAs(EDITOR);
 
     expect(await redirectedTo(Page)).toBe("/");
   });
 
   it("記録が0件のとき、その旨が出る", async () => {
-    await signIn(ADMIN);
+    await signInAs(ADMIN);
 
     expect(await render(Page)).toContain("記録なし");
   });
@@ -54,7 +47,7 @@ describe("監査ログの画面", () => {
   it("管理者には日時・操作した人・種別・対象が新しい順に出る", async () => {
     await record(userIds.admin, entriesOf(await createTheme("半導体")));
     await record(userIds.admin, entriesOf(await createStock(stockInput())));
-    await signIn(ADMIN);
+    await signInAs(ADMIN);
 
     const html = await render(Page);
     expect(html).toContain(ADMIN);
@@ -69,7 +62,7 @@ describe("監査ログの画面", () => {
 
   it("取り込みが入れた記録は操作した人が「取り込み」と出る", async () => {
     await record(null, entriesOf(await createTheme("半導体")));
-    await signIn(ADMIN);
+    await signInAs(ADMIN);
 
     expect(await render(Page)).toContain("取り込み");
   });
