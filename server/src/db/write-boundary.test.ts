@@ -68,6 +68,21 @@ const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 const DELETE_CALL = /\b(?:db|tx)\b\s*\.\s*delete\(/;
 
 /**
+ * ファイルの `export` の行。行の途中に現れる `export` は拾わない。
+ *
+ * 塊に切り出す `exportedBlocks` は使わない。あちらは名前を取れない export を
+ * 黙って捨てるため、`export default async function` の Server Action が
+ * 素通りする（実測）
+ */
+const EXPORT_LINE = /^export .*/gm;
+
+/**
+ * サインインの判定を通す Server Action の書き方。
+ * `app/actions.ts` の12本はどれも1行目がこの形で、`action()` が判定を運ぶ
+ */
+const GUARDED_EXPORT = /^export const \w+ = action\(/;
+
+/**
  * ファイルの `export` を1本ずつ、名前と中身の組にして切り出す。
  * 中身は、次の `export` の手前までの一続きの文字列。
  *
@@ -196,17 +211,16 @@ describe("書き込みの経路", () => {
     expect(missing).toEqual([]);
   });
 
-  it("Server Action はどれもサインインの判定を通る", () => {
+  it("Server Action はどれも action() を通る", () => {
     // `app/actions.test.ts` は代表2本で「サインインしていないと追い返される」を
     // 見ているが、その2本は `action()` を通る道しか通らない。`action()` を通らない
-    // 13本目が増えても何も鳴らない（判定も記録もしない1本を足して全379件が緑の
-    // まま通った。Issue #147 で実測）。既存の1本が `action()` を外れた場合も同じで、
-    // `editStock` を手書きに直すと画面と Server Action の68件すべてが緑だった。
+    // 13本目が増えても、その2本は鳴らない（判定も記録もしない1本を足したところ、
+    // 画面と Server Action の68件すべてが緑のまま通った。Issue #147 で実測）。
+    // 既存の1本が `action()` を外れた場合も同じで、`editStock` を手書きに直しても
+    // 同じ68件が緑だった。
     //
-    // ここは1つ上の `adminOnly` の検査と違い、export を塊に切り出さず**行で見る**。
-    // 塊に切り出す `exportedBlocks` は名前を取れない export を黙って捨てるため、
-    // `export default async function` の13本目が素通りする（実測）。行で見て
-    // 「形の合わない export を挙げる」にすると、知らない書き方ほど赤くなる。
+    // 見るのは `"use server"` で始まるファイル全部。`app/actions.ts` と書き写すと、
+    // Server Action を置いた2つ目のファイルが増えたとき1行も読まない。
     //
     // | 足したもの | 結果 |
     // |---|---|
@@ -214,17 +228,29 @@ describe("書き込みの経路", () => {
     // | `export { removeEvent as purgeEvent };` | 赤 |
     // | `export const editStock = async (` | 赤 |
     //
-    // **再輸出（`export { removeEvent as purgeEvent };`）も名指す。** 中身は
-    // `action()` を通っているので、これは正しいものを赤くする側の間違い。
-    // 害が無いので受け入れる（今そう書いた行は1つも無い）。踏んだら、
-    // 再輸出をやめるか、ここに逃がす形を決める
-    const lines =
-      (trackedSources().get("app/actions.ts") ?? "").match(/^export .*/gm) ?? [];
-    expect(lines.length).toBeGreaterThan(0);
+    // 素通りするもの・正しいのに赤くなるものは次のとおり。`DIRECT_WRITE` と同じく
+    // **うっかり増えた1本を鳴らすためのもの**で、意図して避ける相手を止めるものではない。
+    //
+    // | 書き方 | どうなるか |
+    // |---|---|
+    // | 関数の中に `"use server"` を書いて1つの関数だけ Server Action にする | 素通りする（ファイルの1行目を見るため） |
+    // | 別名を付けて出し直す `export { removeEvent as purgeEvent };` | 正しいのに赤くなる |
+    // | `export type` を足す | 同上（今 `app/actions.ts` に公開している型は無い） |
+    //
+    // 正しいのに赤くなる2つは、今そう書いた行が1つも無いので受け入れる。
+    // 踏んだら、その書き方をやめるか、ここに逃がす形を決める
+    const files = [...trackedSources()].filter(([, source]) =>
+      source.startsWith('"use server"'),
+    );
+    expect(files.length).toBeGreaterThan(0);
 
-    expect(
-      lines.filter((line) => !/^export const \w+ = action\(/.test(line)),
-    ).toEqual([]);
+    const notGuarded = files.flatMap(([path, source]) =>
+      (source.match(EXPORT_LINE) ?? [])
+        .filter((line) => !GUARDED_EXPORT.test(line))
+        .map((line) => `${path}: ${line}`),
+    );
+
+    expect(notGuarded).toEqual([]);
   });
 
   it("書き込み関数を呼ぶ2つから record( の呼び出しが消えていない", () => {

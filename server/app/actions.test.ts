@@ -155,8 +155,8 @@ const revalidated = [
  * | `requireUserId` が `requireSession` を通らなくなる | **緑** | 赤 |
  * | `adminOnly` の分岐が `requireSession` を通らなくなる | 赤 | **緑** |
  *
- * 削除の対象は作らない。追い返されるところまでしか進まないため、
- * 何が在るかは結果に効かない
+ * 削除の対象は作らない。行き先だけを見る。追い返されずに書き込みまで進む
+ * 壊れ方は、`adminOnlyDeletes` の `remaining()` と監査ログの1本が既に見ている
  */
 const unauthenticated = [
   {
@@ -264,7 +264,9 @@ describe("管理者", () => {
 
 describe("サインインしていない人", () => {
   // `signInAs` を呼ばないので、1つ上のテストが入れた Cookie がそのまま残る。
-  // 空の Headers に戻して、サインインしていない状態を作る（`test/setup.ts`）
+  // `resetDatabase()` が session の行も消すため、残っていてもセッションは引けないが、
+  // 「サインインしていない」を読み手に見せるために空の Headers を入れる
+  // （`test/setup.ts`。`test/pages.test.ts` も同じ書き方）
   beforeEach(() => {
     requestHeaders.current = new Headers();
   });
