@@ -64,6 +64,35 @@ const WRITE_IMPORT = /import\s+([^"]*?)\s+from\s+"[^"]*db\/write"/g;
  */
 const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 
+/** 削除の呼び出し。取り引きの `tx.delete(...)` も拾う。書き方は `DIRECT_WRITE` と揃える */
+const DELETE_CALL = /\b(?:db|tx)\b\s*\.\s*delete\(/;
+
+/**
+ * ファイルの `export` を1本ずつ、名前と中身の組にして切り出す。
+ * 中身は、次の `export` の手前までの一続きの文字列。
+ *
+ * 終わりを `\n);` で探さない。`app/actions.ts` の `addEvents` は `});` で
+ * 終わるため、そこで閉じずに次の `export` の末尾まで1つの当たりになり、
+ * 隣の `adminOnly: true` を飲み込む（実測）。上の `WRITE_IMPORT` が
+ * 同じ形の事故を1度踏んでいる。
+ *
+ * 名前は先頭でだけ探す。どこでもよいことにすると、アロー関数で書いた
+ * `export const` から、その後ろに続く別の関数の名前を拾う（実測）。
+ * `function` か `const` の名前で始まらない export（`export type` 等）は落ちる。
+ *
+ * export と export のあいだに置いた非公開の関数は、**手前の export の中身**
+ * として数える（`src/db/write.ts` の `activeEntries` が実際にその位置にある）
+ */
+function exportedBlocks(source: string): [string, string][] {
+  return source
+    .split("\nexport ")
+    .slice(1)
+    .flatMap((block) => {
+      const name = /^(?:async )?(?:function|const) (\w+)/.exec(block)?.[1];
+      return name ? [[name, block] as [string, string]] : [];
+    });
+}
+
 /**
  * 1つの import 文が書き込み関数を値として読み込んでいるかを判定する。
  * `import type { EventInput }` と、`{ type StockInput, createEvent }` の
@@ -121,6 +150,50 @@ describe("書き込みの経路", () => {
       .map(([path]) => path);
 
     expect(writers.sort()).toEqual([...ALLOWED_DIRECT_WRITERS].sort());
+  });
+
+  it("削除を呼ぶ Server Action には adminOnly が付いている", () => {
+    // `app/actions.test.ts` は削除4本を名前で並べて「管理者でなければ拒まれる」を
+    // 見ているが、一覧に載っていない5本目が増えたときは何も鳴らない。
+    // 実際、`adminOnly` の無い13本目を足しても全件が緑のまま通った（Issue #150 で実測）。
+    //
+    // ここは動かさずに文字として見る。走らせて見る形（export を全部たどり、
+    // 管理者でない人で叩いて削除が起きないことを見る）も書いて比べたが、
+    // 削除の前に条件がある1本を緑のまま通した（`formData.get("confirm") !== "yes"`
+    // で先に戻る形。実測）。**削除の呼び出しが在ることは、走らせなくても見える。**
+    //
+    // 見ているのは呼び出しが在るかどうかだけで、次の3つは素通りする。
+    // `DIRECT_WRITE` と同じく**うっかり増えた1本を鳴らすためのもの**で、
+    // 意図して避ける相手を止めるものではない。
+    //
+    // | 素通りする書き方 | 理由 |
+    // |---|---|
+    // | 削除の中身を `app/actions.ts` の中の別の `const` に出す | 塊の外へ出る |
+    // | 削除の中身を `src/db/write.ts` の非公開の関数に出す | 同上 |
+    // | `import { deleteStock as dropStock }` と別名を付ける | 名前が変わる |
+    // | `src/db/write.ts` で取り引きの引数を `tx` 以外の名前にする | `DELETE_CALL` が拾わない |
+    //
+    // `adminOnly: true` は直に書く。`adminOnly: ADMIN` のように変数で渡すと、
+    // 正しく限っていてもここが赤くなる
+    const sources = trackedSources();
+
+    // どれが削除かは `src/db/write.ts` の本文から取る。**名前では決めない。**
+    // 名前の頭が `delete` かで決めると、`deleteTheme` を `purgeTheme` に改名した
+    // だけで見張りが1本黙って減り、その関数を呼ぶ Server Action から `adminOnly`
+    // が落ちても緑のまま通る（実測）。改名は日常の書き直しで起き、減ったことは
+    // 誰にも知らされない。本文の `.delete(` は改名しても残る。
+    // ここに名前を書き写す形にしないのも同じ理由で、書き写しの側を直し忘れる
+    const deletes = exportedBlocks(sources.get("src/db/write.ts") ?? "")
+      .filter(([, body]) => DELETE_CALL.test(body))
+      .map(([name]) => name);
+    expect(deletes.length).toBeGreaterThan(0);
+
+    const missing = exportedBlocks(sources.get("app/actions.ts") ?? "")
+      .filter(([, body]) => deletes.some((name) => body.includes(`${name}(`)))
+      .filter(([, body]) => !body.includes("adminOnly: true"))
+      .map(([name]) => name);
+
+    expect(missing).toEqual([]);
   });
 
   it("書き込み関数を呼ぶ2つから record( の呼び出しが消えていない", () => {
