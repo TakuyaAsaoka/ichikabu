@@ -78,9 +78,21 @@ const EXPORT_LINE = /^export .*/gm;
 
 /**
  * サインインの判定を通す Server Action の書き方。
- * `app/actions.ts` の12本はどれも1行目がこの形で、`action()` が判定を運ぶ
+ * `app/actions.ts` の12本はどれも `export` の行がこの形で、`action()` が判定を運ぶ
  */
 const GUARDED_EXPORT = /^export const \w+ = action\(/;
+
+/**
+ * Server Action のファイルの目印。
+ *
+ * ファイルの先頭を見る形（`startsWith`）にしない。ディレクティブの前に
+ * コメントを置くのは正しい書き方で、このリポジトリは先頭が説明のコメントの
+ * ファイルが普通（`src/admin.ts`）。先頭を見る形だと、そう書いた2つ目の
+ * Server Action のファイルを1行も読まない（実測）。
+ *
+ * コメントの中の `"use server"` は、行頭でも `";` 終わりでもないので拾わない
+ */
+const SERVER_DIRECTIVE = /^"use server";$/m;
 
 /**
  * ファイルの `export` を1本ずつ、名前と中身の組にして切り出す。
@@ -233,14 +245,21 @@ describe("書き込みの経路", () => {
     //
     // | 書き方 | どうなるか |
     // |---|---|
-    // | 関数の中に `"use server"` を書いて1つの関数だけ Server Action にする | 素通りする（ファイルの1行目を見るため） |
+    // | 関数の中に `"use server"` を書いて1つの関数だけ Server Action にする | 素通りする（行頭のディレクティブを見るため） |
     // | 別名を付けて出し直す `export { removeEvent as purgeEvent };` | 正しいのに赤くなる |
     // | `export type` を足す | 同上（今 `app/actions.ts` に公開している型は無い） |
+    // | Server Action を2つ目のファイルに置く | そのファイルごと赤くなる |
     //
-    // 正しいのに赤くなる2つは、今そう書いた行が1つも無いので受け入れる。
-    // 踏んだら、その書き方をやめるか、ここに逃がす形を決める
+    // 最後の1つは、この検査が実質「Server Action は `app/actions.ts` にしか
+    // 置けない」を固定していることによる。`action()` は `app/actions.ts` の
+    // 非公開の関数で、`app/guard.ts` へは出せない（理由は `app/actions.ts` の
+    // `action()` のコメント）。1つのファイルに寄せる方針そのものなので、
+    // 2つ目のファイルが要るようになったら、そのとき置き場所から決める
+    //
+    // 上の2つ（別名を付けて出し直す形・`export type`）は、今そう書いた行が
+    // 1つも無いので受け入れる。踏んだら、その書き方をやめるか、ここに逃がす形を決める
     const files = [...trackedSources()].filter(([, source]) =>
-      source.startsWith('"use server"'),
+      SERVER_DIRECTIVE.test(source),
     );
     expect(files.length).toBeGreaterThan(0);
 
