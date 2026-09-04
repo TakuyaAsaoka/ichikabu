@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db";
 import {
@@ -31,8 +32,12 @@ import {
 // next/cache も Next.js のリクエストの中でしか動かない。next/headers と
 // ADMIN_EMAIL の差し替えは `test/setup.ts` が全ファイルぶん行うが、これはこの1本
 // でしか要らないのでここに置く（Server Action を直に呼ぶのはこのテストだけ）。
-// vi.mock は import より前に巻き上げられるので、上の import より後に書いてよい
-vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+// vi.mock は import より前に巻き上げられるので、上の import より後に書いてよい。
+//
+// 差し替え先を `() => {}` ではなく `vi.fn()` にしてある。空の関数だと、
+// 呼ばれたことも渡した値も誰も見ないため、`app/actions.ts` から
+// `revalidatePath("/")` を消しても全件が緑のまま通る（Issue #149 で実測）
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 // Server Action を画面を通さず直接呼ぶ（設計書 §4）。画面から削除の欄を消すだけでは、
 // 直接POSTされる経路が塞がっているかを判定できない。
@@ -97,6 +102,45 @@ const adminOnlyDeletes = [
     remaining: () => db.select().from(event),
   },
 ];
+
+/** イベントの入力欄。`id` を足せば編集、足さなければ登録に使える */
+const eventFields = {
+  title: "決算発表",
+  shortLabel: "7203決算",
+  startDate: "2026-05-08",
+  importance: "3",
+  target: "stock:1",
+};
+
+/**
+ * 画面の作り直し（`revalidatePath("/")`）を見る2本。
+ *
+ * 12本すべてが `app/actions.ts` の `action()` を通るので全部を並べる必要は無いが、
+ * **行き先のあるものと無いものは分けて見る。** 片方だけだと、次のどちらかを
+ * 緑のまま通す（どちらも Issue #149 で実測）。
+ *
+ * | 壊し方 | 見逃す側 |
+ * |---|---|
+ * | `revalidatePath()` が `redirect()` の後ろへ移る | 行き先の無い1本だけで見た場合 |
+ * | `revalidatePath()` が `if (options.redirectTo)` の中へ入る | 行き先のある1本だけで見た場合 |
+ */
+const revalidated = [
+  {
+    label: "行き先のある編集",
+    run: () =>
+      redirectedTo(() => editEvent(null, form({ ...eventFields, id: "1" }))),
+  },
+  {
+    label: "行き先の無い登録",
+    run: () => addEvent(null, form(eventFields)),
+  },
+];
+
+// `action()` を通る操作はどれも `revalidatePath()` を呼ぶ。上のテストの呼び出しが
+// 残っていると「このテストで呼ばれた」を見たことにならないので、毎回空にする
+beforeEach(() => {
+  vi.mocked(revalidatePath).mockClear();
+});
 
 describe("管理者ではない入力者", () => {
   beforeEach(async () => {
@@ -173,6 +217,12 @@ describe("管理者ではない入力者", () => {
 
     const [row] = await db.select().from(event);
     expect(row.title).toBe("日銀の金融政策決定会合（変更後）");
+  });
+
+  it.each(revalidated)("$label でも画面が作り直される", async (target) => {
+    await target.run();
+
+    expect(revalidatePath).toHaveBeenCalledWith("/");
   });
 });
 
