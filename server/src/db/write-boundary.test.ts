@@ -64,36 +64,30 @@ const WRITE_IMPORT = /import\s+([^"]*?)\s+from\s+"[^"]*db\/write"/g;
  */
 const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 
+/** 削除の呼び出し。取り引きの `tx.delete(...)` も拾う。書き方は `DIRECT_WRITE` と揃える */
+const DELETE_CALL = /\b(?:db|tx)\s*\.\s*delete\(/;
+
 /**
- * `src/db/write.ts` の関数のうち、行を消すもの。**名前ではなく中身で見分ける。**
+ * ファイルの `export` を1本ずつ、名前と中身の組にして切り出す。
+ * 中身は、次の `export` の手前までの一続きの文字列。
  *
- * 名前の頭が `delete` かで決めると、`deleteTheme` を `purgeTheme` に改名した
- * だけで見張りが1本黙って減り、その関数を呼ぶ Server Action から
- * `adminOnly` が落ちても緑のまま通る（実測）。改名は日常の書き直しで起き、
- * 減ったことは誰にも知らされない。本文の `.delete(` は改名しても残る。
- * `db` と `tx` の書き方は上の `DIRECT_WRITE` と揃えてある
+ * 終わりを `\n);` で探さない。`app/actions.ts` の `addEvents` は `});` で
+ * 終わるため、そこで閉じずに次の `export` の末尾まで1つの当たりになり、
+ * 隣の `adminOnly: true` を飲み込む（実測）。上の `WRITE_IMPORT` が
+ * 同じ形の事故を1度踏んでいる。
+ *
+ * 名前は先頭でだけ探す。どこでもよいことにすると、アロー関数で書いた
+ * `export const` から、その後ろに続く別の関数の名前を拾う（実測）。
+ * 型の export（`export type`）は名前が取れないので落ちる
  */
-function deleteFunctions(source: string): string[] {
+function exportedBlocks(source: string): [string, string][] {
   return source
     .split("\nexport ")
     .slice(1)
-    .filter((block) => /\b(?:db|tx)\s*\.\s*delete\(/.test(block))
-    .map((block) => /function (\w+)/.exec(block)?.[1] ?? "");
-}
-
-/**
- * `app/actions.ts` の `export const` を1本ずつ、名前と中身の組にして切り出す。
- *
- * 終わりを `\n);` で探さない。`addEvents` は `});` で終わるため、そこで閉じずに
- * 次の `export const` の末尾まで1つの当たりになり、隣の `adminOnly: true` を
- * 飲み込む（実測）。上の `WRITE_IMPORT` が同じ形の事故を1度踏んでいる。
- * 次の `export const` までを中身にすれば起きない
- */
-function exportedActions(source: string): [string, string][] {
-  return source
-    .split("\nexport const ")
-    .slice(1)
-    .map((block) => [block.split(/\W/)[0], block]);
+    .flatMap((block) => {
+      const name = /^(?:async )?(?:function|const) (\w+)/.exec(block)?.[1];
+      return name ? [[name, block] as [string, string]] : [];
+    });
 }
 
 /**
@@ -165,22 +159,32 @@ describe("書き込みの経路", () => {
     // 削除の前に条件がある1本を緑のまま通した（`formData.get("confirm") !== "yes"`
     // で先に戻る形。実測）。**削除の呼び出しが在ることは、走らせなくても見える。**
     //
-    // 見ているのは呼び出しが在るかどうかだけで、次の2つは素通りする。
-    // どちらも隣の11本と違う書き方をわざわざ選んだときにしか出ない形で、
-    // このファイルの `DIRECT_WRITE` と同じく**うっかり増えた1本を鳴らすためのもの**。
+    // 見ているのは呼び出しが在るかどうかだけで、次の3つは素通りする。
+    // `DIRECT_WRITE` と同じく**うっかり増えた1本を鳴らすためのもの**で、
+    // 意図して避ける相手を止めるものではない。
     //
-    // | 素通りする書き方 | |
+    // | 素通りする書き方 | 理由 |
     // |---|---|
-    // | 削除の中身を `app/actions.ts` の中の別の `const` に出す | 塊の外へ出るため |
-    // | `import { deleteStock as dropStock }` と別名を付ける | 名前が変わるため |
+    // | 削除の中身を `app/actions.ts` の中の別の `const` に出す | 塊の外へ出る |
+    // | `import { deleteStock as dropStock }` と別名を付ける | 名前が変わる |
+    // | `src/db/write.ts` で取り引きの引数を `tx` 以外の名前にする | `DELETE_CALL` が拾わない |
+    //
+    // `adminOnly: true` は直に書く。`adminOnly: ADMIN` のように変数で渡すと、
+    // 正しく限っていてもここが赤くなる
     const sources = trackedSources();
 
-    // どれが削除かは `src/db/write.ts` から取る。ここに名前を書き写すと、
-    // 削除を1本足す人が書き写しの側も直すことになり、書き忘れで素通りする
-    const deletes = deleteFunctions(sources.get("src/db/write.ts") ?? "");
+    // どれが削除かは `src/db/write.ts` の本文から取る。**名前では決めない。**
+    // 名前の頭が `delete` かで決めると、`deleteTheme` を `purgeTheme` に改名した
+    // だけで見張りが1本黙って減り、その関数を呼ぶ Server Action から `adminOnly`
+    // が落ちても緑のまま通る（実測）。改名は日常の書き直しで起き、減ったことは
+    // 誰にも知らされない。本文の `.delete(` は改名しても残る。
+    // ここに名前を書き写す形にしないのも同じ理由で、書き写しの側を直し忘れる
+    const deletes = exportedBlocks(sources.get("src/db/write.ts") ?? "")
+      .filter(([, body]) => DELETE_CALL.test(body))
+      .map(([name]) => name);
     expect(deletes.length).toBeGreaterThan(0);
 
-    const missing = exportedActions(sources.get("app/actions.ts") ?? "")
+    const missing = exportedBlocks(sources.get("app/actions.ts") ?? "")
       .filter(([, body]) => deletes.some((name) => body.includes(`${name}(`)))
       .filter(([, body]) => !body.includes("adminOnly: true"))
       .map(([name]) => name);
