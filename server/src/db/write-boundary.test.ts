@@ -65,7 +65,7 @@ const WRITE_IMPORT = /import\s+([^"]*?)\s+from\s+"[^"]*db\/write"/g;
 const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 
 /** 削除の呼び出し。取り引きの `tx.delete(...)` も拾う。書き方は `DIRECT_WRITE` と揃える */
-const DELETE_CALL = /\b(?:db|tx)\s*\.\s*delete\(/;
+const DELETE_CALL = /\b(?:db|tx)\b\s*\.\s*delete\(/;
 
 /**
  * ファイルの `export` を1本ずつ、名前と中身の組にして切り出す。
@@ -78,7 +78,10 @@ const DELETE_CALL = /\b(?:db|tx)\s*\.\s*delete\(/;
  *
  * 名前は先頭でだけ探す。どこでもよいことにすると、アロー関数で書いた
  * `export const` から、その後ろに続く別の関数の名前を拾う（実測）。
- * 型の export（`export type`）は名前が取れないので落ちる
+ * `function` か `const` の名前で始まらない export（`export type` 等）は落ちる。
+ *
+ * export と export のあいだに置いた非公開の関数は、**手前の export の中身**
+ * として数える（`src/db/write.ts` の `activeEntries` が実際にその位置にある）
  */
 function exportedBlocks(source: string): [string, string][] {
   return source
@@ -166,6 +169,7 @@ describe("書き込みの経路", () => {
     // | 素通りする書き方 | 理由 |
     // |---|---|
     // | 削除の中身を `app/actions.ts` の中の別の `const` に出す | 塊の外へ出る |
+    // | 削除の中身を `src/db/write.ts` の非公開の関数に出す | 同上 |
     // | `import { deleteStock as dropStock }` と別名を付ける | 名前が変わる |
     // | `src/db/write.ts` で取り引きの引数を `tx` 以外の名前にする | `DELETE_CALL` が拾わない |
     //
