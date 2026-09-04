@@ -20,6 +20,7 @@ import {
 import { resetDatabase } from "../test/helpers";
 import { eventInput, stockInput } from "../test/inputs";
 import { PASSWORD, redirectedTo, signInAs } from "../test/render-page";
+import { requestHeaders } from "../test/setup";
 import {
   addEvent,
   editEvent,
@@ -141,6 +142,33 @@ const revalidated = [
   },
 ];
 
+/**
+ * サインインしていない人が Server Action を直に叩いたときの2本。
+ *
+ * **`action()` のセッションの取り方は2通りあり、どちらも見る。** `adminOnly` の
+ * ある削除は `requireSession()` を、無いほうは `requireUserId()` を通る。片方だけ
+ * だと、もう片方の壊し方を緑のまま通す（3通りとも実測。→ Issue #147）。
+ *
+ * | 壊し方 | 削除 | 登録 |
+ * |---|---|---|
+ * | `app/guard.ts` の `requireSession` から `redirect("/signin")` を外す | 赤 | 赤 |
+ * | `requireUserId` が `requireSession` を通らなくなる | **緑** | 赤 |
+ * | `adminOnly` の分岐が `requireSession` を通らなくなる | 赤 | **緑** |
+ *
+ * 削除の対象は作らない。追い返されるところまでしか進まないため、
+ * 何が在るかは結果に効かない
+ */
+const unauthenticated = [
+  {
+    label: "削除",
+    run: () => removeEvent(null, form({ id: "1" })),
+  },
+  {
+    label: "登録",
+    run: () => addEvent(null, form(eventFields)),
+  },
+];
+
 // `action()` を通る操作はどれも `revalidatePath()` を呼ぶ。上のテストの呼び出しが
 // 残っていると「このテストで呼ばれた」を見たことにならないので、毎回空にする
 beforeEach(() => {
@@ -232,4 +260,21 @@ describe("管理者", () => {
 
     expect(revalidatePath).toHaveBeenCalledWith("/");
   });
+});
+
+describe("サインインしていない人", () => {
+  // `signInAs` を呼ばないので、1つ上のテストが入れた Cookie がそのまま残る。
+  // 空の Headers に戻して、サインインしていない状態を作る（`test/setup.ts`）
+  beforeEach(() => {
+    requestHeaders.current = new Headers();
+  });
+
+  it.each(unauthenticated)(
+    "$label を直に叩くとサインインの画面へ送られる",
+    async (target) => {
+      // 行き先まで見る。`redirect()` が起きたことだけを見ると、削除の成功も
+      // 同じ `NEXT_REDIRECT` なので見分けられない（`test/render-page.ts`）
+      expect(await redirectedTo(target.run)).toBe("/signin");
+    },
+  );
 });

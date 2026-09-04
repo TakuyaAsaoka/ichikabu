@@ -196,6 +196,37 @@ describe("書き込みの経路", () => {
     expect(missing).toEqual([]);
   });
 
+  it("Server Action はどれもサインインの判定を通る", () => {
+    // `app/actions.test.ts` は代表2本で「サインインしていないと追い返される」を
+    // 見ているが、その2本は `action()` を通る道しか通らない。`action()` を通らない
+    // 13本目が増えても何も鳴らない（判定も記録もしない1本を足して全379件が緑の
+    // まま通った。Issue #147 で実測）。既存の1本が `action()` を外れた場合も同じで、
+    // `editStock` を手書きに直すと画面と Server Action の68件すべてが緑だった。
+    //
+    // ここは1つ上の `adminOnly` の検査と違い、export を塊に切り出さず**行で見る**。
+    // 塊に切り出す `exportedBlocks` は名前を取れない export を黙って捨てるため、
+    // `export default async function` の13本目が素通りする（実測）。行で見て
+    // 「形の合わない export を挙げる」にすると、知らない書き方ほど赤くなる。
+    //
+    // | 足したもの | 結果 |
+    // |---|---|
+    // | `export default async function purgeEvent(` | 赤 |
+    // | `export { removeEvent as purgeEvent };` | 赤 |
+    // | `export const editStock = async (` | 赤 |
+    //
+    // **再輸出（`export { removeEvent as purgeEvent };`）も名指す。** 中身は
+    // `action()` を通っているので、これは正しいものを赤くする側の間違い。
+    // 害が無いので受け入れる（今そう書いた行は1つも無い）。踏んだら、
+    // 再輸出をやめるか、ここに逃がす形を決める
+    const lines =
+      (trackedSources().get("app/actions.ts") ?? "").match(/^export .*/gm) ?? [];
+    expect(lines.length).toBeGreaterThan(0);
+
+    expect(
+      lines.filter((line) => !/^export const \w+ = action\(/.test(line)),
+    ).toEqual([]);
+  });
+
   it("書き込み関数を呼ぶ2つから record( の呼び出しが消えていない", () => {
     // 呼べる場所を絞っても、そこで record() を呼ばなければ記録は残らない。
     // scripts/import-stat-schedule.ts はテストから叩けない（読み込んだ時点で
