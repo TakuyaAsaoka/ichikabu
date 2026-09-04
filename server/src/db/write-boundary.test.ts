@@ -65,6 +65,38 @@ const WRITE_IMPORT = /import\s+([^"]*?)\s+from\s+"[^"]*db\/write"/g;
 const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 
 /**
+ * `src/db/write.ts` の関数のうち、行を消すもの。**名前ではなく中身で見分ける。**
+ *
+ * 名前の頭が `delete` かで決めると、`deleteTheme` を `purgeTheme` に改名した
+ * だけで見張りが1本黙って減り、その関数を呼ぶ Server Action から
+ * `adminOnly` が落ちても緑のまま通る（実測）。改名は日常の書き直しで起き、
+ * 減ったことは誰にも知らされない。本文の `.delete(` は改名しても残る。
+ * `db` と `tx` の書き方は上の `DIRECT_WRITE` と揃えてある
+ */
+function deleteFunctions(source: string): string[] {
+  return source
+    .split("\nexport ")
+    .slice(1)
+    .filter((block) => /\b(?:db|tx)\s*\.\s*delete\(/.test(block))
+    .map((block) => /function (\w+)/.exec(block)?.[1] ?? "");
+}
+
+/**
+ * `app/actions.ts` の `export const` を1本ずつ、名前と中身の組にして切り出す。
+ *
+ * 終わりを `\n);` で探さない。`addEvents` は `});` で終わるため、そこで閉じずに
+ * 次の `export const` の末尾まで1つの当たりになり、隣の `adminOnly: true` を
+ * 飲み込む（実測）。上の `WRITE_IMPORT` が同じ形の事故を1度踏んでいる。
+ * 次の `export const` までを中身にすれば起きない
+ */
+function exportedActions(source: string): [string, string][] {
+  return source
+    .split("\nexport const ")
+    .slice(1)
+    .map((block) => [block.split(/\W/)[0], block]);
+}
+
+/**
  * 1つの import 文が書き込み関数を値として読み込んでいるかを判定する。
  * `import type { EventInput }` と、`{ type StockInput, createEvent }` の
  * 内側の `type` の両方を落とす
@@ -121,6 +153,39 @@ describe("書き込みの経路", () => {
       .map(([path]) => path);
 
     expect(writers.sort()).toEqual([...ALLOWED_DIRECT_WRITERS].sort());
+  });
+
+  it("削除を呼ぶ Server Action には adminOnly が付いている", () => {
+    // `app/actions.test.ts` は削除4本を名前で並べて「管理者でなければ拒まれる」を
+    // 見ているが、一覧に載っていない5本目が増えたときは何も鳴らない。
+    // 実際、`adminOnly` の無い13本目を足しても全件が緑のまま通った（Issue #150 で実測）。
+    //
+    // ここは動かさずに文字として見る。走らせて見る形（export を全部たどり、
+    // 管理者でない人で叩いて削除が起きないことを見る）も書いて比べたが、
+    // 削除の前に条件がある1本を緑のまま通した（`formData.get("confirm") !== "yes"`
+    // で先に戻る形。実測）。**削除の呼び出しが在ることは、走らせなくても見える。**
+    //
+    // 見ているのは呼び出しが在るかどうかだけで、次の2つは素通りする。
+    // どちらも隣の11本と違う書き方をわざわざ選んだときにしか出ない形で、
+    // このファイルの `DIRECT_WRITE` と同じく**うっかり増えた1本を鳴らすためのもの**。
+    //
+    // | 素通りする書き方 | |
+    // |---|---|
+    // | 削除の中身を `app/actions.ts` の中の別の `const` に出す | 塊の外へ出るため |
+    // | `import { deleteStock as dropStock }` と別名を付ける | 名前が変わるため |
+    const sources = trackedSources();
+
+    // どれが削除かは `src/db/write.ts` から取る。ここに名前を書き写すと、
+    // 削除を1本足す人が書き写しの側も直すことになり、書き忘れで素通りする
+    const deletes = deleteFunctions(sources.get("src/db/write.ts") ?? "");
+    expect(deletes.length).toBeGreaterThan(0);
+
+    const missing = exportedActions(sources.get("app/actions.ts") ?? "")
+      .filter(([, body]) => deletes.some((name) => body.includes(`${name}(`)))
+      .filter(([, body]) => !body.includes("adminOnly: true"))
+      .map(([name]) => name);
+
+    expect(missing).toEqual([]);
   });
 
   it("書き込み関数を呼ぶ2つから record( の呼び出しが消えていない", () => {
