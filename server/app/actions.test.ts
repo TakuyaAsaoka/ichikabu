@@ -123,6 +123,11 @@ const eventFields = {
  * |---|---|
  * | `revalidatePath()` が `redirect()` の後ろへ移る | 行き先の無い1本だけで見た場合 |
  * | `revalidatePath()` が `if (options.redirectTo)` の中へ入る | 行き先のある1本だけで見た場合 |
+ *
+ * `action()` の分かれ道は `adminOnly` と `redirectTo` の2つで、実在する
+ * 組み合わせは3通り。3通り目（`adminOnly` のある削除）は下の
+ * `describe("管理者")` で見る。`revalidated` の2本は管理者ではない人で走るので、
+ * ここには入れられない
  */
 const revalidated = [
   {
@@ -154,18 +159,7 @@ describe("管理者ではない入力者", () => {
   });
 
   it("イベントを登録できる", async () => {
-    expect(
-      await addEvent(
-        null,
-        form({
-          title: "決算発表",
-          shortLabel: "7203決算",
-          startDate: "2026-05-08",
-          importance: "3",
-          target: "stock:1",
-        }),
-      ),
-    ).toBeNull();
+    expect(await addEvent(null, form(eventFields))).toBeNull();
     expect(await db.select().from(event)).toHaveLength(2);
   });
 
@@ -177,16 +171,7 @@ describe("管理者ではない入力者", () => {
       .from(user)
       .where(eq(user.email, EDITOR));
 
-    await addEvent(
-      null,
-      form({
-        title: "決算発表",
-        shortLabel: "7203決算",
-        startDate: "2026-05-08",
-        importance: "3",
-        target: "stock:1",
-      }),
-    );
+    await addEvent(null, form(eventFields));
 
     const rows = await db.select().from(auditLog);
     expect(rows).toHaveLength(1);
@@ -238,5 +223,13 @@ describe("管理者", () => {
     const to = await redirectedTo(() => removeEvent(null, form({ id: "1" })));
     expect(to).toBe("/events");
     expect(await db.select().from(event)).toEqual([]);
+  });
+
+  it("削除でも画面が作り直される", async () => {
+    // `revalidated` の表の3通り目。`adminOnly` の側だけ作り直しを飛ばす壊し方は、
+    // 上の2本では緑のまま通る（Issue #149 で実測）
+    await redirectedTo(() => removeEvent(null, form({ id: "1" })));
+
+    expect(revalidatePath).toHaveBeenCalledWith("/");
   });
 });
