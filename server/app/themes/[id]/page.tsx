@@ -53,10 +53,13 @@ export default async function Page({
         <h2 className="text-base font-bold">削除</h2>
         <ul className="flex flex-col gap-1">
           {belongings.length === 0 ? (
-            <li className="text-muted">所属している銘柄なし</li>
+            <li className="text-muted-foreground">所属している銘柄なし</li>
           ) : (
             belongings.map((s) => (
-              <li key={`${s.market}-${s.ticker}`} className="text-muted">
+              <li
+                key={`${s.market}-${s.ticker}`}
+                className="text-muted-foreground"
+              >
                 {s.market} {s.ticker} {s.name}
               </li>
             ))

@@ -115,7 +115,7 @@ export function SignInForm() {
           type="email"
           name="email"
           required
-          className="rounded border border-border p-2"
+          className="rounded border border-input p-2"
         />
       </label>
       <label className="flex flex-col gap-1">
@@ -124,7 +124,7 @@ export function SignInForm() {
           type="password"
           name="password"
           required
-          className="rounded border border-border p-2"
+          className="rounded border border-input p-2"
         />
       </label>
       <button
@@ -134,7 +134,7 @@ export function SignInForm() {
       >
         {pending ? "送信中" : "サインイン"}
       </button>
-      <p className="text-error empty:hidden" aria-live="polite">
+      <p className="text-destructive empty:hidden" aria-live="polite">
         {error}
       </p>
     </form>

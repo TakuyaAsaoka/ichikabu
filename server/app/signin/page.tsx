@@ -24,7 +24,7 @@ export default async function SignInPage({
       {error && (
         // 中身は画面に出さない。URLに入れた文字列がそのまま出ると、
         // このアドレスを開かせるだけで偽の案内文をログイン画面に載せられる
-        <p className="text-error">
+        <p className="text-destructive">
           {error === "signup_disabled"
             ? "この Google アカウントではログインできません"
             : "Google でのログインに失敗しました"}

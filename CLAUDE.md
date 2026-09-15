@@ -94,6 +94,94 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 | `pnpm auth:gen` | Better Auth のテーブル定義を再生成する |
 | `pnpm import:stat` | 総務省統計局の公表予定から日本CPI を取り込む（**本番は週1回のバックアップと同じ回に手で実行する**。決まった間隔での自動実行は入れない。→ `docs/guides/backup.md`） |
 
+## 管理画面の見た目
+
+**部品は shadcn/ui を使う**（#159 で決めた）。最初は「入力欄3種類のために部品ライブラリを持ち込む量ではない」「使うのは自分1人」として持ち込まなかった。
+画面が9枚・フォームが6つ・入力者が3人（#82）になり、ボタンや入力欄の形と色を画面ごとに書き分けるほうが重くなったため覆した。
+
+### 置き場所
+
+| 置き場 | 中身 | 決まり |
+|---|---|---|
+| `server/components/ui/` | shadcn/ui の部品（`pnpm dlx shadcn add` で入れる） | **部品のコードを書き換えない。** 色と形は `server/app/globals.css` の変数で決める |
+| `server/src/` | DB・認証・状態の計算 | React を取り込まない（いま0件）。部品を置かない |
+
+- `@/` は `server/` の直下を指す（`server/tsconfig.json` の `paths` と `server/components.json` の `aliases`）。画面が `server/app` にあるため
+- **`shadcn init` は動かない**（`server/` に `next.config.*` が無く「We could not detect a supported framework」で止まる）。`server/components.json` は手で書いてある
+- **`shadcn add` は、部品が取り込む包みを全部は足さない。** `button`・`badge`・`alert` の `class-variance-authority`、`native-select` の `lucide-react` などは `pnpm add` で足す（足し忘れは `pnpm typecheck` で落ちる）
+- **`shadcn add` は `globals.css` の `@import "shadcn/tailwind.css"` と `@import "tw-animate-css"` も足さない。** 消すとエラーにならずに開閉の見た目だけが効かなくなるので、2行とも消さない（`server/app/globals-css.test.ts` が赤にする）
+
+### 色
+
+novel-system の C 案（ネイビー×コーラル。novel-system #49）をそのまま使う。定義は `server/app/globals.css` の `:root`。
+
+**色の役割は shadcn/ui の変数の定義に合わせる**（https://ui.shadcn.com/docs/theming）。独自の役割を作らない。
+部品は既定でこの定義どおりに色を付ける（例: 既定のボタンは `primary`）ので、独自の役割を持つと部品を足すたびに既定とぶつかる。
+**部品の既定の色の付け方も書き換えない。** 値は16進（`#rrggbb`）で1行ずつ書く（#160 の検証手順が16進しか読まない）。
+
+| 変数 | 値 | 使う所（shadcn の定義） |
+|---|---|---|
+| `primary` / `primary-foreground` | `#c2452b` / `#ffffff` | 強く目立たせる操作（既定のボタン・選択中の状態） |
+| `secondary` / `secondary-foreground` | `#ecebfb` / `#3a3f8f` | 目立ちの弱い塗りの操作・バッジ |
+| `accent` / `accent-foreground` | `#ecebfb` / `#3a3f8f` | 指を乗せた・選んでいる面（ゴーストボタン・メニューの行） |
+| `muted` / `muted-foreground` | `#efeff5` / `#5e6178` | 控えめな面と補足の文字（「銘柄なし」「抜けなし」など） |
+| `background` / `foreground` | `#f7f7fb` / `#1d1f33` | ページの背景と本文の文字 |
+| `card`・`popover`（`-foreground` は `#1d1f33`） | `#ffffff` | 浮いた面（カード・メニュー） |
+| `border` | `#e0e0ec` | 面の区切りの枠線 |
+| `input` | `#7d8099` | 入力欄・チェックの枠 |
+| `ring` | `#3a3f8f` | フォーカスの輪 |
+| `destructive` | `#9f1239` | 取り消す・消す・断り・エラーの文 |
+| `sidebar` / `sidebar-foreground` | `#1e2a4a` / `#c9cfe3` | サイドバーの面と文字 |
+| `sidebar-primary` / `sidebar-primary-foreground` | `#9aa2f0` / `#1e2a4a` | サイドバーの中の強い操作 |
+| `sidebar-accent` / `sidebar-accent-foreground` | `#2c3a60` / `#ffffff` | サイドバーの中の指を乗せた・選んでいる行 |
+| `sidebar-border` / `sidebar-ring` | `#1e2a4a` / `#9aa2f0` | サイドバーの枠線（面と同じ色で線を見せない）とフォーカスの輪 |
+
+明るさの差（WCAG の式。読みやすさの目安は文字 4.5 以上、形を示す線 3 以上）:
+
+| 組み合わせ | 差 |
+|---|---:|
+| `foreground` / `background` | 15.16 |
+| `primary-foreground` / `primary`（白の文字 / コーラル） | 5.02 |
+| `primary` / `background`（コーラルの文字 / 背景） | 4.70 |
+| `primary` / `muted`（コーラルの文字 / 控えめな面） | **4.39。面の中の文字には使わない** |
+| `secondary-foreground` / `secondary` | 7.80 |
+| `muted-foreground` / `muted` | 5.30 |
+| `muted-foreground` / `background` | 5.68 |
+| `destructive` / `background` | 7.50 |
+| `destructive` / `destructive` の10%の面（背景の上） | 6.28 |
+| `destructive` / `destructive` の20%の面（指を乗せたとき） | 5.21 |
+| `sidebar-foreground` / `sidebar` | 9.10 |
+| `sidebar-accent-foreground` / `sidebar-accent` | 11.16 |
+| `sidebar-primary-foreground` / `sidebar-primary` | 5.93 |
+| `ring` / `background`（線） | 8.59 |
+| `sidebar-ring` / `sidebar`（線。ネイビーの面の上のフォーカスの輪） | 5.93 |
+| `ring` / `sidebar`（線） | **1.54。ネイビーの面の上では `ring` を使わない** |
+| `input` / `background`（線） | 3.63 |
+| `input` / `muted`（線。面の中の入力欄） | 3.38 |
+| `border` / `background`（線） | 1.22 |
+
+**`input` を `border` と同じ値にしない。** 入力欄は背景と同じ色の面なので、欄の形を示すのは枠だけ。
+`border` の `#e0e0ec` だと背景との差が 1.22 しかなく、欄の場所が見えない（前の管理画面の枠 `#d1d5db` も白の背景と 1.47 だった）。
+枠だけで形を示す操作部品（入力欄・枠だけのボタン）の枠は `input` にする。`border` は区切り線と、中身の並びで形が読める面の枠に使う。
+
+**`destructive` をコーラルに寄せない。** shadcn の部品は `destructive` を塗りではなく「10% の面に `destructive` の文字」で描く（`bg-destructive/10 text-destructive`）。
+コーラルに寄せるとこの形で 4.5 を割る（novel-system #49 で 4.10、指を乗せた 20% で 3.54）。
+
+**意味を色だけで運ばない。** コーラルと `destructive` はどちらも赤の系統で、T型の色覚（青と黄が見分けにくい）では色の差が小さい（ΔE 12.0）。
+削除や抜け・エラーは言葉と記号で伝え、色は添えるだけにする。
+
+**イベントの種類を色で塗るときは測り直す。** `ring`・`secondary-foreground` の `#3a3f8f` は、iOS アプリの「市場」の藍 `#26479a`（`ios/Ichikabu/EventLayout.swift`）とほぼ同じ色に見える（ΔE 6.2）。
+いまの管理画面は種類を文字でしか出していない。
+
+**角丸は使う。影は使わない。** `--radius` は `0.5rem`。面の区切りは 1px の枠線。
+shadcn の部品が既定で持つ `shadow-xs` などは、部品を書き換えず `globals.css` の `@theme` で影の値を消してある（クラスを書いても何も生成されない）。
+フォーカスの輪（`ring-*`）は別の値なので残る。
+
+**`.dark` の値は持たない**（明るい画面だけ）。ただし `globals.css` の `@custom-variant dark` の行は消さない。
+消すと部品の `dark:` が OS の暗い設定で効き、入力欄などだけが暗くなる。
+
+この節の決まり（明るさの差・影・`dark`・2つの `@import`・入力欄の枠）は `server/app/globals-css.test.ts` が守っている。値を変えたら、上の表もその場で測り直す。
+
 ## 規約
 
 - `openapi.yaml` がパスとリクエスト・レスポンスの型の唯一の正。サーバー実装からの自動生成はしない

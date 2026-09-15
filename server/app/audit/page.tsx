@@ -53,13 +53,13 @@ export default async function Page() {
           {/* 0件を黙って空白で表さない。空白は「まだ読めていない」と
               見分けが付かない（状態画面 `app/status/page.tsx` と同じ理由） */}
           {rows.length === 0 ? (
-            <li className="text-muted">記録なし</li>
+            <li className="text-muted-foreground">記録なし</li>
           ) : (
             rows.map((row) => (
               <li key={row.id} className="border-b border-border py-1">
                 {formatJst(row.createdAt)} {ACTION_TITLES[row.action]}{" "}
                 {RESOURCE_TITLES[row.resourceType]} #{row.resourceId}
-                <span className="text-muted">
+                <span className="text-muted-foreground">
                   {" "}
                   / {row.userName ?? "取り込み"} / 記録 #{row.id}
                 </span>

@@ -16,6 +16,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    // shadcn/ui の部品が `@/components/ui/...` で取り込まれる（components.json の aliases と揃える）。
+    // 画面が server/app にあるので、`@/` は server/ の直下を指す
+    "paths": {
+      "@/*": ["./*"]
+    },
     "types": ["node"],
     "plugins": [
       {

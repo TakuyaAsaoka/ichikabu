@@ -30,12 +30,12 @@ export default async function Page() {
               {/* 抜けが無いことを黙って空白で表さない。空白は「調べていない」と
                   見分けが付かず、この画面を開く意味が無くなる */}
               {rows.length === 0 ? (
-                <li className="text-muted">抜けなし</li>
+                <li className="text-muted-foreground">抜けなし</li>
               ) : (
                 rows.map((gap) => (
                   <li
                     key={gap.href ?? gap.label}
-                    className="border-b border-border py-1 text-error"
+                    className="border-b border-border py-1 text-destructive"
                   >
                     {gap.label}{" "}
                     {gap.href !== null && (
