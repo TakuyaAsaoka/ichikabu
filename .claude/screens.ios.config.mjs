@@ -3,7 +3,7 @@
 export default {
   title: "イチカブ iOS 画面一覧",
   favicon: "📱",
-  artifactUrl: "",
+  artifactUrl: "https://claude.ai/artifact/SncHBrHyEEu2MVr5HWXsDX",
   // アプリが読むサーバー。管理画面を撮る設定（screens.config.mjs）の 3777 と重ならないポートにする
   baseURL: "http://localhost:3779/api/health",
   start: "cd server && pnpm gen && pnpm build && pnpm exec next start --port 3779",
