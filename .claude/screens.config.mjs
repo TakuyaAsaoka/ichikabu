@@ -1,6 +1,7 @@
 // 管理画面の画面一覧を撮る設定（capturing-screens-to-canvas スキル。Issue #156）
 import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
+import { toSeedUsers } from "../server/src/db/seed-users-input.ts";
 
 // パスワードは書き写さず、seed と同じ server/.env.local から読む
 const env = parseEnv(
@@ -11,8 +12,13 @@ if (!env.SEED_USERS || !env.ADMIN_EMAIL) {
     "server/.env.local に SEED_USERS か ADMIN_EMAIL が無い。.env.example を参照",
   );
 }
+// seed と同じ読み方にする（前後の空白を削る。削り方が違うとサインインで落ちる）
+const users = toSeedUsers(env.SEED_USERS);
+if (typeof users === "string") {
+  throw new Error(users);
+}
 // 管理者を決めるのは ADMIN_EMAIL（大文字小文字は問わない。.env.example）
-const admin = JSON.parse(env.SEED_USERS).find(
+const admin = users.find(
   (user) => user.email.toLowerCase() === env.ADMIN_EMAIL.toLowerCase(),
 );
 if (!admin) {
