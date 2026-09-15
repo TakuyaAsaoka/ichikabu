@@ -32,14 +32,18 @@ export function Nav({ email }: { email: string }) {
   return (
     <nav className="flex flex-wrap gap-3">
       {LINKS.map((link) => (
-        <Link key={link.href} href={link.href} className="text-muted underline">
+        <Link
+          key={link.href}
+          href={link.href}
+          className="text-muted-foreground underline"
+        >
           {link.label}
         </Link>
       ))}
       {/* 入力者には出さない。開いても追い返されるリンクを見せない
           （判定は `app/audit/page.tsx` が自分でもう1度やる） */}
       {isAdmin(email) && (
-        <Link href="/audit" className="text-muted underline">
+        <Link href="/audit" className="text-muted-foreground underline">
           監査ログ
         </Link>
       )}

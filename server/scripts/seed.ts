@@ -1,5 +1,5 @@
 import { db } from "../src/db";
-import { seedEvents } from "../src/db/seed-event";
+import { seedEvents, seedSampleTheme } from "../src/db/seed-event";
 import { seedUser } from "../src/db/seed-user";
 import { toSeedUsers } from "../src/db/seed-users-input";
 
@@ -29,6 +29,14 @@ for (const { email, password } of users) {
 // イベントが返る（ログイン廃止 設計書 §5）
 const { created: eventCount } = await seedEvents();
 console.log(`イベントを ${eventCount} 件作成した`);
+
+// 開発用DBにだけ入る。本番に流したときは入らない（判定は seedSampleTheme の中）
+const sampleTheme = await seedSampleTheme();
+console.log(
+  sampleTheme.skipped
+    ? `テーマの見本は入れなかった（接続先「${sampleTheme.host}」は開発用DBではない）`
+    : "テーマの見本を入れた（既にあれば何もしない）",
+);
 
 // pg の接続プールが開いたままだと終了しないため明示的に閉じる。
 // process.exit(0) にすると、パイプにつないだときに書きかけの出力が落ちる

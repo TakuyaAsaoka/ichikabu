@@ -18,7 +18,7 @@ export function ThemeStockForm({
 }) {
   if (themes.length === 0 || stocks.length === 0) {
     return (
-      <p className="text-muted">
+      <p className="text-muted-foreground">
         先にテーマと銘柄をどちらも登録すると選べるようになる。
       </p>
     );

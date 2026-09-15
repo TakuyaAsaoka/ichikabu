@@ -1,13 +1,126 @@
 @import "tailwindcss";
+/*
+ * shadcn/ui の部品が使う変形（`data-open:` など）と動きの定義。
+ * `shadcn add` はこの2行を足さないので、無いまま部品を足すとエラーにならず
+ * 開閉の見た目だけが効かなくなる（Radix は `data-state="open"` を付けるが、
+ * この取り込みが無いと `data-open:` は `[data-open]` にしか当たらない）。
+ * 守っているのは app/globals-css.test.ts
+ */
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 /*
- * 管理画面で使う色だけを決める（設計書 §8）。
- * 利用者=運用者=自分1人（全体設計書 §12）なので、明暗の切り替えも配色の設定も持たない
+ * 部品の `dark:` を、`.dark` の class が付いたときだけ効かせる。
+ * **この行を消さない。** 消すと Tailwind の既定に戻り、`dark:` が OS の暗い設定
+ * （prefers-color-scheme）で効く。この画面は明るい色しか持たないので、
+ * OS を暗くした人の画面で入力欄などだけが暗くなる。
+ * `.dark` の値の塊は持たない。守っているのは app/globals-css.test.ts
+ */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * 色の値。役割は shadcn/ui の定義に合わせる（https://ui.shadcn.com/docs/theming）。
+ * 独自の役割を作らない。値と明るさの差は CLAUDE.md の「色」の節（#160）。
+ *
+ * 16進で1行ずつ書く。明るさの差を見る app/globals-css.test.ts が16進しか読まないため
+ */
+:root {
+  --radius: 0.5rem;
+
+  --background: #f7f7fb;
+  --foreground: #1d1f33;
+  --card: #ffffff;
+  --card-foreground: #1d1f33;
+  --popover: #ffffff;
+  --popover-foreground: #1d1f33;
+  --primary: #c2452b;
+  --primary-foreground: #ffffff;
+  --secondary: #ecebfb;
+  --secondary-foreground: #3a3f8f;
+  --muted: #efeff5;
+  --muted-foreground: #5e6178;
+  --accent: #ecebfb;
+  --accent-foreground: #3a3f8f;
+  --destructive: #9f1239;
+  --border: #e0e0ec;
+  --input: #7d8099;
+  --ring: #3a3f8f;
+
+  --sidebar: #1e2a4a;
+  --sidebar-foreground: #c9cfe3;
+  --sidebar-primary: #9aa2f0;
+  --sidebar-primary-foreground: #1e2a4a;
+  --sidebar-accent: #2c3a60;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1e2a4a;
+  --sidebar-ring: #9aa2f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * 影を使わない。面の区切りは 1px の枠線。
+ * shadcn の部品は既定で `shadow-xs` などを持つが、部品のコードは書き換えない。
+ * テーマの値を消すと、クラスを書いても何も生成されない。
+ * フォーカスの輪（`ring-*`）は別の値なので残る。守っているのは app/globals-css.test.ts
  */
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #1a1a1a;
-  --color-muted: #6b7280;
-  --color-border: #d1d5db;
-  --color-error: #b91c1c;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  /*
+   * フォーカスの輪は ring の色で、透かさずに描く。上の outline-ring/50 のままだと
+   * 背景との差が 3 を割り、キーボードで操作している人が現在地を見失う（ring は 8.59）
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
 }

@@ -49,10 +49,10 @@ export default async function Page({
         <h2 className="text-base font-bold">削除</h2>
         <ul className="flex flex-col gap-1">
           {belongings.length === 0 ? (
-            <li className="text-muted">所属しているテーマなし</li>
+            <li className="text-muted-foreground">所属しているテーマなし</li>
           ) : (
             belongings.map((t) => (
-              <li key={t.name} className="text-muted">
+              <li key={t.name} className="text-muted-foreground">
                 {t.name}
               </li>
             ))

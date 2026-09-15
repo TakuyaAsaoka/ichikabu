@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from ".";
-import { event, stock } from "./schema";
+import { event, stock, theme, themeStock } from "./schema";
 
 /**
  * 開発中の表示確認に使うデータ（Issue #8 設計書 §3）。
@@ -358,4 +358,46 @@ export async function seedEvents(): Promise<{ created: number }> {
     await db.insert(event).values(missingMarketEvents);
   }
   return { created: missingStockEvents.length + missingMarketEvents.length };
+}
+
+/**
+ * テーマ `自動車` と、そこへの 7203 の所属を1件ずつ入れる。**開発用DBにだけ入れる**
+ * （Issue #157）。管理画面の「テーマの編集」「テーマ所属を外す」は、テーマが
+ * 0件だと撮れないため（`.claude/screens.config.mjs`）。何度実行しても増えない。
+ *
+ * 本番DBに入れないのは、seed が本番に入れてよいのは出典のある事実（上の銘柄と
+ * イベント）だけだから。どの銘柄をどのテーマに入れるかは運用者が決める値で、
+ * 本番では管理UIから入れる（監査ログに残る）。
+ *
+ * 開発用DBかどうかは、接続先のホスト名が `localhost` か `127.0.0.1` かで見る。
+ * 分からなければ入れない向きにする（本番は Supabase のホスト。docs/guides/deploy.md §4）。
+ * 環境変数のフラグにしないのは、deploy.md §5 の手順ではシェルに無い値が
+ * `.env.local`（開発用）から読まれ、本番に流すときもフラグが立つため。
+ * 判定に使うのは `db` がつなぐのと同じ `DATABASE_URL`（`./index.ts`）。
+ *
+ * 所属先の 7203 は `seedEvents` が入れるので、その後に呼ぶ。
+ */
+export async function seedSampleTheme(): Promise<
+  { skipped: false } | { skipped: true; host: string }
+> {
+  const url = process.env.DATABASE_URL ?? "";
+  const host = URL.canParse(url) ? new URL(url).hostname : "";
+  if (host !== "localhost" && host !== "127.0.0.1") {
+    return { skipped: true, host };
+  }
+
+  await db.insert(theme).values({ name: "自動車" }).onConflictDoNothing();
+
+  const [target] = await db
+    .select({ themeId: theme.id, stockId: stock.id })
+    .from(theme)
+    .innerJoin(stock, and(eq(stock.market, "JP"), eq(stock.ticker, "7203")))
+    .where(eq(theme.name, "自動車"));
+  // seedEvents より先に呼ぶと起きる。握りつぶすと「入らないのに成功する」ため落とす
+  if (!target) {
+    throw new Error("銘柄が見つからない: 7203");
+  }
+
+  await db.insert(themeStock).values(target).onConflictDoNothing();
+  return { skipped: false };
 }
