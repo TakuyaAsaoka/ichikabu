@@ -42,12 +42,18 @@ describe("seedSampleTheme", () => {
 
   it("接続先が 127.0.0.1 でも開発用DBとして入れる", async () => {
     await seedEvents();
-    vi.stubEnv(
-      "DATABASE_URL",
-      testDatabaseUrl.replace("//postgres:postgres@localhost", "//postgres:postgres@127.0.0.1"),
-    );
+    const url = new URL(testDatabaseUrl);
+    url.hostname = "127.0.0.1";
+    vi.stubEnv("DATABASE_URL", url.href);
 
     expect(await seedSampleTheme()).toEqual({ skipped: false });
+    expect((await themeRows()).belongings).toEqual([
+      { name: "自動車", ticker: "7203" },
+    ]);
+  });
+
+  it("所属先の 7203 が無ければ、黙って成功せずに落ちる", async () => {
+    await expect(seedSampleTheme()).rejects.toThrow("銘柄が見つからない: 7203");
   });
 
   // 本番の接続先の形は docs/guides/deploy.md §4 と docs/guides/backup.md の例から取る
