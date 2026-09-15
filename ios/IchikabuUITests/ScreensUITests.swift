@@ -38,6 +38,10 @@ final class ScreensUITests: XCTestCase {
 		for index in (0..<(count - 1)).reversed() {
 			rows.element(boundBy: index).tap()
 		}
+		// 押し損じたまま「選択済み」の名前で撮らない。選んだ行には isSelected が付く（HoldingsView の accessibilityAddTraits）
+		let selected = app.buttons.matching(NSPredicate(format: "selected == true"))
+		XCTAssertEqual(selected.count, count - 1, "選んだ行の数が合わない")
+		XCTAssertFalse(rows.element(boundBy: count - 1).isSelected, "最後の行まで選ばれている")
 		snap(app, "持ち株を選択済み｜持ち株の一覧")
 		closeSheet(app)
 		snap(app, "持ち株を選択済み｜カレンダー")
@@ -118,7 +122,8 @@ final class ScreensUITests: XCTestCase {
 
 	/// シートを閉じる。高さの候補が 0.45 と large なので、1回引き下ろしても 0.45 で止まることがある。
 	/// 0.45 の間は裏を触れる設定なので、外を押しても閉じない。見出しが消えるまで引き下ろす。
-	/// 見出しの上で `swipeDown` を払っても、シートは動かなかった（実測）。見出しの少し上（つまみの辺り）を押さえて、画面の下端まで引く
+	/// 見出しの上で `swipeDown` を払っても、シートは動かなかった（実測）。見出しの少し上（つまみの辺り）を押さえて、画面の下端まで引く。
+	/// 12pt は iOS 26.5 のシートの形での実測。iOS を上げて閉じなくなったら（下の確認で落ちる）ここを見直す
 	@MainActor
 	private func closeSheet(_ app: XCUIApplication) {
 		for _ in 0..<3 where sheetBar(app).exists {
