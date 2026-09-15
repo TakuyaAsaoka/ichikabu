@@ -105,14 +105,27 @@ describe("色の明るさの差", () => {
   });
 
   // 枠だけで形を示す操作部品（入力欄・枠だけのボタン）を border の色で描くと、
-  // 背景との差が 1.22 で形が見えない。field を通らない所（サインイン）も含めて見る
-  it("画面の操作部品の枠に border の色を使っていない", () => {
-    const offenders = readdirSync(import.meta.dirname, { recursive: true })
+  // 背景との差が 1.22 で形が見えない。field を通らない所（サインイン）も含めて見る。
+  // 四方の枠（`border`）と border の色が同じ className にあるものを探す。
+  // 一覧の区切り線（`border-b border-border`）は四方の枠ではないので当たらない
+  it("画面の四方の枠に border の色を使っていない", () => {
+    const offenders = readdirSync(import.meta.dirname, {
+      recursive: true,
+      encoding: "utf8",
+    })
       .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
-      .filter((file) =>
-        readFileSync(path.join(import.meta.dirname, file), "utf8").includes(
-          "rounded border border-border",
-        ),
+      .flatMap((file) =>
+        [
+          ...readFileSync(path.join(import.meta.dirname, file), "utf8").matchAll(
+            /className="([^"]*)"/g,
+          ),
+        ]
+          .map((found) => found[1].split(/\s+/))
+          .filter(
+            (classes) =>
+              classes.includes("border") && classes.includes("border-border"),
+          )
+          .map((classes) => `${file}: ${classes.join(" ")}`),
       );
     expect(offenders).toEqual([]);
   });
