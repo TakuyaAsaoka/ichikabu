@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { stripComments } from "../test/source";
 
 /**
  * 画面が操作部品を `@/components/ui` の部品で描いていることを、機械で守る（#161）。
@@ -31,10 +32,17 @@ const appDir = path.resolve(import.meta.dirname);
  * 除外が効かず、隠しの欄が違反として並ぶ。
  *
  * 大文字で始まる部品（`<Button>`）は当たらない。JSX は大文字始まりを
- * コンポーネント、小文字始まりを素のHTML要素として扱うため、この区別がそのまま効く
+ * コンポーネント、小文字始まりを素のHTML要素として扱うため、この区別がそのまま効く。
+ *
+ * **コメントは先に取り除く**（→ `test/source.ts`）。「生の選択欄はやめた」のような
+ * 説明の文に出てくる小文字のタグを、生の操作部品として数えないため。
+ *
+ * そのぶん、Issue #161 の検証に書いた素の grep よりここは緩い。あちらはコメントも
+ * 数えるので、説明を書くときは小文字のタグを避けて日本語で書く（この diff でも
+ * 3か所を「選択欄」「時刻の入力欄」に言い換えた）
  */
 function rawControlsIn(source: string): string[] {
-  const tags = source.match(
+  const tags = stripComments(source).match(
     new RegExp(`<(?:${CONTROLS.join("|")})\\b[^>]*>`, "g"),
   );
   return (tags ?? []).filter(
@@ -65,6 +73,10 @@ describe("生の操作部品を書かない", () => {
     ["行をまたぐ隠しの欄", '<input\n  type="hidden"\n  name="id"\n/>'],
     ["選択肢", '<option value="JP">JP</option>'],
     ["選択肢のまとまり", '<optgroup label="市場">'],
+    // 説明の文に出てくるタグ。数えると、正しいコードを赤くする
+    ["行まるごとのコメント", "  // 生の <select> はやめた\n"],
+    ["塊のコメント", "/** 生の <input> はやめた */"],
+    ["JSX の中のコメント", "{/* 生の <textarea> はやめた */}"],
   ])("%s は見つけない", (_name, source) => {
     expect(rawControlsIn(source)).toEqual([]);
   });

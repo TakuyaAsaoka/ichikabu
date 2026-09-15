@@ -26,7 +26,14 @@ export function BulkEventForm() {
     <ActionForm action={addEvents} submitLabel="まとめて登録">
       <Label className={fieldLabel}>
         貼り付け（1行に1件。タブ区切り）
-        <Textarea name="rows" required rows={6} placeholder={SAMPLE} />
+        {/* 高さは `rows` では決まらない。部品が `field-sizing-content` を持ち、
+            中身の量で伸び縮みするため。最初の高さは `min-h-*` で決める（#161） */}
+        <Textarea
+          name="rows"
+          required
+          placeholder={SAMPLE}
+          className="min-h-36"
+        />
       </Label>
       <p className="text-muted-foreground text-sm">
         列の並び: 名称 / 短縮ラベル / 対象 / 開始日 / 終了日 / 時刻 / 重要度 /

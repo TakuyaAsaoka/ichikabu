@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { compile } from "tailwindcss";
 import { describe, expect, it } from "vitest";
+import { stripComments } from "../test/source";
 
 const root = path.resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
@@ -85,6 +86,9 @@ describe("色の明るさの差", () => {
     ["muted-foreground", "muted"],
     ["destructive", "background"],
     ["primary-foreground", "primary"],
+    // 指を乗せたときの面も見る。部品の既定（`primary` を 80% に薄めた面）は
+    // 白の文字との差が 3.65 で、押す直前＝文字を読む瞬間だけ目安を割る（#161）
+    ["primary-foreground", "primary-hover"],
   ])("文字 %s は面 %s の上で 4.5 以上ある", (text, surface) => {
     expect(contrast(colorOf(text), colorOf(surface))).toBeGreaterThanOrEqual(
       4.5,
@@ -121,37 +125,26 @@ describe("色の明るさの差", () => {
    * - 矢印の関数（`onClick={(e) => ...}`）
    * - 属性の間に書いた `//` のコメント（`app/form.tsx` の「確認は <form onSubmit> …」）
    *
-   * どちらも実測で `app/form.tsx` を違反として挙げてしまった。中括弧の深さを数え、
-   * 素のまま置かれた `>` だけを終わりとみなす。
-   *
-   * **コメントは読み飛ばすだけでなく、返す文字列から取り除く。** 下の2件は
-   * 「このクラスを渡しているか」を見るが、渡す理由をコメントに書くと
-   * クラス名がそこにも現れる。読み飛ばすだけだと、`className` から消しても
-   * コメントの側が残って緑のままになる（実測で2件とも歯が無かった）
+   * どちらも実測で `app/form.tsx` を違反として挙げてしまった。
+   * コメントは `stripComments` が先に落とすので、ここは中括弧の深さだけを数え、
+   * 中括弧の外にある `>` を終わりとみなす
    */
-  function buttonTagsIn(source: string): string[] {
+  function openingTagsIn(raw: string, component: string): string[] {
+    const source = stripComments(raw);
+    const open = `<${component}`;
     const tags: string[] = [];
     for (
-      let start = source.indexOf("<Button");
+      let start = source.indexOf(open);
       start !== -1;
-      start = source.indexOf("<Button", start + 1)
+      start = source.indexOf(open, start + 1)
     ) {
       let depth = 0;
-      let tag = "";
       for (let i = start; i < source.length; i++) {
-        if (source.startsWith("//", i)) {
-          const lineEnd = source.indexOf("\n", i);
-          if (lineEnd === -1) break;
-          // for が i++ するので、次の回で改行そのものから読み直す
-          i = lineEnd - 1;
-          continue;
-        }
         const char = source[i];
-        tag += char;
         if (char === "{") depth += 1;
         else if (char === "}") depth -= 1;
         else if (char === ">" && depth === 0) {
-          tags.push(tag);
+          tags.push(source.slice(start, i + 1));
           break;
         }
       }
@@ -159,15 +152,18 @@ describe("色の明るさの差", () => {
     return tags;
   }
 
-  /** 画面のファイルから `<Button ...>` の開始タグを集める */
-  const buttonTags = (): { file: string; tag: string }[] =>
+  /** 画面のファイルから、その部品の開始タグを集める */
+  const tagsOf = (component: string): { file: string; tag: string }[] =>
     readdirSync(import.meta.dirname, { recursive: true, encoding: "utf8" })
       .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
       .flatMap((file) =>
-        buttonTagsIn(
+        openingTagsIn(
           readFileSync(path.join(import.meta.dirname, file), "utf8"),
+          component,
         ).map((tag) => ({ file, tag })),
       );
+
+  const buttonTags = () => tagsOf("Button");
 
   // 取り出しが途中で切れていないこと。切れると className を読み落とし、
   // 正しいコードを違反として挙げる
@@ -181,7 +177,7 @@ describe("色の明るさの差", () => {
       '<Button\n  // <form onSubmit> ではなくここに置く\n  className="self-start"\n>',
     ],
   ])("%s を渡したボタンも、最後まで取り出せる", (_name, source) => {
-    const tags = buttonTagsIn(source);
+    const tags = openingTagsIn(source, "Button");
 
     expect(tags).toHaveLength(1);
     expect(tags[0]).toContain("self-start");
@@ -190,8 +186,9 @@ describe("色の明るさの差", () => {
   // 下の2件は「このクラスを渡しているか」を見る。渡す理由をコメントに書くと
   // クラス名がそこにも現れるため、コメントを数に入れると歯が無くなる
   it("コメントに書いたクラス名は、渡したものと数えない", () => {
-    const tags = buttonTagsIn(
+    const tags = openingTagsIn(
       '<Button\n  // border-input を渡す理由\n  className="self-start"\n>',
+      "Button",
     );
 
     expect(tags[0]).toContain("self-start");
@@ -224,6 +221,28 @@ describe("色の明るさの差", () => {
   it("見張る先のボタンがある", () => {
     // 取り出しが1つも拾わない形に壊れると、上の2件は空の配列どうしで黙って緑になる
     expect(buttonTags().length).toBeGreaterThan(0);
+  });
+
+  /** 消す・外す操作のフォーム。送信ボタンの名前で見分ける */
+  const removalForms = () =>
+    tagsOf("ActionForm").filter(({ tag }) =>
+      /submitLabel=\{?[^}]*?(削除|外す)/.test(tag),
+    );
+
+  // #161 の Scenario「登録と削除が見分けられる」の本体。
+  // 派生の決まり（枠の色・薄くしない指定）だけを見て、本体を文章のままにしない
+  it("消す・外す操作のフォームは消す色のボタンを出す", () => {
+    const offenders = removalForms().filter(
+      ({ tag }) => !tag.includes('variant="destructive"'),
+    );
+
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("見張る先の消す操作がある", () => {
+    // 消す操作は銘柄・テーマ・イベント・テーマ所属の4画面にある。
+    // 取り出しが壊れると、上の検査は空の配列どうしで黙って緑になる
+    expect(removalForms()).toHaveLength(4);
   });
 
   // 枠だけで形を示す操作部品（入力欄・枠だけのボタン）を border の色で描くと、
@@ -295,6 +314,15 @@ describe("影を使わない", () => {
     const css = await buildWith([]);
     expect(css).toMatch(
       /:focus-visible\s*\{\s*outline:\s*2px solid var\(--color-ring\)/,
+    );
+  });
+
+  // 既定のボタンに指を乗せたときの面の上書き（#161）。上の「明るさの差」は
+  // `--primary-hover` の値だけを見るので、その値がボタンに当たっているかはここで見る
+  it("既定のボタンの指を乗せた面を primary-hover で上書きしている", async () => {
+    const css = await buildWith([]);
+    expect(css).toMatch(
+      /\[data-slot="button"\]\[data-variant="default"\]:hover\s*\{\s*background-color:\s*var\(--primary-hover\)/,
     );
   });
 });

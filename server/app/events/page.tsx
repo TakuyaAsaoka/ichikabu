@@ -96,7 +96,7 @@ export default async function Page() {
                 key={row.id}
                 // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
                 // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない
-                className="flex flex-wrap items-center gap-x-2 border-b border-border py-1"
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
               >
                 {/* **日付を行の先頭から動かさない。** `app/events/page.test.ts` が
                     行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。

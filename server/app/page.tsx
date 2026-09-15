@@ -72,7 +72,7 @@ export default async function Page() {
             <li
               key={row.id}
               // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）
-              className="flex flex-wrap items-center gap-x-2 border-b border-border py-1"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
             >
               {row.market} {row.ticker} {row.name}
               {row.fiscalMonth !== null && (
@@ -107,7 +107,7 @@ export default async function Page() {
               <li key={row.id} className="border-b border-border py-1">
                 {/* 所属の一覧をぶら下げるため、テーマ名と編集リンクだけを1段の並びにする。
                     `<li>` ごと並びにすると、内側の `<ul>` が横に回り込む */}
-                <div className="flex flex-wrap items-center gap-x-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   {row.name}
                   <Link href={`/themes/${row.id}`} className="underline">
                     編集

@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,9 +137,13 @@ export function SignInForm() {
       >
         {pending ? "送信中" : "サインイン"}
       </Button>
-      <p className="text-destructive empty:hidden" aria-live="polite">
-        {error}
-      </p>
+      {/* 断りを色だけで伝えない（`app/form.tsx` と同じ形。CLAUDE.md「色」） */}
+      {error !== null && (
+        <Alert variant="destructive">
+          <AlertTitle>サインインできませんでした</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </form>
   );
 }

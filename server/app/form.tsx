@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useActionState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 // 5つのフォームが同じ骨格を持っていたため、ここに括り出した（設計書 §4.1）。
@@ -14,9 +15,14 @@ import { Button } from "@/components/ui/button";
  * ラベルと入力欄を縦に並べる `Label` の見た目。
  *
  * 部品の `Label` は既定で横並び（`flex items-center gap-2`）なので、縦に積み直す。
- * ラベルと入力欄はコンポーネントに包まない。入力欄を children で受け取る形にすると、
- * `<label>` の中に入力欄があることを biome が追えず noLabelWithoutControl に引っかかる。
- * 包むのは見た目の指定だけにして、入れ子は各フォームに書いたまま残す
+ *
+ * **ラベルと入力欄を1つのコンポーネントに包まない。** 包むと、`<label>` の中に
+ * 入力欄があることを biome が追えず、noLabelWithoutControl が見なくなる。
+ * ここが持つのは見た目の指定だけにして、入れ子は各フォームに書いたまま残す。
+ *
+ * 素の `<label>` を `Label` に替えた時点で、biome の既定はこの入れ子を見なくなる
+ * （部品の名前を知らないため）。`server/biome.json` の `noLabelWithoutControl` に
+ * `labelComponents`・`inputComponents` を書いて見えるようにしてある（#161）
  */
 export const fieldLabel = "flex flex-col items-start gap-1";
 
@@ -89,9 +95,15 @@ export function ActionForm({
       >
         {pending ? "送信中" : submitLabel}
       </Button>
-      <p className="text-destructive empty:hidden" aria-live="polite">
-        {error}
-      </p>
+      {/* 断りを色だけで伝えない。見出しの言葉で「送れなかった」ことを出し、
+          色は添えるだけにする（CLAUDE.md「意味を色だけで運ばない」）。
+          部品の `Alert` は `role="alert"` を持つので、読み上げにも届く */}
+      {error !== null && (
+        <Alert variant="destructive">
+          <AlertTitle>送れませんでした</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </form>
   );
 }

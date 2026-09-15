@@ -37,7 +37,7 @@ export default async function Page() {
                 // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
                 // 件数は1つのまとまりのまま置く。数字だけを別の区画に出すと、
                 // どの件数かを見出しの位置から数え直すことになる
-                className="flex flex-wrap items-center gap-x-2 border-b border-border py-1"
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
               >
                 {row.userName ?? "取り込み"}
                 <span className="text-muted-foreground">

@@ -146,11 +146,9 @@ export function EventForm({
       </Label>
       <Label className={fieldLabel}>
         補足
-        <Textarea
-          name="note"
-          rows={2}
-          defaultValue={event?.note ?? undefined}
-        />
+        {/* `rows` は渡さない。部品が `field-sizing-content` を持ち、中身の量で
+            伸び縮みするため効かない。最初の高さは部品の `min-h-16`（2行ぶん）でよい */}
+        <Textarea name="note" defaultValue={event?.note ?? undefined} />
       </Label>
       <Label className={fieldLabel}>
         出典URL（この日付をどこで確認したか）

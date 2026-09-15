@@ -35,6 +35,12 @@
   --popover-foreground: #1d1f33;
   --primary: #c2452b;
   --primary-foreground: #ffffff;
+  /*
+   * 既定のボタンに指を乗せたときの面。`primary` を暗くした値。
+   * 独自の役割ではなく `primary` の状態違いなので、名前も `primary` に寄せる。
+   * 値の根拠は下の「指を乗せたときの色」の規則
+   */
+  --primary-hover: #ae3e27;
   --secondary: #ecebfb;
   --secondary-foreground: #3a3f8f;
   --muted: #efeff5;
@@ -123,4 +129,20 @@
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
+}
+
+/*
+ * 既定のボタンに指を乗せたときの色（#161）。
+ *
+ * 部品の既定は `primary` を 80% に薄めた面で、上に乗る白の文字との差が 3.65 になり、
+ * 読める目安の 4.5 を割る。薄める方向は 95% でも 4.65 で余裕が無く、
+ * 見た目の変化もほとんど無い。暗くする側へ寄せると 5.97 になり、指が乗ったことも分かる。
+ * 部品のコードは書き換えないので、ここで上書きする（`:focus-visible` と同じ形）。
+ *
+ * **`@layer` の外に置く。** 中に入れると部品のクラスに負けて効かない。
+ * 押せない間は部品が `pointer-events-none` を持つので、ここは当たらない。
+ * 守っているのは app/globals-css.test.ts
+ */
+[data-slot="button"][data-variant="default"]:hover {
+  background-color: var(--primary-hover);
 }

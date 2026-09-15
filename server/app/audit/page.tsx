@@ -59,7 +59,7 @@ export default async function Page() {
               <li
                 key={row.id}
                 // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）
-                className="flex flex-wrap items-center gap-x-2 border-b border-border py-1"
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
               >
                 {formatJst(row.createdAt)}
                 <span>{ACTION_TITLES[row.action]}</span>
