@@ -116,9 +116,10 @@ describe("色の明るさの差", () => {
       .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
       .flatMap((file) =>
         [
-          ...readFileSync(path.join(import.meta.dirname, file), "utf8").matchAll(
-            /className="([^"]*)"/g,
-          ),
+          ...readFileSync(
+            path.join(import.meta.dirname, file),
+            "utf8",
+          ).matchAll(/className="([^"]*)"/g),
         ]
           .map((found) => found[1].split(/\s+/))
           .filter(
