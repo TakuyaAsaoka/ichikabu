@@ -29,11 +29,13 @@ final class ScreensUITests: XCTestCase {
 		closeSheet(app)
 		snap(app, "持ち株が未選択｜カレンダー")
 
-		// 最後の1行を残して選ぶ。チェックの有る行と無い行の両方を写す
+		// 最後の1行を残して選ぶ。チェックの有る行と無い行の両方を写す。
+		// 後ろから押す。選んだ行はチェックの画像の読み上げ名が末尾に付いて行の検索から外れるので、前から押すと次の番号がずれる
 		openHoldings(app)
 		let rows = stockRows(app)
-		XCTAssertGreaterThanOrEqual(rows.count, 2, "銘柄が2件以上ないと、選んだ行と選ばない行の両方を写せない")
-		for index in 0..<(rows.count - 1) {
+		let count = rows.count
+		XCTAssertGreaterThanOrEqual(count, 2, "銘柄が2件以上ないと、選んだ行と選ばない行の両方を写せない")
+		for index in (0..<(count - 1)).reversed() {
 			rows.element(boundBy: index).tap()
 		}
 		snap(app, "持ち株を選択済み｜持ち株の一覧")
@@ -98,6 +100,8 @@ final class ScreensUITests: XCTestCase {
 	@MainActor
 	private func openHoldings(_ app: XCUIApplication) {
 		app.buttons["持ち株"].tap()
+		// シートの見出しが出たことを先に確かめる。確かめずに閉じると、見出しが最初から無い場合に「閉じた」と取り違える
+		waitForSheet(app)
 		XCTAssertTrue(stockRows(app).firstMatch.waitForExistence(timeout: 30), "銘柄の行が出ない。接続先のサーバーと開発用DBの銘柄を確かめる")
 	}
 
@@ -112,13 +116,16 @@ final class ScreensUITests: XCTestCase {
 		app.navigationBars.element(boundBy: 1)
 	}
 
-	/// シートを閉じる。高さの候補が 0.45 と large なので、1回下へ払うと 0.45 で止まることがある。
-	/// 0.45 の間は裏を触れる設定なので、外を押しても閉じない。見出しが消えるまで払う
+	/// シートを閉じる。高さの候補が 0.45 と large なので、1回引き下ろしても 0.45 で止まることがある。
+	/// 0.45 の間は裏を触れる設定なので、外を押しても閉じない。見出しが消えるまで引き下ろす。
+	/// 見出しの上で `swipeDown` を払っても、シートは動かなかった（実測）。見出しの少し上（つまみの辺り）を押さえて、画面の下端まで引く
 	@MainActor
 	private func closeSheet(_ app: XCUIApplication) {
-		for _ in 0..<2 where sheetBar(app).exists {
-			sheetBar(app).swipeDown(velocity: .fast)
-			_ = sheetBar(app).waitForNonExistence(timeout: 2)
+		for _ in 0..<3 where sheetBar(app).exists {
+			let grabber = sheetBar(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -12))
+			let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.99))
+			grabber.press(forDuration: 0.1, thenDragTo: bottom)
+			_ = sheetBar(app).waitForNonExistence(timeout: 3)
 		}
 		XCTAssertFalse(sheetBar(app).exists, "シートが閉じない")
 	}
@@ -128,11 +135,7 @@ final class ScreensUITests: XCTestCase {
 	@MainActor
 	private func visibleDay(_ app: XCUIApplication, matching pattern: String, what: String) throws -> XCUIElement {
 		let candidates = app.buttons.matching(NSPredicate(format: "label MATCHES %@", pattern)).allElementsBoundByIndex
-		guard let day = candidates.first(where: { $0.isHittable }) else {
-			XCTFail("\(what)のセルが見つからない。開発用DBに当月のイベントがあるか確かめる")
-			throw XCTSkip("\(what)が無い")
-		}
-		return day
+		return try XCTUnwrap(candidates.first { $0.isHittable }, "\(what)のセルが見つからない。開発用DBに当月のイベントがあるか確かめる")
 	}
 
 	@MainActor
