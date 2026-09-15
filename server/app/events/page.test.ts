@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "../../src/db";
 import { record } from "../../src/db/audit";
+import { event } from "../../src/db/schema";
 import { seedUser } from "../../src/db/seed-user";
 import {
   createEvent,
@@ -98,6 +100,34 @@ describe("イベントの画面", () => {
       "JP 6758 ソニーグループ",
       "JP 7203 トヨタ自動車",
     ]);
+  });
+
+  it("非アクティブの行にはバッジが付き、アクティブな行には付かない", async () => {
+    // 非アクティブの行はアプリに出ない。一覧でそれが分かる場所は他に無い
+    // （公表予定の非アクティブ化 設計書 §4）。#161 で文字の前置きからバッジに変えた。
+    //
+    // **アクティブな行に出ないことまで見る。** 出しっぱなしだと、印が
+    // 非アクティブの行を1つも区別していないことになり、この検査が素通りする
+    await addEvent("CPI");
+    await signInAs(EDITOR);
+
+    expect(await render(Page)).not.toContain("非アクティブ");
+
+    // `active` は `createEvent` の入力（`EventInput`）に無く、DBの既定で true になる。
+    // 非アクティブは `upsertMarketEvents` が裏返すものなので、ここは直に入れる
+    // （`src/status.test.ts` の `addEvent` と同じ形）。
+    // `EventInput` を展開しないのは、あちらの `market` が `string` で、
+    // 列の側の `"JP" | "US" | "GLOBAL"` に入らないため
+    await db.insert(event).values({
+      title: "日本銀行 金融政策決定会合",
+      shortLabel: "日銀会合",
+      startDate: "2026-10-01",
+      importance: 2,
+      market: "JP",
+      active: false,
+    });
+
+    expect(await render(Page)).toContain("非アクティブ</span>");
   });
 
   it("入れた人が名前で出る", async () => {

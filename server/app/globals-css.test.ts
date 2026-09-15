@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { compile } from "tailwindcss";
 import { describe, expect, it } from "vitest";
-import { field } from "./form";
 
 const root = path.resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
@@ -100,8 +99,131 @@ describe("色の明るさの差", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
-  it("フォームの入力欄は枠に input の色を使う", () => {
-    expect(field.split(" ")).toContain("border-input");
+  // 入力欄の見た目は `app/form.tsx` の `field` から `@/components/ui` の部品へ移った（#161）。
+  // 部品のコードは書き換えない決まりなので、部品が持っている色をここで見る。
+  // `shadcn add --overwrite` で入れ直したときに既定が変わっていれば赤くなる
+  it.each(["input", "textarea", "native-select"])(
+    "%s の枠は input の色を使う",
+    (name) => {
+      const source = readFileSync(
+        path.join(root, "components", "ui", `${name}.tsx`),
+        "utf8",
+      );
+      expect(source).toContain("border-input");
+    },
+  );
+
+  /**
+   * `<Button` から、その開始タグの終わりまでを1つずつ取り出す。
+   *
+   * **最初の `>` で切ってはいけない。** タグの中に `>` が2通りで現れる。
+   *
+   * - 矢印の関数（`onClick={(e) => ...}`）
+   * - 属性の間に書いた `//` のコメント（`app/form.tsx` の「確認は <form onSubmit> …」）
+   *
+   * どちらも実測で `app/form.tsx` を違反として挙げてしまった。中括弧の深さを数え、
+   * 素のまま置かれた `>` だけを終わりとみなす。
+   *
+   * **コメントは読み飛ばすだけでなく、返す文字列から取り除く。** 下の2件は
+   * 「このクラスを渡しているか」を見るが、渡す理由をコメントに書くと
+   * クラス名がそこにも現れる。読み飛ばすだけだと、`className` から消しても
+   * コメントの側が残って緑のままになる（実測で2件とも歯が無かった）
+   */
+  function buttonTagsIn(source: string): string[] {
+    const tags: string[] = [];
+    for (
+      let start = source.indexOf("<Button");
+      start !== -1;
+      start = source.indexOf("<Button", start + 1)
+    ) {
+      let depth = 0;
+      let tag = "";
+      for (let i = start; i < source.length; i++) {
+        if (source.startsWith("//", i)) {
+          const lineEnd = source.indexOf("\n", i);
+          if (lineEnd === -1) break;
+          // for が i++ するので、次の回で改行そのものから読み直す
+          i = lineEnd - 1;
+          continue;
+        }
+        const char = source[i];
+        tag += char;
+        if (char === "{") depth += 1;
+        else if (char === "}") depth -= 1;
+        else if (char === ">" && depth === 0) {
+          tags.push(tag);
+          break;
+        }
+      }
+    }
+    return tags;
+  }
+
+  /** 画面のファイルから `<Button ...>` の開始タグを集める */
+  const buttonTags = (): { file: string; tag: string }[] =>
+    readdirSync(import.meta.dirname, { recursive: true, encoding: "utf8" })
+      .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
+      .flatMap((file) =>
+        buttonTagsIn(
+          readFileSync(path.join(import.meta.dirname, file), "utf8"),
+        ).map((tag) => ({ file, tag })),
+      );
+
+  // 取り出しが途中で切れていないこと。切れると className を読み落とし、
+  // 正しいコードを違反として挙げる
+  it.each([
+    [
+      "矢印の関数",
+      '<Button onClick={(e) => { e.preventDefault(); }} className="self-start">',
+    ],
+    [
+      "属性の間のコメント",
+      '<Button\n  // <form onSubmit> ではなくここに置く\n  className="self-start"\n>',
+    ],
+  ])("%s を渡したボタンも、最後まで取り出せる", (_name, source) => {
+    const tags = buttonTagsIn(source);
+
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toContain("self-start");
+  });
+
+  // 下の2件は「このクラスを渡しているか」を見る。渡す理由をコメントに書くと
+  // クラス名がそこにも現れるため、コメントを数に入れると歯が無くなる
+  it("コメントに書いたクラス名は、渡したものと数えない", () => {
+    const tags = buttonTagsIn(
+      '<Button\n  // border-input を渡す理由\n  className="self-start"\n>',
+    );
+
+    expect(tags[0]).toContain("self-start");
+    expect(tags[0]).not.toContain("border-input");
+  });
+
+  it("枠だけのボタンには input の色の枠を渡している", () => {
+    // 部品の既定は `border-border` で、背景との差が 1.22 しかなく形が見えない。
+    // 部品は書き換えないので、呼ぶ側で `border-input`（3.63）を渡す
+    const offenders = buttonTags().filter(
+      ({ tag }) =>
+        tag.includes('variant="outline"') && !tag.includes("border-input"),
+    );
+
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("押せなくするボタンは、押せない間も文字を薄くしない", () => {
+    // 部品は既定で、押せない間だけ半分透かす。そうすると文字と背景の明るさの差が
+    // 読める目安を割る（#161 の Scenario「文字は読める明るさのまま」）。
+    // 押せないことは、文字が変わることと指が乗らないことで示す
+    const offenders = buttonTags().filter(
+      ({ tag }) =>
+        tag.includes("disabled=") && !tag.includes("disabled:opacity-100"),
+    );
+
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("見張る先のボタンがある", () => {
+    // 取り出しが1つも拾わない形に壊れると、上の2件は空の配列どうしで黙って緑になる
+    expect(buttonTags().length).toBeGreaterThan(0);
   });
 
   // 枠だけで形を示す操作部品（入力欄・枠だけのボタン）を border の色で描くと、

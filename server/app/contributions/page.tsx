@@ -34,13 +34,20 @@ export default async function Page() {
             rows.map((row) => (
               <li
                 key={row.userId ?? "import"}
-                className="border-b border-border py-1"
+                // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
+                // 件数は1つのまとまりのまま置く。数字だけを別の区画に出すと、
+                // どの件数かを見出しの位置から数え直すことになる
+                className="flex flex-wrap items-center gap-x-2 border-b border-border py-1"
               >
                 {row.userName ?? "取り込み"}
                 <span className="text-muted-foreground">
-                  {" "}
-                  / 登録 {row.created}件 / 更新 {row.updated}件 / 削除{" "}
-                  {row.deleted}件
+                  登録 {row.created}件
+                </span>
+                <span className="text-muted-foreground">
+                  更新 {row.updated}件
+                </span>
+                <span className="text-muted-foreground">
+                  削除 {row.deleted}件
                 </span>
               </li>
             ))

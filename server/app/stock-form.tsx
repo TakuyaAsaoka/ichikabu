@@ -1,5 +1,8 @@
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { StockInput } from "../src/db/write";
-import { type Action, ActionForm, field, fieldLabel } from "./form";
+import { type Action, ActionForm, fieldLabel, fieldSelect } from "./form";
 
 /** 決算月の選択肢（1〜12） */
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -26,39 +29,36 @@ export function StockForm({
   return (
     <ActionForm action={action} submitLabel={submitLabel}>
       {stock && <input type="hidden" name="id" value={stock.id} />}
-      <label className={fieldLabel}>
+      <Label className={fieldLabel}>
         市場
-        <select name="market" defaultValue={stock?.market} className={field}>
+        <NativeSelect
+          name="market"
+          defaultValue={stock?.market}
+          className={fieldSelect}
+        >
           <option value="JP">JP</option>
           <option value="US">US</option>
-        </select>
-      </label>
-      <label className={fieldLabel}>
+        </NativeSelect>
+      </Label>
+      <Label className={fieldLabel}>
         ティッカー
-        <input
+        <Input
           type="text"
           name="ticker"
           required
           defaultValue={stock?.ticker}
-          className={field}
         />
-      </label>
-      <label className={fieldLabel}>
+      </Label>
+      <Label className={fieldLabel}>
         銘柄名
-        <input
-          type="text"
-          name="name"
-          required
-          defaultValue={stock?.name}
-          className={field}
-        />
-      </label>
-      <label className={fieldLabel}>
+        <Input type="text" name="name" required defaultValue={stock?.name} />
+      </Label>
+      <Label className={fieldLabel}>
         決算月（JP銘柄のみ。US銘柄は空のまま）
-        <select
+        <NativeSelect
           name="fiscalMonth"
           defaultValue={stock?.fiscalMonth ?? ""}
-          className={field}
+          className={fieldSelect}
         >
           <option value="">なし</option>
           {MONTHS.map((month) => (
@@ -66,8 +66,8 @@ export function StockForm({
               {month}
             </option>
           ))}
-        </select>
-      </label>
+        </NativeSelect>
+      </Label>
     </ActionForm>
   );
 }

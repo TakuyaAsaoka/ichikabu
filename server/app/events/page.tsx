@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { db } from "../../src/db";
 import { creatorNamesByEventId } from "../../src/db/audit";
 import { event, stock, theme } from "../../src/db/schema";
@@ -91,20 +92,37 @@ export default async function Page() {
           {events.map((row) => {
             const id = String(row.id);
             return (
-              <li key={row.id} className="border-b border-border py-1">
-                {!row.active && "【非アクティブ】"}
+              <li
+                key={row.id}
+                // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
+                // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない
+                className="flex flex-wrap items-center gap-x-2 border-b border-border py-1"
+              >
+                {/* **日付を行の先頭から動かさない。** `app/events/page.test.ts` が
+                    行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。
+                    前に何かを足すと、並び順の検査が日付以外を比べ始める */}
                 {row.startDate}
-                {row.endDate !== null && `〜${row.endDate}`} ★{row.importance}{" "}
-                {row.shortLabel}
+                {row.endDate !== null && `〜${row.endDate}`}
+                <span>★{row.importance}</span>
+                <span>{row.shortLabel}</span>
+                {/* 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
+                    ここに出す（公表予定の非アクティブ化 設計書 §4）。
+                    行の頭に角括弧つきの文字を置く形をやめ、バッジにした（#161） */}
+                {!row.active && <Badge variant="secondary">非アクティブ</Badge>}
                 <span className="text-muted-foreground">
-                  {" "}
-                  / {row.market ?? row.themeName ?? row.ticker} / {row.title} /
-                  出典: {row.sourceName ?? "表示名なし"} / 入力:{" "}
+                  {row.market ?? row.themeName ?? row.ticker}
+                </span>
+                <span className="text-muted-foreground">{row.title}</span>
+                <span className="text-muted-foreground">
+                  出典: {row.sourceName ?? "表示名なし"}
+                </span>
+                <span className="text-muted-foreground">
+                  入力:{" "}
                   {/* 記録が無いことと、取り込みが入れたことは別（→ `creatorNamesByEventId`） */}
                   {creators.has(id)
                     ? (creators.get(id) ?? "取り込み")
                     : "記録なし"}
-                </span>{" "}
+                </span>
                 <Link href={`/events/${row.id}`} className="underline">
                   編集
                 </Link>
