@@ -19,11 +19,19 @@
 			remoteGlobalIDString = 1A0000000000000000000010;
 			remoteInfo = Ichikabu;
 		};
+		1A0000000000000000000073 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A0000000000000000000010;
+			remoteInfo = Ichikabu;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1A0000000000000000000020 /* Ichikabu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ichikabu.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000000000000000000021 /* IchikabuTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IchikabuTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A0000000000000000000022 /* IchikabuUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IchikabuUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -35,6 +43,11 @@
 		1A0000000000000000000041 /* IchikabuTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = IchikabuTests;
+			sourceTree = "<group>";
+		};
+		1A0000000000000000000042 /* IchikabuUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = IchikabuUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -56,6 +69,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A0000000000000000000036 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -64,6 +84,7 @@
 			children = (
 				1A0000000000000000000040 /* Ichikabu */,
 				1A0000000000000000000041 /* IchikabuTests */,
+				1A0000000000000000000042 /* IchikabuUITests */,
 				1A0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -73,6 +94,7 @@
 			children = (
 				1A0000000000000000000020 /* Ichikabu.app */,
 				1A0000000000000000000021 /* IchikabuTests.xctest */,
+				1A0000000000000000000022 /* IchikabuUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -126,6 +148,26 @@
 			productReference = 1A0000000000000000000021 /* IchikabuTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		1A0000000000000000000012 /* IchikabuUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A0000000000000000000053 /* Build configuration list for PBXNativeTarget "IchikabuUITests" */;
+			buildPhases = (
+				1A0000000000000000000035 /* Sources */,
+				1A0000000000000000000036 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1A0000000000000000000072 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1A0000000000000000000042 /* IchikabuUITests */,
+			);
+			name = IchikabuUITests;
+			productName = IchikabuUITests;
+			productReference = 1A0000000000000000000022 /* IchikabuUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -137,6 +179,9 @@
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					1A0000000000000000000011 = {
+						TestTargetID = 1A0000000000000000000010;
+					};
+					1A0000000000000000000012 = {
 						TestTargetID = 1A0000000000000000000010;
 					};
 				};
@@ -160,6 +205,7 @@
 			targets = (
 				1A0000000000000000000010 /* Ichikabu */,
 				1A0000000000000000000011 /* IchikabuTests */,
+				1A0000000000000000000012 /* IchikabuUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -189,6 +235,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A0000000000000000000035 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -196,6 +249,11 @@
 			isa = PBXTargetDependency;
 			target = 1A0000000000000000000010 /* Ichikabu */;
 			targetProxy = 1A0000000000000000000071 /* PBXContainerItemProxy */;
+		};
+		1A0000000000000000000072 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A0000000000000000000010 /* Ichikabu */;
+			targetProxy = 1A0000000000000000000073 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -298,6 +356,34 @@
 			};
 			name = Release;
 		};
+		1A0000000000000000000066 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.takuyaasaoka.ichikabu.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Ichikabu;
+			};
+			name = Debug;
+		};
+		1A0000000000000000000067 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.takuyaasaoka.ichikabu.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Ichikabu;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -324,6 +410,15 @@
 			buildConfigurations = (
 				1A0000000000000000000064 /* Debug */,
 				1A0000000000000000000065 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000000000000000000053 /* Build configuration list for PBXNativeTarget "IchikabuUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000000000000000000066 /* Debug */,
+				1A0000000000000000000067 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
