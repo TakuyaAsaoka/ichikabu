@@ -72,7 +72,10 @@ export default async function Page() {
             <li key={row.id} className="border-b border-border py-1">
               {row.market} {row.ticker} {row.name}
               {row.fiscalMonth !== null && (
-                <span className="text-muted"> / {row.fiscalMonth}月決算</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  / {row.fiscalMonth}月決算
+                </span>
               )}{" "}
               <Link href={`/stocks/${row.id}`} className="underline">
                 編集
@@ -105,7 +108,7 @@ export default async function Page() {
                 </Link>
                 <ul className="pl-4">
                   {belongings.length === 0 ? (
-                    <li className="text-muted">銘柄なし</li>
+                    <li className="text-muted-foreground">銘柄なし</li>
                   ) : (
                     belongings.map((s) => (
                       <li key={s.stockId}>

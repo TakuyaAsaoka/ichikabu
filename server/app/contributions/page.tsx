@@ -29,7 +29,7 @@ export default async function Page() {
           {/* 0件を黙って空白で表さない。空白は「まだ読めていない」と
               見分けが付かない（`app/status/page.tsx` と同じ理由） */}
           {rows.length === 0 ? (
-            <li className="text-muted">記録なし</li>
+            <li className="text-muted-foreground">記録なし</li>
           ) : (
             rows.map((row) => (
               <li
@@ -37,7 +37,7 @@ export default async function Page() {
                 className="border-b border-border py-1"
               >
                 {row.userName ?? "取り込み"}
-                <span className="text-muted">
+                <span className="text-muted-foreground">
                   {" "}
                   / 登録 {row.created}件 / 更新 {row.updated}件 / 削除{" "}
                   {row.deleted}件

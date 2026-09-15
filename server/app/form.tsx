@@ -7,7 +7,7 @@ import { type ReactNode, useActionState } from "react";
 // Server Component になっている
 
 /** 入力欄の見た目。フォーム全部で同じものを使う */
-export const field = "rounded border border-border p-2";
+export const field = "rounded border border-input p-2";
 
 // ラベルと入力欄はコンポーネントに包まない。入力欄を children で受け取る形にすると、
 // <label> の中に入力欄があることを biome が追えず noLabelWithoutControl に引っかかる。
@@ -55,11 +55,11 @@ export function ActionForm({
             e.preventDefault();
           }
         }}
-        className="rounded border border-border p-2 disabled:opacity-50"
+        className="rounded border border-input p-2 disabled:opacity-50"
       >
         {pending ? "送信中" : submitLabel}
       </button>
-      <p className="text-error empty:hidden" aria-live="polite">
+      <p className="text-destructive empty:hidden" aria-live="polite">
         {error}
       </p>
     </form>

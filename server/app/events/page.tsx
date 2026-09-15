@@ -96,7 +96,7 @@ export default async function Page() {
                 {row.startDate}
                 {row.endDate !== null && `〜${row.endDate}`} ★{row.importance}{" "}
                 {row.shortLabel}
-                <span className="text-muted">
+                <span className="text-muted-foreground">
                   {" "}
                   / {row.market ?? row.themeName ?? row.ticker} / {row.title} /
                   出典: {row.sourceName ?? "表示名なし"} / 入力:{" "}
