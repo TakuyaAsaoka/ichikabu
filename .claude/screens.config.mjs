@@ -76,7 +76,7 @@ export default {
           ),
         },
         // テーマの2画面は、テーマとテーマ所属が1件ずつ登録されている前提。
-        // pnpm db:seed は入れないため、無ければ画面から登録してから撮る（Issue #157）
+        // 開発用DBなら pnpm db:seed が入れる（src/db/seed-event.ts の seedSampleTheme。Issue #157）
         {
           title: "テーマの編集",
           open: openFrom(
