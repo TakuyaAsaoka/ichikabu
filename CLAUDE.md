@@ -117,7 +117,7 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 
 **色の役割は shadcn/ui の変数の定義に合わせる**（https://ui.shadcn.com/docs/theming）。独自の役割を作らない。
 部品は既定でこの定義どおりに色を付ける（例: 既定のボタンは `primary`）ので、独自の役割を持つと部品を足すたびに既定とぶつかる。
-**部品の既定の色の付け方も書き換えない。** 値は16進（`#rrggbb`）で1行ずつ書く（#160 の検証手順が16進しか読まない）。
+**部品の既定の色の付け方も書き換えない。** 値は16進（`#rrggbb`）で1行ずつ書く（明るさの差を見る `server/app/globals-css.test.ts` が16進しか読まない）。
 
 | 変数 | 値 | 使う所（shadcn の定義） |
 |---|---|---|
@@ -167,15 +167,19 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 **`destructive` をコーラルに寄せない。** shadcn の部品は `destructive` を塗りではなく「10% の面に `destructive` の文字」で描く（`bg-destructive/10 text-destructive`）。
 コーラルに寄せるとこの形で 4.5 を割る（novel-system #49 で 4.10、指を乗せた 20% で 3.54）。
 
-**意味を色だけで運ばない。** コーラルと `destructive` はどちらも赤の系統で、T型の色覚（青と黄が見分けにくい）では色の差が小さい（ΔE 12.0）。
+色の見分けやすさは、2色の差（CIE76 の式の ΔE。10 未満は見分けにくい目安）で測った。色覚の型ごとの値は、Machado 2009 の変換で見え方を真似てから測った。
+
+**意味を色だけで運ばない。** コーラルと `destructive` はどちらも赤の系統で、T型の色覚（青と黄が見分けにくい）では差が 12.0 まで縮む（普通の見え方では 28.7）。
 削除や抜け・エラーは言葉と記号で伝え、色は添えるだけにする。
 
-**イベントの種類を色で塗るときは測り直す。** `ring`・`secondary-foreground` の `#3a3f8f` は、iOS アプリの「市場」の藍 `#26479a`（`ios/Ichikabu/EventLayout.swift`）とほぼ同じ色に見える（ΔE 6.2）。
+**イベントの種類を色で塗るときは測り直す。** `ring`・`secondary-foreground` の `#3a3f8f` は、iOS アプリの「市場」の藍 `#264799`（`ios/Ichikabu/EventLayout.swift` の `Color(red: 0.15, green: 0.28, blue: 0.60)`）とほぼ同じ色に見える（差 6.2）。
 いまの管理画面は種類を文字でしか出していない。
 
 **角丸は使う。影は使わない。** `--radius` は `0.5rem`。面の区切りは 1px の枠線。
 shadcn の部品が既定で持つ `shadow-xs` などは、部品を書き換えず `globals.css` の `@theme` で影の値を消してある（クラスを書いても何も生成されない）。
 フォーカスの輪（`ring-*`）は別の値なので残る。
+
+**フォーカスの輪は `ring` の色で、透かさずに描く**（`globals.css` の `:focus-visible`）。shadcn の既定の `outline-ring/50` だけだと背景との差が 3 を割る。
 
 **`.dark` の値は持たない**（明るい画面だけ）。ただし `globals.css` の `@custom-variant dark` の行は消さない。
 消すと部品の `dark:` が OS の暗い設定で効き、入力欄などだけが暗くなる。

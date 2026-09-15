@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -103,6 +103,19 @@ describe("色の明るさの差", () => {
   it("フォームの入力欄は枠に input の色を使う", () => {
     expect(field.split(" ")).toContain("border-input");
   });
+
+  // 枠だけで形を示す操作部品（入力欄・枠だけのボタン）を border の色で描くと、
+  // 背景との差が 1.22 で形が見えない。field を通らない所（サインイン）も含めて見る
+  it("画面の操作部品の枠に border の色を使っていない", () => {
+    const offenders = readdirSync(import.meta.dirname, { recursive: true })
+      .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
+      .filter((file) =>
+        readFileSync(path.join(import.meta.dirname, file), "utf8").includes(
+          "rounded border border-border",
+        ),
+      );
+    expect(offenders).toEqual([]);
+  });
 });
 
 /**
@@ -113,6 +126,9 @@ describe("色の明るさの差", () => {
  */
 describe("影を使わない", () => {
   it.each([
+    // 値の名前なしと inner は、Tailwind が前の版の書き方として持っている
+    "shadow",
+    "shadow-inner",
     "shadow-2xs",
     "shadow-xs",
     "shadow-sm",
@@ -135,6 +151,15 @@ describe("影を使わない", () => {
   it("フォーカスの輪（ring）は生成される", async () => {
     const css = await buildWith(["focus-visible:ring-3"]);
     expect(css).toContain("--tw-ring-shadow");
+  });
+
+  // 部品を通さない素の入力欄とボタンにも、見える輪を出す。
+  // outline-ring/50（半分透かした ring）だけだと背景との差が 3 を割る
+  it("フォーカスした要素に ring の色の輪を透かさずに出す", async () => {
+    const css = await buildWith([]);
+    expect(css).toMatch(
+      /:focus-visible\s*\{\s*outline:\s*2px solid var\(--color-ring\)/,
+    );
   });
 });
 

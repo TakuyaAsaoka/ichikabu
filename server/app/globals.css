@@ -22,7 +22,7 @@
  * 色の値。役割は shadcn/ui の定義に合わせる（https://ui.shadcn.com/docs/theming）。
  * 独自の役割を作らない。値と明るさの差は CLAUDE.md の「色」の節（#160）。
  *
- * 16進で1行ずつ書く。Issue #160 の検証手順が16進の文字で照らし合わせるため
+ * 16進で1行ずつ書く。明るさの差を見る app/globals-css.test.ts が16進しか読まないため
  */
 :root {
   --radius: 0.5rem;
@@ -113,5 +113,14 @@
 
   html {
     color-scheme: light;
+  }
+
+  /*
+   * フォーカスの輪は ring の色で、透かさずに描く。上の outline-ring/50 のままだと
+   * 背景との差が 3 を割り、キーボードで操作している人が現在地を見失う（ring は 8.59）
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
   }
 }

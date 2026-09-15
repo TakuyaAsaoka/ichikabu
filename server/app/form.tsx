@@ -55,7 +55,7 @@ export function ActionForm({
             e.preventDefault();
           }
         }}
-        className="rounded border border-border p-2 disabled:opacity-50"
+        className="rounded border border-input p-2 disabled:opacity-50"
       >
         {pending ? "送信中" : submitLabel}
       </button>

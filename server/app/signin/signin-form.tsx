@@ -102,7 +102,7 @@ export function SignInForm() {
         type="button"
         onClick={handleGoogle}
         disabled={pending}
-        className="rounded border border-border p-2 disabled:opacity-50"
+        className="rounded border border-input p-2 disabled:opacity-50"
       >
         Google でログイン
       </button>
@@ -130,7 +130,7 @@ export function SignInForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded border border-border p-2 disabled:opacity-50"
+        className="rounded border border-input p-2 disabled:opacity-50"
       >
         {pending ? "送信中" : "サインイン"}
       </button>
