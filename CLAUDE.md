@@ -107,6 +107,8 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 | `server/src/` | DB・認証・状態の計算 | React を取り込まない（いま0件）。部品を置かない |
 
 - `@/` は `server/` の直下を指す（`server/tsconfig.json` の `paths` と `server/components.json` の `aliases`）。画面が `server/app` にあるため
+- **`card.tsx` はまだどの画面も使っていない**（#161 で8部品を入れたときの1つ）。使うのは #165（登録フォームを一覧から分ける）。それまでに他の使い道が出なければ消してよい（戻すのは `pnpm dlx shadcn add card` の1回）
+- **`table.tsx` は入れて、使わないので消した**（#161）。イベント一覧を表にする案は、720px に収めるのに一覧から項目を落とす必要があり、設計書の決定と衝突したため見送った（→ #172）
 - **`shadcn init` は動かない**（`server/` に `next.config.*` が無く「We could not detect a supported framework」で止まる）。`server/components.json` は手で書いてある
 - **`shadcn add` は、部品が取り込む包みを全部は足さない。** `button`・`badge`・`alert` の `class-variance-authority`、`native-select` の `lucide-react` などは `pnpm add` で足す（足し忘れは `pnpm typecheck` で落ちる）
 - **`shadcn add` は `globals.css` の `@import "shadcn/tailwind.css"` と `@import "tw-animate-css"` も足さない。** 消すとエラーにならずに開閉の見た目だけが効かなくなるので、2行とも消さない（`server/app/globals-css.test.ts` が赤にする）

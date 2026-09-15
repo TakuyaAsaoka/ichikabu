@@ -185,15 +185,22 @@ describe("色の明るさの差", () => {
 
   // 下の2件は「このクラスを渡しているか」を見る。渡す理由をコメントに書くと
   // クラス名がそこにも現れるため、コメントを数に入れると歯が無くなる
-  it("コメントに書いたクラス名は、渡したものと数えない", () => {
-    const tags = openingTagsIn(
+  it.each([
+    [
+      "行まるごと",
       '<Button\n  // border-input を渡す理由\n  className="self-start"\n>',
-      "Button",
-    );
+    ],
+    // 行末のコメント。落とさないと `className` から消しても緑のまま通る
+    ["行末", '<Button className="self-start" // border-input は要らない\n>'],
+  ])(
+    "%s のコメントに書いたクラス名は、渡したものと数えない",
+    (_name, source) => {
+      const tags = openingTagsIn(source, "Button");
 
-    expect(tags[0]).toContain("self-start");
-    expect(tags[0]).not.toContain("border-input");
-  });
+      expect(tags[0]).toContain("self-start");
+      expect(tags[0]).not.toContain("border-input");
+    },
+  );
 
   it("枠だけのボタンには input の色の枠を渡している", () => {
     // 部品の既定は `border-border` で、背景との差が 1.22 しかなく形が見えない。
@@ -324,6 +331,27 @@ describe("影を使わない", () => {
     expect(css).toMatch(
       /\[data-slot="button"\]\[data-variant="default"\]:hover\s*\{\s*background-color:\s*var\(--primary-hover\)/,
     );
+  });
+
+  // **`@layer` の外に置く決まりを見る。** 中に入れると部品のクラスに負けて
+  // 色が戻るが、規則そのものは生成されるので上の検査は緑のまま通る。
+  //
+  // 組んだ結果の並び順では見分けられない（`@layer base` に入れても、出てくる
+  // 位置は部品のクラスより後ろのままだった。実測）。勝ち負けを決めているのは
+  // 並び順ではなく層なので、**書いてある場所**を見る。
+  // 規則の手前で中括弧が開きっぱなしなら、何かの中に入っている
+  it("指を乗せた面の上書きは、@layer の外に置いてある", () => {
+    const css = readFileSync(globalsCss, "utf8");
+    const at = css.indexOf(
+      '[data-slot="button"][data-variant="default"]:hover',
+    );
+    expect(at).toBeGreaterThan(-1);
+
+    const before = css.slice(0, at);
+    const depth =
+      (before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length;
+
+    expect(depth).toBe(0);
   });
 });
 
