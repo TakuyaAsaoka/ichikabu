@@ -18,11 +18,27 @@ struct APIClient {
 	/// Debug のままだと iPhone 自身の 3000 番を指すため届かない。
 	static let baseURL: URL = {
 		#if DEBUG
-			return URL(string: "http://localhost:3000")!
+			return debugBaseURL(environment: ProcessInfo.processInfo.environment)
 		#else
 			return URL(string: "https://ichikabu.netlify.app")!
 		#endif
 	}()
+
+	/// Debug の接続先。
+	///
+	/// 画面一覧を撮る UI テストだけが、環境変数 `ICHIKABU_API_BASE_URL` で差し替える（Issue #166）。
+	/// 撮影用のサーバーを見るためと、取得に失敗した表示を出すため。
+	/// 使うのは http か https で、ホスト名がある値だけ。それ以外は Mac の `next dev` を見る
+	static func debugBaseURL(environment: [String: String]) -> URL {
+		if let value = environment["ICHIKABU_API_BASE_URL"],
+			let url = URL(string: value),
+			let scheme = url.scheme, ["http", "https"].contains(scheme),
+			let host = url.host(), !host.isEmpty
+		{
+			return url
+		}
+		return URL(string: "http://localhost:3000")!
+	}
 
 	/// 通信に使うセッション。**Cookie を保管しない**。
 	///

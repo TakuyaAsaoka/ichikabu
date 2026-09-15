@@ -38,6 +38,16 @@
                ReferencedContainer = "container:Ichikabu.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1A0000000000000000000012"
+               BuildableName = "IchikabuUITests.xctest"
+               BlueprintName = "IchikabuUITests"
+               ReferencedContainer = "container:Ichikabu.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
