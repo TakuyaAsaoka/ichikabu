@@ -417,8 +417,9 @@ describe("影を使わない", () => {
     expect(css).toContain("--tw-ring-shadow");
   });
 
-  // 部品を通さない素の入力欄とボタンにも、見える輪を出す。
+  // 部品を通さない素の要素（リンクなど）に、見える輪を出す。
   // outline-ring/50（半分透かした ring）だけだと背景との差が 3 を割る。
+  // 部品は `outline-none` を持ち、この規則は層の優先順位で負ける（#176。下の検査）
   //
   // **読む変数は `--ring` で、`--color-ring` ではない**（#162）。後者は
   // `@theme inline` が `:root` に出すもので、宣言した所で値に解決されてから
@@ -427,6 +428,55 @@ describe("影を使わない", () => {
     const css = await buildWith([]);
     expect(css).toMatch(
       /:focus-visible\s*\{\s*outline:\s*2px solid var\(--ring\)/,
+    );
+  });
+
+  // `focus-visible:ring-*` を持つ部品（ボタン・入力欄・選択欄・文章欄など）は `outline-none` で上の outline を消し、
+  // `focus-visible:ring-3 focus-visible:ring-ring/50` の半分透かした輪だけを出す（#176）。
+  // 部品のコードは書き換えないので、輪の色の変数を透かさない色で上書きする。
+  // 消す操作のボタンは部品が `ring-destructive/20` で役割の色を付けているので、その色のまま透かさない。
+  // ハイコントラスト表示（forced-colors）では輪（box-shadow）が描かれず、印が0になるので outline を戻す
+  it("部品のフォーカスの輪を透かさない色で上書きし、ハイコントラスト表示では outline を出す", async () => {
+    const css = await buildWith([]);
+    expect(css).toMatch(
+      /:focus-visible\s*\{\s*--tw-ring-color:\s*var\(--ring\)/,
+    );
+    expect(css).toMatch(
+      /\[data-variant="destructive"\]:focus-visible\s*\{\s*--tw-ring-color:\s*var\(--destructive\)/,
+    );
+    expect(css).toMatch(
+      /@media \(forced-colors: active\)\s*\{\s*:focus-visible\s*\{\s*outline:\s*2px solid/,
+    );
+  });
+
+  // 上の上書きは Tailwind が輪の色を入れる変数の名前に頼っている。
+  // 名前が変わると、エラーも出ずに輪が半分透かした色へ戻るので、組んだ CSS で結び付きを見る。
+  // 名前は globals.css の上書きから取る（どちらの側で名前がずれても赤くなる）
+  it("上書きする変数は、部品の輪の色が入り、輪の描画が読む変数と同じ名前", async () => {
+    const source = stripComments(readFileSync(globalsCss, "utf8"));
+    const name = source.match(
+      /:focus-visible\s*\{\s*(--[\w-]+):\s*var\(--ring\);/,
+    )?.[1];
+    expect(name).toBeDefined();
+
+    // 組んだ CSS には globals.css の上書きそのものも入るので、部品のクラスの規則だけを切り出して見る
+    const css = await buildWith([
+      "focus-visible:ring-ring/50",
+      "focus-visible:ring-3",
+    ]);
+    const ruleOf = (selector: string) => {
+      const start = css.indexOf(selector);
+      expect(start).toBeGreaterThan(-1);
+      // 終わりが見つからないと出力の最後まで切り出し、上書きそのものを拾って緑になる
+      const end = css.indexOf("\n  }", start);
+      expect(end).toBeGreaterThan(start);
+      return css.slice(start, end);
+    };
+    expect(ruleOf(".focus-visible\\:ring-ring\\/50:focus-visible")).toContain(
+      `${name}:`,
+    );
+    expect(ruleOf(".focus-visible\\:ring-3:focus-visible")).toContain(
+      `var(${name}`,
     );
   });
 
@@ -446,14 +496,25 @@ describe("影を使わない", () => {
   // 位置は部品のクラスより後ろのままだった。実測）。勝ち負けを決めているのは
   // 並び順ではなく層なので、**書いてある場所**を見る。
   // 規則の手前で中括弧が開きっぱなしなら、何かの中に入っている
-  it.each([
-    '[data-slot="button"][data-variant="default"]:hover',
+  it.each<{ name: string; find?: RegExp }>([
+    { name: '[data-slot="button"][data-variant="default"]:hover' },
     // 知らせのトースト（#164）。sonner が層の外に差し込む影に勝つには、層の外に要る
-    '[data-sonner-toaster] [data-sonner-toast][data-styled="true"]',
-    "[data-sonner-toaster] [data-sonner-toast]:focus-visible",
-  ])("%s の上書きは、@layer の外に置いてある", (selector) => {
+    { name: '[data-sonner-toaster] [data-sonner-toast][data-styled="true"]' },
+    { name: "[data-sonner-toaster] [data-sonner-toast]:focus-visible" },
+    // 部品のフォーカスの輪（#176）。`@layer base` の `:focus-visible` と見分けるため、
+    // 選び方に続く宣言まで含めて探す（位置は選び方の頭）
+    {
+      name: "部品の輪の色を決める :focus-visible",
+      find: /(?<![\]\w-]):focus-visible\s*\{\s*--tw-ring-color:\s*var\(--ring\)/,
+    },
+    {
+      name: '[data-variant="destructive"]:focus-visible',
+      find: /\[data-variant="destructive"\]:focus-visible\s*\{\s*--tw-ring-color/,
+    },
+    { name: "@media (forced-colors: active)" },
+  ])("$name の上書きは、@layer の外に置いてある", ({ name, find }) => {
     const css = stripComments(readFileSync(globalsCss, "utf8"));
-    const at = css.indexOf(selector);
+    const at = find ? (css.match(find)?.index ?? -1) : css.indexOf(name);
     expect(at).toBeGreaterThan(-1);
 
     const before = css.slice(0, at);
