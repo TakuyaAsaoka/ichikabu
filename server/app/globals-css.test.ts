@@ -89,6 +89,8 @@ describe("色の明るさの差", () => {
     // 指を乗せたときの面も見る。部品の既定（`primary` を 80% に薄めた面）は
     // 白の文字との差が 3.65 で、押す直前＝文字を読む瞬間だけ目安を割る（#161）
     ["primary-foreground", "primary-hover"],
+    // 登録フォームを開く操作の文字と面（`app/register-details.tsx`。#165）
+    ["secondary-foreground", "secondary"],
   ])("文字 %s は面 %s の上で 4.5 以上ある", (text, surface) => {
     expect(contrast(colorOf(text), colorOf(surface))).toBeGreaterThanOrEqual(
       4.5,
@@ -165,6 +167,57 @@ describe("色の明るさの差", () => {
 
   const buttonTags = () => tagsOf("Button");
 
+  /**
+   * `buttonVariants(` の呼び出しを、閉じ括弧まで1つずつ取り出す。
+   *
+   * 部品の `<Button>` を使えない要素（開閉の `<summary>` など）は、ボタンの見た目を
+   * この関数で借りる（`app/register-details.tsx`。#165）。開始タグだけを見ると、
+   * こちらで枠だけのボタンにしたときに見張りが素通りする
+   */
+  function variantCallsIn(raw: string): string[] {
+    const source = stripComments(raw);
+    const open = "buttonVariants(";
+    const calls: string[] = [];
+    for (
+      let start = source.indexOf(open);
+      start !== -1;
+      start = source.indexOf(open, start + 1)
+    ) {
+      let depth = 0;
+      for (let i = start + open.length - 1; i < source.length; i++) {
+        const char = source[i];
+        if (char === "(") depth += 1;
+        else if (char === ")") depth -= 1;
+        if (depth === 0) {
+          calls.push(source.slice(start, i + 1));
+          break;
+        }
+      }
+    }
+    return calls;
+  }
+
+  /** 画面のファイルから `buttonVariants(` の呼び出しを集める */
+  const variantCalls = (): { file: string; call: string }[] =>
+    readdirSync(import.meta.dirname, { recursive: true, encoding: "utf8" })
+      .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
+      .flatMap((file) =>
+        variantCallsIn(
+          readFileSync(path.join(import.meta.dirname, file), "utf8"),
+        ).map((call) => ({ file, call })),
+      );
+
+  it("入れ子の括弧を含む buttonVariants の呼び出しも、最後まで取り出せる", () => {
+    const calls = variantCallsIn(
+      'className={buttonVariants({ variant: "outline", className: cn("a", f(1)) })}',
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toBe(
+      'buttonVariants({ variant: "outline", className: cn("a", f(1)) })',
+    );
+  });
+
   // 取り出しが途中で切れていないこと。切れると className を読み落とし、
   // 正しいコードを違反として挙げる
   it.each([
@@ -209,8 +262,14 @@ describe("色の明るさの差", () => {
       ({ tag }) =>
         tag.includes('variant="outline"') && !tag.includes("border-input"),
     );
+    const callOffenders = variantCalls().filter(
+      ({ call }) =>
+        /variant:\s*"outline"/.test(call) && !call.includes("border-input"),
+    );
 
-    expect(offenders.map(({ file }) => file)).toEqual([]);
+    expect([...offenders, ...callOffenders].map(({ file }) => file)).toEqual(
+      [],
+    );
   });
 
   it("押せなくするボタンは、押せない間も文字を薄くしない", () => {
@@ -228,6 +287,7 @@ describe("色の明るさの差", () => {
   it("見張る先のボタンがある", () => {
     // 取り出しが1つも拾わない形に壊れると、上の2件は空の配列どうしで黙って緑になる
     expect(buttonTags().length).toBeGreaterThan(0);
+    expect(variantCalls().length).toBeGreaterThan(0);
   });
 
   /**

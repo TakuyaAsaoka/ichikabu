@@ -31,21 +31,35 @@ beforeEach(async () => {
 });
 
 describe("銘柄とテーマの画面", () => {
-  it("登録フォームが3つとも出る", async () => {
-    // フォームを丸ごと落としても、一覧だけ見ていると気づけない。
-    // 見出しの文字列（「銘柄を登録」等）はフォームが消えても残るため、
-    // そのフォームにしか無い入力の名前で見る。
+  it("登録フォームは3つとも閉じて描かれ、それぞれの操作から開く", async () => {
+    // 開くとまず一覧が見え、フォームは登録するときだけ開く（#165）。
+    // 閉じていない所にフォームが1つでも出ると、一覧を確かめるたびに通り過ぎることになる。
     // テーマ所属のフォームは、テーマと銘柄がどちらも在るときだけ出る
     await addStock("7203", "トヨタ自動車");
     await addTheme("半導体");
 
     const html = await render(Page);
 
-    expect(html).toContain('name="ticker"'); // 銘柄を登録
-    expect(html).toContain('name="themeId"'); // テーマ所属を登録
-    // テーマを登録は `name="name"` だけで、銘柄を登録と同じ名前を使う。
-    // フォームの数で見分ける（この画面に置くフォームは3つ）
+    // この画面に置くフォームは3つで、3つとも閉じた開閉の中にある。
+    // 全体の数も見る。閉じた中の数だけだと、フォームを丸ごと落としても気づけない
     expect(html.match(/<form\b/g)).toHaveLength(3);
+    expect(htmlOf(html, "details:not([open]) form")).toHaveLength(3);
+    expect(htmlOf(html, "details > summary > span")).toEqual([
+      "銘柄を登録",
+      "テーマを登録",
+      "テーマ所属を登録",
+    ]);
+    // 操作の名前と、開いて出るフォームの組み合わせ。そのフォームにしか無い入力の名前で見る。
+    // テーマを登録は `name="name"` だけで、銘柄を登録と同じ名前を使うため、ティッカーの有無で分ける
+    const labelOf = (condition: string) =>
+      htmlOf(html, `details:not([open])${condition} > summary > span`);
+    expect(labelOf(':has(input[name="ticker"])')).toEqual(["銘柄を登録"]);
+    expect(
+      labelOf(':has(input[name="name"]):not(:has(input[name="ticker"]))'),
+    ).toEqual(["テーマを登録"]);
+    expect(labelOf(':has(select[name="themeId"])')).toEqual([
+      "テーマ所属を登録",
+    ]);
   });
 
   it("銘柄とテーマが一覧に出て、各行から編集ページへ行ける", async () => {

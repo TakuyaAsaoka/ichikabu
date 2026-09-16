@@ -8,9 +8,11 @@ import { addEvent } from "../../actions";
 import { BulkEventForm } from "../../bulk-event-form";
 import { EventForm } from "../../event-form";
 import { requireSession } from "../../guard";
+import { RegisterDetails } from "../../register-details";
 
 /**
- * イベントの画面。登録・貼り付けでまとめて登録・一覧を並べる（Issue #112）。
+ * イベントの画面。一覧を出す（Issue #112）。
+ * 登録と貼り付けでまとめて登録は、一覧の見出しの下に閉じて置き、押したときだけ開く（#165）。
  * 各行から編集ページへ行ける（編集・削除 設計書 §3）。
  * 並べ替え・絞り込みは付けない
  */
@@ -68,24 +70,20 @@ export default async function Page() {
       <h1 className="text-xl font-bold">イベント</h1>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">イベントを登録</h2>
-        <EventForm
-          themes={themes}
-          stocks={stocks}
-          action={addEvent}
-          submitLabel="イベントを登録"
-        />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">イベントをまとめて登録</h2>
-        <BulkEventForm />
-      </section>
-
-      <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">
           イベント一覧（{events.length}件）
         </h2>
+        <RegisterDetails label="イベントを登録">
+          <EventForm
+            themes={themes}
+            stocks={stocks}
+            action={addEvent}
+            submitLabel="イベントを登録"
+          />
+        </RegisterDetails>
+        <RegisterDetails label="まとめて登録">
+          <BulkEventForm />
+        </RegisterDetails>
         <ul className="flex flex-col gap-1">
           {events.map((row) => {
             const id = String(row.id);

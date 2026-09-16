@@ -42,6 +42,23 @@ function openFrom(listPath, link, urlPattern) {
   };
 }
 
+// 閉じて描く登録フォーム（server/app/register-details.tsx。Issue #165）を全部開く。
+// 閉じたままだと、この画面にしか無いフォーム（まとめて登録・テーマ所属など）がどの写真にも写らない
+function openAll(path) {
+  return async (page) => {
+    await page.goto(path);
+    for (const summary of await page.locator("details > summary").all()) {
+      await summary.click();
+    }
+    // 開閉が1つも無い形に壊れても、閉じたものが0件で素通りしないよう、開いた数も見る
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll("details[open]").length > 0 &&
+        document.querySelectorAll("details:not([open])").length === 0,
+    );
+  };
+}
+
 export default {
   title: "イチカブ管理 画面一覧",
   favicon: "🗂️",
@@ -67,6 +84,7 @@ export default {
       login: (page) => signIn(page, admin),
       screens: [
         { title: "銘柄とテーマ", path: "/" },
+        { title: "銘柄とテーマ（登録を開いた）", open: openAll("/") },
         {
           title: "銘柄の編集",
           open: openFrom(
@@ -95,6 +113,7 @@ export default {
           ),
         },
         { title: "イベント", path: "/events" },
+        { title: "イベント（登録を開いた）", open: openAll("/events") },
         {
           title: "イベントの編集",
           open: openFrom(

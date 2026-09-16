@@ -78,6 +78,23 @@ describe("イベントの画面", () => {
     ).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-12-01"]);
   });
 
+  it("登録フォームは2つとも閉じて描かれ、それぞれの操作から開く", async () => {
+    // 開くとまず一覧が見え、フォームは登録するときだけ開く（#165）。
+    // イベントのフォームは10欄あり、開いたまま描くと一覧が画面の下へ押しやられる
+    await signInAs(EDITOR);
+
+    const html = await render(Page);
+
+    // 全体の数も見る。閉じた中の数だけだと、フォームを丸ごと落としても気づけない
+    expect(html.match(/<form\b/g)).toHaveLength(2);
+    expect(htmlOf(html, "details:not([open]) form")).toHaveLength(2);
+    // 操作の名前と、開いて出るフォームの組み合わせ。そのフォームにしか無い入力の名前で見る
+    const labelOf = (form: string) =>
+      htmlOf(html, `details:not([open]):has(${form}) > summary > span`);
+    expect(labelOf('input[name="shortLabel"]')).toEqual(["イベントを登録"]);
+    expect(labelOf('textarea[name="rows"]')).toEqual(["まとめて登録"]);
+  });
+
   it("登録フォームの対象は、テーマ名順・市場ティッカー順に並ぶ", async () => {
     // テーマと銘柄はこの画面では選択肢にしか出ない。作った順と並び順がずれる
     // 題材にする。「半導体」「防衛」は、DBの照合順序がどれでも前後が入れ替わらない
