@@ -454,7 +454,9 @@ describe("影を使わない", () => {
   // 名前は globals.css の上書きから取る（どちらの側で名前がずれても赤くなる）
   it("上書きする変数は、部品の輪の色が入り、輪の描画が読む変数と同じ名前", async () => {
     const source = stripComments(readFileSync(globalsCss, "utf8"));
-    const name = source.match(/:focus-visible\s*\{\s*(--[\w-]+):\s*var\(--ring\);/)?.[1];
+    const name = source.match(
+      /:focus-visible\s*\{\s*(--[\w-]+):\s*var\(--ring\);/,
+    )?.[1];
     expect(name).toBeDefined();
 
     // 組んだ CSS には globals.css の上書きそのものも入るので、部品のクラスの規則だけを切り出して見る
@@ -465,7 +467,10 @@ describe("影を使わない", () => {
     const ruleOf = (selector: string) => {
       const start = css.indexOf(selector);
       expect(start).toBeGreaterThan(-1);
-      return css.slice(start, css.indexOf("\n  }", start));
+      // 終わりが見つからないと出力の最後まで切り出し、上書きそのものを拾って緑になる
+      const end = css.indexOf("\n  }", start);
+      expect(end).toBeGreaterThan(start);
+      return css.slice(start, end);
     };
     expect(ruleOf(".focus-visible\\:ring-ring\\/50:focus-visible")).toContain(
       `${name}:`,
