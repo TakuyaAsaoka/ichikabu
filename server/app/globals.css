@@ -153,3 +153,26 @@
 [data-slot="button"][data-variant="default"]:hover {
   background-color: var(--primary-hover);
 }
+
+/*
+ * 知らせのトースト（sonner。#164）の影を消し、フォーカスの輪を ring の色で出す。
+ *
+ * sonner は自分の CSS を読み込み時に `<style>` で差し込む（dist/index.mjs の
+ * `__insertCSS`）。トーストの影は `[data-sonner-toast][data-styled=true]`、
+ * フォーカスは `[data-sonner-toast]:focus-visible` の影で描き、`outline: 0` で輪を消している。
+ * 上の `@theme` は Tailwind のクラスの影しか消せないので、ここで打ち消す。
+ *
+ * **`@layer` の外に置き、先頭に `[data-sonner-toaster]` を足す。** 差し込まれた CSS は
+ * 層の外にあるので、層の中の規則はどれだけ強くても負ける。層の外どうしでは、
+ * 後から差し込まれる sonner の側が同じ強さなら勝つので、属性を1つ多く重ねる。
+ * 守っているのは app/globals-css.test.ts
+ */
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  box-shadow: none;
+}
+
+[data-sonner-toaster] [data-sonner-toast]:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { Toaster } from "@/components/ui/sonner";
 import { isAdmin } from "../../src/admin";
 import { AccountMenu } from "./account-menu";
+import { DoneNotice } from "./done-notice";
 import { BottomTabs, SidebarNav } from "./nav";
 
 /**
@@ -67,6 +69,22 @@ export function AppShell({
       </div>
 
       <BottomTabs admin={admin} />
+
+      {/* 登録・更新・削除が済んだあとの知らせ（Issue #164）。画面に固定して出すので、
+          長い画面の途中のフォームで登録しても見える位置に出る。
+          `theme="light"`: 部品の既定は OS の設定に合わせるが、この画面は明るい色しか持たない。
+          `offset`・`mobileOffset`: 下のタブ（`h-16` = 64px）の上に出す。両方に渡す。
+          sonner が `mobileOffset` を使うのは幅 600px 以下だけで、タブは `md`（768px）
+          未満まで出るので、片方だと 601〜767px で重なる（レビューの指摘。700px で実測）。
+          タブの無い PC でも少し上に出るだけで困らない。
+          `containerAriaLabel`: 読み上げの領域の名前。既定は英語の「Notifications alt+T」 */}
+      <Toaster
+        theme="light"
+        offset={{ bottom: 80 }}
+        mobileOffset={{ bottom: 80 }}
+        containerAriaLabel="知らせ"
+      />
+      <DoneNotice />
     </div>
   );
 }

@@ -25,6 +25,7 @@ import {
 import { toEventInputs } from "./bulk-event-input";
 import { toEventInput } from "./event-input";
 import { requireSession, requireUserId, type Session } from "./guard";
+import { type Action, DONE_PARAM, type NoticeKey } from "./notice";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
 // 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
@@ -70,12 +71,6 @@ async function audited(
  */
 type Write = (formData: FormData) => Promise<WriteResult>;
 
-/** Server Action の形。`useActionState` が前の状態と FormData を渡す */
-type Action = (
-  previous: string | null,
-  formData: FormData,
-) => Promise<string | null>;
-
 /**
  * Server Action の外枠を作る。**12本すべてがこれを通る。**
  *
@@ -90,16 +85,19 @@ type Action = (
  * うっかり増えた経路を鳴らすためのもので、緩めない。
  *
  * @param write 書き込みの中身。Server Action ごとに違うのはここだけ
+ * @param options.notice 成功したときに出す知らせ（`app/notice.ts`）。
+ *   必須にしてあるので、足した1本に知らせを付け忘れると型で落ちる
  * @param options.adminOnly 管理者だけができる操作（削除）に付ける
  * @param options.redirectTo 成功したときの行き先。省くとその画面に留まる。
  *   更新・削除は一覧に戻す（設計書 §5.3）。編集ページに留まらせると
- *   「更新した」を出すための状態を別に持つことになる
+ *   「更新した」を出すための状態を別に持つことになる。
+ *   `?` 以降を含めない（知らせの印を `?done=` で後ろに付けるため）
  */
 function action(
   write: Write,
-  options: { adminOnly?: boolean; redirectTo?: string } = {},
+  options: { notice: NoticeKey; adminOnly?: boolean; redirectTo?: string },
 ): Action {
-  return async (_previous, formData) => {
+  return async (formData) => {
     // 管理者の判定が要るときだけセッションを丸ごと読む。要らないときに読むと、
     // 記録に残す利用者IDを取るためだけにメールアドレスまで持ち回ることになる
     let userId: string;
@@ -107,7 +105,7 @@ function action(
       const session = await requireSession();
       const denied = requireAdmin(session);
       if (denied) {
-        return denied;
+        return { error: denied };
       }
       userId = session.user.id;
     } else {
@@ -116,16 +114,22 @@ function action(
 
     const message = await audited(userId, write(formData));
     if (message) {
-      return message;
+      return { error: message };
     }
 
     // 画面の作り直しは12本すべてが通る。redirect() は例外を投げて動くため、
     // 戻す先があるときも revalidatePath() を先に呼ぶ
     revalidatePath("/");
     if (options.redirectTo) {
-      redirect(options.redirectTo);
+      // 移った先へは、済んだことを URL の印で渡す（`app/app-shell/done-notice.tsx`）。
+      // cookie で渡す形と、画面の側で知らせてから移る形は、移る先の取得に失敗して
+      // ページを丸ごと読み込み直したときに知らせが消える（novel-system #71・#125 で実測）
+      redirect(`${options.redirectTo}?${DONE_PARAM}=${options.notice}`);
     }
-    return null;
+    // 登録はその画面に留まるので、印を付けて同じ画面へ移さず戻り値で返す。
+    // 移すと画面の先頭へ飛び、入力欄のフォーカスも外れる（#164 の討論で実測。
+    // `RedirectType.replace` にしても同じ）
+    return { notice: options.notice };
   };
 }
 
@@ -155,27 +159,32 @@ function toStockInput(formData: FormData): StockInput {
 const idOf = (formData: FormData, name: string): number =>
   Number(formData.get(name));
 
-// 以下が12本の Server Action。戻り値はどれも失敗したときのエラー文で、
-// `useActionState` の状態になる（画面に出すのは `app/form.tsx` の ActionForm）
+// 以下が12本の Server Action。戻り値は失敗したときの断りの文か、
+// 済んだことの知らせ（`app/notice.ts` の `ActionResult`）。受け取るのは `app/form.tsx` の ActionForm
 
 /** 銘柄を登録する */
-export const addStock = action((formData) =>
-  createStock(toStockInput(formData)),
+export const addStock = action(
+  (formData) => createStock(toStockInput(formData)),
+  { notice: "stock-added" },
 );
 
 /** テーマを登録する */
-export const addTheme = action((formData) =>
-  createTheme(String(formData.get("name") ?? "")),
+export const addTheme = action(
+  (formData) => createTheme(String(formData.get("name") ?? "")),
+  { notice: "theme-added" },
 );
 
 /** テーマ所属を登録する */
-export const addThemeStock = action((formData) =>
-  createThemeStock(idOf(formData, "themeId"), idOf(formData, "stockId")),
+export const addThemeStock = action(
+  (formData) =>
+    createThemeStock(idOf(formData, "themeId"), idOf(formData, "stockId")),
+  { notice: "theme-stock-added" },
 );
 
 /** イベントを登録する */
-export const addEvent = action((formData) =>
-  createEvent(toEventInput(formData)),
+export const addEvent = action(
+  (formData) => createEvent(toEventInput(formData)),
+  { notice: "event-added" },
 );
 
 /**
@@ -187,32 +196,35 @@ export const addEvent = action((formData) =>
  * 貼り付けた行が読めなかったときの文言も、書き込みの失敗と同じ形で返す
  * （`WriteResult` は失敗のとき日本語のエラー文なので、そのまま戻せる）
  */
-export const addEvents = action(async (formData) => {
-  const [stocks, themes] = await Promise.all([
-    db
-      .select({ id: stock.id, market: stock.market, ticker: stock.ticker })
-      .from(stock),
-    db.select({ id: theme.id, name: theme.name }).from(theme),
-  ]);
+export const addEvents = action(
+  async (formData) => {
+    const [stocks, themes] = await Promise.all([
+      db
+        .select({ id: stock.id, market: stock.market, ticker: stock.ticker })
+        .from(stock),
+      db.select({ id: theme.id, name: theme.name }).from(theme),
+    ]);
 
-  const inputs = toEventInputs(String(formData.get("rows") ?? ""), {
-    stocks,
-    themes,
-  });
-  return typeof inputs === "string" ? inputs : createEvents(inputs);
-});
+    const inputs = toEventInputs(String(formData.get("rows") ?? ""), {
+      stocks,
+      themes,
+    });
+    return typeof inputs === "string" ? inputs : createEvents(inputs);
+  },
+  { notice: "events-added" },
+);
 
 /** 銘柄を更新する */
 export const editStock = action(
   (formData) => updateStock(idOf(formData, "id"), toStockInput(formData)),
-  { redirectTo: "/" },
+  { notice: "stock-updated", redirectTo: "/" },
 );
 
 /** テーマを更新する */
 export const editTheme = action(
   (formData) =>
     updateTheme(idOf(formData, "id"), String(formData.get("name") ?? "")),
-  { redirectTo: "/" },
+  { notice: "theme-updated", redirectTo: "/" },
 );
 
 /**
@@ -222,26 +234,26 @@ export const editTheme = action(
  */
 export const editEvent = action(
   (formData) => updateEvent(idOf(formData, "id"), toEventInput(formData)),
-  { redirectTo: "/events" },
+  { notice: "event-updated", redirectTo: "/events" },
 );
 
 /** 銘柄を削除する */
 export const removeStock = action(
   (formData) => deleteStock(idOf(formData, "id")),
-  { adminOnly: true, redirectTo: "/" },
+  { notice: "stock-removed", adminOnly: true, redirectTo: "/" },
 );
 
 /** テーマを削除する */
 export const removeTheme = action(
   (formData) => deleteTheme(idOf(formData, "id")),
-  { adminOnly: true, redirectTo: "/" },
+  { notice: "theme-removed", adminOnly: true, redirectTo: "/" },
 );
 
 /** テーマ所属を外す */
 export const removeThemeStock = action(
   (formData) =>
     deleteThemeStock(idOf(formData, "themeId"), idOf(formData, "stockId")),
-  { adminOnly: true, redirectTo: "/" },
+  { notice: "theme-stock-removed", adminOnly: true, redirectTo: "/" },
 );
 
 /**
@@ -250,5 +262,5 @@ export const removeThemeStock = action(
  */
 export const removeEvent = action(
   (formData) => deleteEvent(idOf(formData, "id")),
-  { adminOnly: true, redirectTo: "/events" },
+  { notice: "event-removed", adminOnly: true, redirectTo: "/events" },
 );

@@ -2,7 +2,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { StockInput } from "../src/db/write";
-import { type Action, ActionForm, fieldLabel, fieldSelect } from "./form";
+import { ActionForm, fieldLabel, fieldSelect } from "./form";
+import type { Action } from "./notice";
 
 /** 決算月の選択肢（1〜12） */
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);

@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { type Action, ActionForm, fieldLabel } from "./form";
+import { ActionForm, fieldLabel } from "./form";
+import type { Action } from "./notice";
 
 /** 編集のときの初期値。登録では渡さない（設計書 §3） */
 type ThemeRow = { id: number; name: string };

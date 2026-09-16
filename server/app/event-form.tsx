@@ -4,7 +4,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { EVENT_MARKETS } from "../src/db/schema";
 import type { EventInput } from "../src/db/write";
-import { type Action, ActionForm, fieldLabel, fieldSelect } from "./form";
+import { ActionForm, fieldLabel, fieldSelect } from "./form";
+import type { Action } from "./notice";
 
 type Theme = { id: number; name: string };
 type Stock = { id: number; market: string; ticker: string; name: string };
