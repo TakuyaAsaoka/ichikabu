@@ -124,9 +124,16 @@
   /*
    * フォーカスの輪は ring の色で、透かさずに描く。上の outline-ring/50 のままだと
    * 背景との差が 3 を割り、キーボードで操作している人が現在地を見失う（ring は 8.59）
+   *
+   * **`var(--color-ring)` と書かない**（#162）。`@theme inline` が `:root` に出す
+   * `--color-ring: var(--ring)` は、宣言した `:root` で `#3a3f8f` に解決されてから
+   * 下へ伝わる。そのため、ネイビーの面の上で `[--ring:var(--sidebar-ring)]` と
+   * 打ち消しても輪の色が変わらず、面との差が 1.54 のまま見えない（実測）。
+   * `--ring` を直に読めば打ち消しが届く。`:root` では同じ値なので、
+   * 明るい面の見た目は変わらない
    */
   :focus-visible {
-    outline: 2px solid var(--color-ring);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 }

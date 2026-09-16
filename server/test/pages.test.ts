@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { basename, dirname } from "node:path";
-import type { ReactNode } from "react";
+import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Audit from "../app/(signed-in)/audit/page";
 import Contributions from "../app/(signed-in)/contributions/page";
@@ -118,9 +118,12 @@ type Screen = {
    * この画面にいるとき、骨組みで光るべき行き先（`aria-current="page"` が付く行）。
    *
    * 自分がその行き先そのものとは限らない。銘柄の編集（`/stocks/1`）は
-   * `/`（銘柄とテーマ）から開くので、光るのは `/` の行
+   * `/`（銘柄とテーマ）から開くので、光るのは `/` の行。
+   *
+   * 骨組みの出ない画面（`signedOut`）は書かない。書いても読む所が無く、
+   * 「ここを直せば何か変わる」と誤解されるため
    */
-  current: string;
+  current?: string;
   /**
    * 管理者だけが開ける画面。入力者でサインインすると描けないため、
    * 下の検査は管理者で開き、「入力者に監査ログの行き先を出さない」からは外す。
@@ -186,8 +189,6 @@ const SCREENS: Screen[] = [
     dir: "signin",
     heading: "イチカブ 管理",
     path: "/signin",
-    // 骨組みが出ない画面なので、光る行き先も無い
-    current: "",
     open: () => SignIn({ searchParams: Promise.resolve({}) }),
     signedOut: true,
   },
@@ -340,6 +341,9 @@ async function renderShell(path: string): Promise<string> {
   return render(() => Shell({ children: null }));
 }
 
+/** 骨組みが中身を出しているかを見るための目印 */
+const CONTENT_MARK = "ここに画面が入る";
+
 /**
  * 骨組みの行き先と、着いた先の画面を組にしたもの。
  * 表の `heading` は使わず、描いて出てきた文字どうしを比べる
@@ -456,6 +460,19 @@ describe("管理画面に共通の約束", () => {
     },
   );
 
+  it("骨組みは中身をそのまま出す", async () => {
+    // 画面ごとに呼ぶ形をやめたことで、「骨組みの入れ忘れ」の代わりに
+    // 「骨組みが中身を飲み込む」が新しい壊れ方になった。しかも被害は9枚同時。
+    // `{children}` を落としても、他の検査は骨組みだけを描いているので全部緑になる
+    await signInAs(EDITOR);
+
+    const html = await render(() =>
+      Shell({ children: createElement("p", null, CONTENT_MARK) }),
+    );
+
+    expect(html).toContain(CONTENT_MARK);
+  });
+
   it("骨組みもサインインしていないとサインインの画面へ追い返される", async () => {
     // 画面の側の追い返しとは別に、骨組みも自分で確かめる。
     // 外すとサインインしていない人にも行き先とアカウントのボタンが並ぶ
@@ -504,6 +521,14 @@ describe("管理画面に共通の約束", () => {
     });
 
     expect(mismatched.map((screen) => screen.dir)).toEqual([]);
+  });
+
+  it("サインインが要る画面には、光るべき行き先が書いてある", () => {
+    // `current` は任意にしてあるので、書き忘れると下の「今いる画面の印」が
+    // `undefined` と比べる形になり、印が1つも付かなくても緑になる
+    const missing = GUARDED.filter((screen) => !screen.current);
+
+    expect(missing.map((screen) => screen.dir)).toEqual([]);
   });
 
   it("サインインが要る画面は全部 (signed-in) の下にある", () => {

@@ -36,8 +36,10 @@ export function AppShell({
   return (
     <div className="flex min-h-svh">
       {/* 面と枠線を同じ色にして線を見せない（CLAUDE.md「色」の `sidebar-border`）。
-          `sticky` にするのは、一覧が長い画面で行き先が流れて消えないようにするため */}
-      <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-sidebar-border border-r bg-sidebar md:flex">
+          `sticky` にするのは、一覧が長い画面で行き先が流れて消えないようにするため。
+          ネイビーの面なので、フォーカスの輪を面の上で見える色に差し替える
+          （`ring` のままだと差が 1.54。下のヘッダーと同じ理由） */}
+      <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-sidebar-border border-r bg-sidebar [--ring:var(--sidebar-ring)] md:flex">
         <div className="flex h-16 shrink-0 items-center px-5 font-bold text-lg text-sidebar-foreground">
           イチカブ 管理
         </div>

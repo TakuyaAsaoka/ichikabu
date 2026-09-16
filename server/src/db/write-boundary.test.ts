@@ -77,10 +77,37 @@ const DELETE_CALL = /\b(?:db|tx)\b\s*\.\s*delete\(/;
 const EXPORT_LINE = /^export .*/gm;
 
 /**
- * サインインの判定を通す Server Action の書き方。
+ * `export` の行から、次の `export` の行の手前までを1つの塊にする。
+ *
+ * 上の `exportedBlocks` は使わない。あちらは名前を取れない export
+ * （`export default async function` や `export { x as y };`）を黙って捨てるため、
+ * その形の Server Action が素通りする。ここは1本も落とさない。
+ *
+ * export と export のあいだに置いた非公開の関数は、**手前の export の塊**に入る
+ * （`exportedBlocks` と同じ）。そのため、判定を通さない export のすぐ後ろに
+ * `requireSession()` を呼ぶ非公開の関数を置くと素通りする。**うっかり増えた1本を
+ * 鳴らすためのもの**で、意図して避ける相手を止めるものではない
+ */
+function exportLineBlocks(source: string): string[] {
+  return source.split(/^export /m).slice(1);
+}
+
+/**
+ * サインインの判定を通す Server Action の書き方（その1）。
  * `app/actions.ts` の12本はどれも `export` の行がこの形で、`action()` が判定を運ぶ
  */
 const GUARDED_EXPORT = /^export const \w+ = action\(/;
+
+/**
+ * サインインの判定を通す Server Action の書き方（その2。Issue #162）。
+ * 自分の中で `requireSession()` を呼ぶ形。`app/app-shell/sign-out.ts` の
+ * `signOut` がこれに当たる。
+ *
+ * **`action()` に寄せられない。** あれは `useActionState` の形
+ * （前の状態と FormData を受け取り、エラー文を返す）で、書き込みと監査ログの
+ * 記録を運ぶための外枠。サインアウトはフォームの送信ではなく、実データも変えない
+ */
+const SELF_GUARDED_BODY = /\brequireSession\(/;
 
 /**
  * Server Action のファイルの目印。
@@ -247,14 +274,15 @@ describe("書き込みの経路", () => {
     // |---|---|
     // | 関数の中に `"use server"` を書いて1つの関数だけ Server Action にする | 素通りする（行頭のディレクティブを見るため） |
     // | 別名を付けて出し直す `export { removeEvent as purgeEvent };` | 正しいのに赤くなる |
-    // | `export type` を足す | 同上（今 `app/actions.ts` に公開している型は無い） |
-    // | Server Action を2つ目のファイルに置く | そのファイルごと赤くなる |
+    // | `export type` を足す | 同上（今 Server Action のファイルに公開している型は無い） |
+    // | 判定を通さない export のすぐ後ろに、`requireSession()` を呼ぶ非公開の関数を置く | 素通りする（→ `exportLineBlocks`） |
     //
-    // 最後の1つは、この検査が実質「Server Action は `app/actions.ts` にしか
-    // 置けない」を固定していることによる。`action()` は `app/actions.ts` の
-    // 非公開の関数で、`app/guard.ts` へは出せない（理由は `app/actions.ts` の
-    // `action()` のコメント）。1つのファイルに寄せる方針そのものなので、
-    // 2つ目のファイルが要るようになったら、そのとき置き場所から決める
+    // **2つ目のファイルは #162 で出た。** それまでは「Server Action は
+    // `app/actions.ts` にしか置けない」を固定していたが、サインアウト
+    // （`app/app-shell/sign-out.ts`）は実データを変えず、`useActionState` の形でもない
+    // ので `action()` に寄せられない。代わりに、判定を自分で通す形
+    // （`SELF_GUARDED_BODY`）を2つ目の通し方として認める。
+    // 見るのはファイル名ではなく中身なので、3つ目のファイルが増えても同じように通る。
     //
     // 上の2つ（別名を付けて出し直す形・`export type`）は、今そう書いた行が
     // 1つも無いので受け入れる。踏んだら、その書き方をやめるか、ここに逃がす形を決める
@@ -264,12 +292,26 @@ describe("書き込みの経路", () => {
     expect(files.length).toBeGreaterThan(0);
 
     const notGuarded = files.flatMap(([path, source]) =>
-      (source.match(EXPORT_LINE) ?? [])
-        .filter((line) => !GUARDED_EXPORT.test(line))
-        .map((line) => `${path}: ${line}`),
+      exportLineBlocks(source)
+        .filter(
+          (block) =>
+            !GUARDED_EXPORT.test(`export ${block}`) &&
+            !SELF_GUARDED_BODY.test(block),
+        )
+        // 報せるのは export の行だけにする。塊ごと出すとファイルの残り全部が並ぶ
+        .map((block) => `${path}: export ${block.split("\n")[0]}`),
     );
 
     expect(notGuarded).toEqual([]);
+
+    // 通し方を2つにしたぶん、`EXPORT_LINE` で数えた export の数と
+    // 塊の数が合っていることを見る。合わなければ、どちらかが export を
+    // 取りこぼしている（見張りが黙って減る形）
+    for (const [path, source] of files) {
+      expect(exportLineBlocks(source), path).toHaveLength(
+        (source.match(EXPORT_LINE) ?? []).length,
+      );
+    }
   });
 
   it("書き込み関数を呼ぶ2つから record( の呼び出しが消えていない", () => {

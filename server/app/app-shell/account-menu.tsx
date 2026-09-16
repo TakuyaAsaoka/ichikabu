@@ -50,7 +50,12 @@ export function AccountMenu({ email }: { email: string }) {
          * **フォームの送信にしない。** 行を選んだ瞬間にメニューが閉じてフォームが
          * 消えるので、送信が通るかが閉じるアニメーションの長さに頼ることになる
          * （novel-system の `src/app/log-out-button.tsx` に実測が残っている）。
-         * 選んだときに Server Action を直に呼ぶ
+         * 選んだときに Server Action を直に呼ぶ。
+         *
+         * **失敗しても画面に何も出さない。** 通常の経路は `redirect()` の例外で
+         * 終わるので、ここに来る失敗はDBが落ちている等だけ。そのときは画面の
+         * どこを押しても同じように落ちるので、この行だけエラーの置き場を
+         * 持っても伝わるものが増えない
          */}
         <DropdownMenuItem
           onSelect={() => {
