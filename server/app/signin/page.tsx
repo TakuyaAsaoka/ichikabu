@@ -19,7 +19,9 @@ export default async function SignInPage({
   const { error } = await searchParams;
 
   return (
-    <>
+    // 外枠は自分で持つ。根の `app/layout.tsx` は骨組みも `<main>` も持たない
+    // （サインイン後の画面だけを包む `app/(signed-in)/layout.tsx` が持つ。Issue #162）
+    <main className="mx-auto flex max-w-3xl flex-col gap-10 p-6">
       <h1 className="text-xl font-bold">イチカブ 管理</h1>
       {error && (
         // 中身は画面に出さない。URLに入れた文字列がそのまま出ると、
@@ -31,6 +33,6 @@ export default async function SignInPage({
         </p>
       )}
       <SignInForm />
-    </>
+    </main>
   );
 }

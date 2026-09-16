@@ -10,12 +10,13 @@ import { isId } from "../src/db/write";
 // 書き写す形だと、画面を1枚足したときに書き忘れてもエラーにならず、
 // サインインしていない人に中身が見える画面が黙って1枚増える。
 //
-// **レイアウト（`app/(admin)/layout.tsx`）にはしない。** 画面のテストは
-// `renderToStaticMarkup(await Page())` で描いており（`test/render-page.ts` の
-// `render`）、レイアウトは Next.js のルーターが合成するためこの呼び方では
-// 一度も描かれない。判定がテストの届かない場所へ移る
-// （管理画面を分ける設計書 §3 が実測で棄却済み）。
-// 画面が自分で呼ぶ関数なら、今のテストがそのまま判定を見られる。
+// **レイアウト（`app/(signed-in)/layout.tsx`）だけに置かない。** あのレイアウトも
+// `requireSession()` を呼ぶが（Issue #162）、画面ごとの呼び出しは外さない。
+// Server Action は宛先へ直に送られてレイアウトを通らないため、画面と書き込みの
+// 入口がそれぞれ通る。Next.js 同梱ドキュメント 01-app/02-guides/authentication.md も
+// 判定を1か所（この形）に寄せて、読み書きの近くで通すことを勧めている。
+// 画面が自分で呼ぶ形なら、`renderToStaticMarkup(await Page())` で描くテストが
+// そのまま判定を見られる（`test/pages.test.ts` の「追い返される」9件）。
 //
 // `app/actions.ts` には置けない。あのファイルは "use server" で、公開できるのは
 // 非同期の関数だけ（Next.js 同梱ドキュメント
