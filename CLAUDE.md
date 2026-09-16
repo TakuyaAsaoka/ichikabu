@@ -107,6 +107,8 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 | `server/src/` | DB・認証・状態の計算 | React を取り込まない（いま0件）。部品を置かない |
 
 - `@/` は `server/` の直下を指す（`server/tsconfig.json` の `paths` と `server/components.json` の `aliases`）。画面が `server/app` にあるため
+- **`card.tsx` はまだどの画面も使っていない**（#161 で8部品を入れたときの1つ）。使うのは #165（登録フォームを一覧から分ける）。それまでに他の使い道が出なければ消してよい（戻すのは `pnpm dlx shadcn add card` の1回）
+- **`table.tsx` は入れて、使わないので消した**（#161）。イベント一覧を表にする案は、720px に収めるのに一覧から項目を落とす必要があり、設計書の決定と衝突したため見送った（→ #172）
 - **`shadcn init` は動かない**（`server/` に `next.config.*` が無く「We could not detect a supported framework」で止まる）。`server/components.json` は手で書いてある
 - **`shadcn add` は、部品が取り込む包みを全部は足さない。** `button`・`badge`・`alert` の `class-variance-authority`、`native-select` の `lucide-react` などは `pnpm add` で足す（足し忘れは `pnpm typecheck` で落ちる）
 - **`shadcn add` は `globals.css` の `@import "shadcn/tailwind.css"` と `@import "tw-animate-css"` も足さない。** 消すとエラーにならずに開閉の見た目だけが効かなくなるので、2行とも消さない（`server/app/globals-css.test.ts` が赤にする）
@@ -122,6 +124,7 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 | 変数 | 値 | 使う所（shadcn の定義） |
 |---|---|---|
 | `primary` / `primary-foreground` | `#c2452b` / `#ffffff` | 強く目立たせる操作（既定のボタン・選択中の状態） |
+| `primary-hover` | `#ae3e27` | 既定のボタンに指を乗せたときの面（#161。→ この節の最後） |
 | `secondary` / `secondary-foreground` | `#ecebfb` / `#3a3f8f` | 目立ちの弱い塗りの操作・バッジ |
 | `accent` / `accent-foreground` | `#ecebfb` / `#3a3f8f` | 指を乗せた・選んでいる面（ゴーストボタン・メニューの行） |
 | `muted` / `muted-foreground` | `#efeff5` / `#5e6178` | 控えめな面と補足の文字（「銘柄なし」「抜けなし」など） |
@@ -142,6 +145,7 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 |---|---:|
 | `foreground` / `background` | 15.16 |
 | `primary-foreground` / `primary`（白の文字 / コーラル） | 5.02 |
+| `primary-foreground` / `primary-hover`（白の文字 / 指を乗せたコーラル） | 5.97 |
 | `primary` / `background`（コーラルの文字 / 背景） | 4.70 |
 | `primary` / `muted`（コーラルの文字 / 控えめな面） | **4.39。面の中の文字には使わない** |
 | `secondary-foreground` / `secondary` | 7.80 |
@@ -180,6 +184,17 @@ shadcn の部品が既定で持つ `shadow-xs` などは、部品を書き換え
 フォーカスの輪（`ring-*`）は別の値なので残る。
 
 **フォーカスの輪は `ring` の色で、透かさずに描く**（`globals.css` の `:focus-visible`）。shadcn の既定の `outline-ring/50` だけだと背景との差が 3 を割る。
+
+**部品が「色を薄める」で作る状態は、そのつど測る。** shadcn は指を乗せた・押せない状態を、色を薄めて表すことがある。薄めた面や文字は明るさの差が落ちるので、目安を割ることがある（#161 で2つ見つけた）。部品のコードは書き換えず、`globals.css` か呼ぶ側の `className` で打ち消す。
+
+| 部品の既定 | 何が起きるか | どうしたか |
+|---|---|---|
+| 既定のボタンの指を乗せた面（`primary` を 80% に薄める） | 白の文字との差が 5.02 → **3.65**。押す直前だけ読めない | `globals.css` で `primary-hover`（暗くした値。5.97）に上書き。`@layer` の外に置かないと部品のクラスに負ける |
+| 押せないボタン（半分透かす） | 文字と背景の差が半分になる | 呼ぶ側で `disabled:opacity-100`。押せないことは文字の変化と、指が乗らないことで示す |
+
+**枠だけのボタン（`variant="outline"`）には `border-input` を渡す。** 部品の既定は `border-border` で、背景との差が 1.22 しかなく、ボタンの形が見えない（入力欄と同じ理由）。
+
+この2つの渡し忘れと、消す操作のボタンの色は `server/app/globals-css.test.ts` が赤にする。
 
 **`.dark` の値は持たない**（明るい画面だけ）。ただし `globals.css` の `@custom-variant dark` の行は消さない。
 消すと部品の `dark:` が OS の暗い設定で効き、入力欄などだけが暗くなる。

@@ -63,6 +63,7 @@ export default async function Page({
         <ActionForm
           action={removeStock}
           submitLabel="この銘柄を削除"
+          variant="destructive"
           confirm={`「${row.name}」を削除する。${
             belongings.length > 0
               ? `所属しているテーマ${belongings.length}件も外れる。`

@@ -24,6 +24,11 @@ if (
 }
 
 export default defineConfig({
+  // `@/` は `server/` の直下（`tsconfig.json` の `paths`・`components.json` の `aliases`）。
+  // vitest は tsconfig の `paths` を読まないため、ここにも書く。
+  // 書かないと、部品を取り込む画面のテストが「Cannot find package '@/...'」で落ちる（実測）。
+  // `vite-tsconfig-paths` は入れない。解く先が1つなので、包みを足す量ではない
+  resolve: { alias: { "@": import.meta.dirname } },
   test: {
     // 開発用DBを壊さないよう、テストは専用のデータベースに向ける
     env: { DATABASE_URL: testDatabaseUrl },

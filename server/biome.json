@@ -19,6 +19,17 @@
     }
   },
   "linter": {
-    "enabled": true
+    "enabled": true,
+    "rules": {
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "labelComponents": ["Label"],
+            "inputComponents": ["Input", "Textarea", "NativeSelect"]
+          }
+        }
+      }
+    }
   }
 }

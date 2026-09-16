@@ -52,7 +52,13 @@ export default async function Page({
         </p>
         {/* 確認ダイアログは出さない。外れるのは所属だけで、テーマも銘柄も残り、
             テーマ所属フォームから入れ直せる（設計書 §3） */}
-        <ActionForm action={removeThemeStock} submitLabel="この所属を外す">
+        {/* 外すのも消す操作なので、登録・更新とは色を分ける（#161）。
+            確認を出さないこととは別（→ 上の注記） */}
+        <ActionForm
+          action={removeThemeStock}
+          submitLabel="この所属を外す"
+          variant="destructive"
+        >
           <input type="hidden" name="themeId" value={themeId} />
           <input type="hidden" name="stockId" value={stockId} />
         </ActionForm>

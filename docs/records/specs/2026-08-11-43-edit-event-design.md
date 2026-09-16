@@ -69,6 +69,16 @@ Issue #43 の「残る判断」2 の決着。削除は編集ページに置く�
 
 ### 4.1 `app/form.tsx`
 
+> **入力欄とボタンの見た目に関する記述は、もう当たらない。** Issue #161 で
+> `@/components/ui` の shadcn/ui の部品に置き換えた。`field` は消え、入力欄の枠は
+> `Input`・`NativeSelect`・`Textarea` が持つ。送信ボタンは `Button`、断りの表示は
+> `Alert` になった。下の骨格の図の `<button>` と `<p className="text-error ...">`、
+> 表の `field` の行がこれに当たる。**`fieldLabel` と `ActionForm` の役割、
+> ラベルをコンポーネントに包まない理由、`confirm` の形は変わっていない**
+> （ただし biome が部品を追えるよう `server/biome.json` に
+> `labelComponents`・`inputComponents` を書いた）。色と形の決まりはルートの
+> `CLAUDE.md`「管理画面の見た目」。
+
 5つのフォーム（銘柄・保有・テーマ・テーマ所属・イベント）が同じ骨格を持っている。
 
 ```

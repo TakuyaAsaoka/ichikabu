@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { compile } from "tailwindcss";
 import { describe, expect, it } from "vitest";
-import { field } from "./form";
+import { stripComments } from "../test/source";
 
 const root = path.resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
@@ -86,6 +86,9 @@ describe("色の明るさの差", () => {
     ["muted-foreground", "muted"],
     ["destructive", "background"],
     ["primary-foreground", "primary"],
+    // 指を乗せたときの面も見る。部品の既定（`primary` を 80% に薄めた面）は
+    // 白の文字との差が 3.65 で、押す直前＝文字を読む瞬間だけ目安を割る（#161）
+    ["primary-foreground", "primary-hover"],
   ])("文字 %s は面 %s の上で 4.5 以上ある", (text, surface) => {
     expect(contrast(colorOf(text), colorOf(surface))).toBeGreaterThanOrEqual(
       4.5,
@@ -100,8 +103,153 @@ describe("色の明るさの差", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
-  it("フォームの入力欄は枠に input の色を使う", () => {
-    expect(field.split(" ")).toContain("border-input");
+  // 入力欄の見た目は `app/form.tsx` の `field` から `@/components/ui` の部品へ移った（#161）。
+  // 部品のコードは書き換えない決まりなので、部品が持っている色をここで見る。
+  // `shadcn add --overwrite` で入れ直したときに既定が変わっていれば赤くなる
+  it.each(["input", "textarea", "native-select"])(
+    "%s の枠は input の色を使う",
+    (name) => {
+      const source = readFileSync(
+        path.join(root, "components", "ui", `${name}.tsx`),
+        "utf8",
+      );
+      expect(source).toContain("border-input");
+    },
+  );
+
+  /**
+   * `<Button` から、その開始タグの終わりまでを1つずつ取り出す。
+   *
+   * **最初の `>` で切ってはいけない。** タグの中に `>` が2通りで現れる。
+   *
+   * - 矢印の関数（`onClick={(e) => ...}`）
+   * - 属性の間に書いた `//` のコメント（`app/form.tsx` の「確認は <form onSubmit> …」）
+   *
+   * どちらも実測で `app/form.tsx` を違反として挙げてしまった。
+   * コメントは `stripComments` が先に落とすので、ここは中括弧の深さだけを数え、
+   * 中括弧の外にある `>` を終わりとみなす
+   */
+  function openingTagsIn(raw: string, component: string): string[] {
+    const source = stripComments(raw);
+    const open = `<${component}`;
+    const tags: string[] = [];
+    for (
+      let start = source.indexOf(open);
+      start !== -1;
+      start = source.indexOf(open, start + 1)
+    ) {
+      let depth = 0;
+      for (let i = start; i < source.length; i++) {
+        const char = source[i];
+        if (char === "{") depth += 1;
+        else if (char === "}") depth -= 1;
+        else if (char === ">" && depth === 0) {
+          tags.push(source.slice(start, i + 1));
+          break;
+        }
+      }
+    }
+    return tags;
+  }
+
+  /** 画面のファイルから、その部品の開始タグを集める */
+  const tagsOf = (component: string): { file: string; tag: string }[] =>
+    readdirSync(import.meta.dirname, { recursive: true, encoding: "utf8" })
+      .filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"))
+      .flatMap((file) =>
+        openingTagsIn(
+          readFileSync(path.join(import.meta.dirname, file), "utf8"),
+          component,
+        ).map((tag) => ({ file, tag })),
+      );
+
+  const buttonTags = () => tagsOf("Button");
+
+  // 取り出しが途中で切れていないこと。切れると className を読み落とし、
+  // 正しいコードを違反として挙げる
+  it.each([
+    [
+      "矢印の関数",
+      '<Button onClick={(e) => { e.preventDefault(); }} className="self-start">',
+    ],
+    [
+      "属性の間のコメント",
+      '<Button\n  // <form onSubmit> ではなくここに置く\n  className="self-start"\n>',
+    ],
+  ])("%s を渡したボタンも、最後まで取り出せる", (_name, source) => {
+    const tags = openingTagsIn(source, "Button");
+
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toContain("self-start");
+  });
+
+  // 下の2件は「このクラスを渡しているか」を見る。渡す理由をコメントに書くと
+  // クラス名がそこにも現れるため、コメントを数に入れると歯が無くなる
+  it.each([
+    [
+      "行まるごと",
+      '<Button\n  // border-input を渡す理由\n  className="self-start"\n>',
+    ],
+    // 行末のコメント。落とさないと `className` から消しても緑のまま通る
+    ["行末", '<Button className="self-start" // border-input は要らない\n>'],
+  ])(
+    "%s のコメントに書いたクラス名は、渡したものと数えない",
+    (_name, source) => {
+      const tags = openingTagsIn(source, "Button");
+
+      expect(tags[0]).toContain("self-start");
+      expect(tags[0]).not.toContain("border-input");
+    },
+  );
+
+  it("枠だけのボタンには input の色の枠を渡している", () => {
+    // 部品の既定は `border-border` で、背景との差が 1.22 しかなく形が見えない。
+    // 部品は書き換えないので、呼ぶ側で `border-input`（3.63）を渡す
+    const offenders = buttonTags().filter(
+      ({ tag }) =>
+        tag.includes('variant="outline"') && !tag.includes("border-input"),
+    );
+
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("押せなくするボタンは、押せない間も文字を薄くしない", () => {
+    // 部品は既定で、押せない間だけ半分透かす。そうすると文字と背景の明るさの差が
+    // 読める目安を割る（#161 の Scenario「文字は読める明るさのまま」）。
+    // 押せないことは、文字が変わることと指が乗らないことで示す
+    const offenders = buttonTags().filter(
+      ({ tag }) =>
+        tag.includes("disabled=") && !tag.includes("disabled:opacity-100"),
+    );
+
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("見張る先のボタンがある", () => {
+    // 取り出しが1つも拾わない形に壊れると、上の2件は空の配列どうしで黙って緑になる
+    expect(buttonTags().length).toBeGreaterThan(0);
+  });
+
+  /** 消す・外す操作のフォーム。送信ボタンの名前で見分ける */
+  const removalForms = () =>
+    tagsOf("ActionForm").filter(({ tag }) =>
+      /submitLabel=\{?[^}]*?(削除|外す)/.test(tag),
+    );
+
+  // #161 の Scenario「登録と削除が見分けられる」の本体。
+  // 派生の決まり（枠の色・薄くしない指定）だけを見て、本体を文章のままにしない
+  it("消す・外す操作のフォームは消す色のボタンを出す", () => {
+    const offenders = removalForms().filter(
+      ({ tag }) => !tag.includes('variant="destructive"'),
+    );
+
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("見張る先の消す操作がある", () => {
+    // 消す操作は銘柄・テーマ・イベント・テーマ所属の4画面にある。
+    // 取り出しが壊れると、上の検査は空の配列どうしで黙って緑になる
+    expect(removalForms()).toHaveLength(4);
   });
 
   // 枠だけで形を示す操作部品（入力欄・枠だけのボタン）を border の色で描くと、
@@ -174,6 +322,36 @@ describe("影を使わない", () => {
     expect(css).toMatch(
       /:focus-visible\s*\{\s*outline:\s*2px solid var\(--color-ring\)/,
     );
+  });
+
+  // 既定のボタンに指を乗せたときの面の上書き（#161）。上の「明るさの差」は
+  // `--primary-hover` の値だけを見るので、その値がボタンに当たっているかはここで見る
+  it("既定のボタンの指を乗せた面を primary-hover で上書きしている", async () => {
+    const css = await buildWith([]);
+    expect(css).toMatch(
+      /\[data-slot="button"\]\[data-variant="default"\]:hover\s*\{\s*background-color:\s*var\(--primary-hover\)/,
+    );
+  });
+
+  // **`@layer` の外に置く決まりを見る。** 中に入れると部品のクラスに負けて
+  // 色が戻るが、規則そのものは生成されるので上の検査は緑のまま通る。
+  //
+  // 組んだ結果の並び順では見分けられない（`@layer base` に入れても、出てくる
+  // 位置は部品のクラスより後ろのままだった。実測）。勝ち負けを決めているのは
+  // 並び順ではなく層なので、**書いてある場所**を見る。
+  // 規則の手前で中括弧が開きっぱなしなら、何かの中に入っている
+  it("指を乗せた面の上書きは、@layer の外に置いてある", () => {
+    const css = readFileSync(globalsCss, "utf8");
+    const at = css.indexOf(
+      '[data-slot="button"][data-variant="default"]:hover',
+    );
+    expect(at).toBeGreaterThan(-1);
+
+    const before = css.slice(0, at);
+    const depth =
+      (before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length;
+
+    expect(depth).toBe(0);
   });
 });
 

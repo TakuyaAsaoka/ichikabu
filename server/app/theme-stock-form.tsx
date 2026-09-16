@@ -1,12 +1,14 @@
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { addThemeStock } from "./actions";
-import { ActionForm, field, fieldLabel } from "./form";
+import { ActionForm, fieldLabel, fieldSelect } from "./form";
 
 type ThemeChoice = { id: number; name: string };
 type StockChoice = { id: number; market: string; ticker: string; name: string };
 
 /**
  * テーマ所属の登録フォーム。
- * テーマか銘柄が0件のときはフォームを出さない。選択肢が空の <select> を出すと、
+ * テーマか銘柄が0件のときはフォームを出さない。選択肢が空の選択欄を出すと、
  * 送信しても外部キー違反になり、制約違反の日本語化を通らず 500 になる（設計書 §4.3）
  */
 export function ThemeStockForm({
@@ -26,26 +28,26 @@ export function ThemeStockForm({
 
   return (
     <ActionForm action={addThemeStock} submitLabel="テーマ所属を登録">
-      <label className={fieldLabel}>
+      <Label className={fieldLabel}>
         テーマ
-        <select name="themeId" className={field}>
+        <NativeSelect name="themeId" className={fieldSelect}>
           {themes.map((theme) => (
             <option key={theme.id} value={theme.id}>
               {theme.name}
             </option>
           ))}
-        </select>
-      </label>
-      <label className={fieldLabel}>
+        </NativeSelect>
+      </Label>
+      <Label className={fieldLabel}>
         銘柄
-        <select name="stockId" className={field}>
+        <NativeSelect name="stockId" className={fieldSelect}>
           {stocks.map((stock) => (
             <option key={stock.id} value={stock.id}>
               {stock.market} {stock.ticker} {stock.name}
             </option>
           ))}
-        </select>
-      </label>
+        </NativeSelect>
+      </Label>
     </ActionForm>
   );
 }

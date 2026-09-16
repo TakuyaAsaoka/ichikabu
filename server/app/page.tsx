@@ -69,14 +69,17 @@ export default async function Page() {
         <h2 className="text-base font-bold">銘柄一覧（{stocks.length}件）</h2>
         <ul className="flex flex-col gap-1">
           {stocks.map((row) => (
-            <li key={row.id} className="border-b border-border py-1">
+            <li
+              key={row.id}
+              // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
+            >
               {row.market} {row.ticker} {row.name}
               {row.fiscalMonth !== null && (
                 <span className="text-muted-foreground">
-                  {" "}
-                  / {row.fiscalMonth}月決算
+                  {row.fiscalMonth}月決算
                 </span>
-              )}{" "}
+              )}
               <Link href={`/stocks/${row.id}`} className="underline">
                 編集
               </Link>
@@ -102,10 +105,16 @@ export default async function Page() {
             const belongings = themeStocks.filter((s) => s.themeId === row.id);
             return (
               <li key={row.id} className="border-b border-border py-1">
-                {row.name}{" "}
-                <Link href={`/themes/${row.id}`} className="underline">
-                  編集
-                </Link>
+                {/* 所属の一覧をぶら下げるため、テーマ名と編集リンクだけを1段の並びにする。
+                    `<li>` ごと並びにすると、内側の `<ul>` が横に回り込む */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {row.name}
+                  <Link href={`/themes/${row.id}`} className="underline">
+                    編集
+                  </Link>
+                </div>
+                {/* **この内側の `<ul>` の行は触らない。** `app/page.test.ts` が
+                    行のHTMLを1文字ずつ比べ、テーマ所属の並び順を見ている */}
                 <ul className="pl-4">
                   {belongings.length === 0 ? (
                     <li className="text-muted-foreground">銘柄なし</li>

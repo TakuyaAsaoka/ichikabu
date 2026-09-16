@@ -32,6 +32,21 @@ describe("状態の画面", () => {
     expect(await render(Page)).toContain("抜けなし");
   });
 
+  it("抜けの行には、色だけでなく言葉の印が付く", async () => {
+    // 色の見分けが付きにくい人には、赤い文字だけでは何も伝わらない
+    // （CLAUDE.md「意味を色だけで運ばない」）。
+    // **抜けが0件のときに印が出ないことまで見る。** 出しっぱなしだと、
+    // 印が抜けの行を1つも区別していないことになり、この検査が素通りする
+    const before = await render(Page);
+    expect(before).not.toContain('data-slot="badge"');
+
+    // 決算月の無い銘柄は「決算月なし」の抜けになる
+    entriesOf(await createStock(stockInput({ fiscalMonth: null })));
+
+    const after = await render(Page);
+    expect(after).toContain("抜け</span>");
+  });
+
   it("抜けのある行は直す先へのリンクを出す", async () => {
     // 決算月の無い銘柄は「決算月なし」に出る。行から編集ページへ行ける
     const [created] = entriesOf(

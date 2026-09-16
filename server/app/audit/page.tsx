@@ -56,13 +56,21 @@ export default async function Page() {
             <li className="text-muted-foreground">記録なし</li>
           ) : (
             rows.map((row) => (
-              <li key={row.id} className="border-b border-border py-1">
-                {formatJst(row.createdAt)} {ACTION_TITLES[row.action]}{" "}
-                {RESOURCE_TITLES[row.resourceType]} #{row.resourceId}
-                <span className="text-muted-foreground">
-                  {" "}
-                  / {row.userName ?? "取り込み"} / 記録 #{row.id}
+              <li
+                key={row.id}
+                // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
+              >
+                {formatJst(row.createdAt)}
+                <span>{ACTION_TITLES[row.action]}</span>
+                {/* 対象と番号は離さない。離すと「どの対象の何番か」が読めなくなる */}
+                <span>
+                  {RESOURCE_TITLES[row.resourceType]} #{row.resourceId}
                 </span>
+                <span className="text-muted-foreground">
+                  {row.userName ?? "取り込み"}
+                </span>
+                <span className="text-muted-foreground">記録 #{row.id}</span>
               </li>
             ))
           )}

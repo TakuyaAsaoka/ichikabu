@@ -63,6 +63,7 @@ export default async function Page({
         <ActionForm
           action={removeEvent}
           submitLabel="このイベントを削除"
+          variant="destructive"
           confirm={`「${row.title}」を削除する。取り消せない。`}
         >
           <input type="hidden" name="id" value={row.id} />

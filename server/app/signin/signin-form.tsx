@@ -1,6 +1,11 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { fieldLabel } from "../form";
 
 /** 応答コードから画面に出す文を決める。原因を取り違えないよう、想定外は数字をそのまま見せる */
 function messageFor(status: number): string {
@@ -98,45 +103,47 @@ export function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <button
+      {/* 押せない間も文字は読める明るさのままにする（`app/form.tsx` と同じ理由。#161） */}
+      <Button
         type="button"
+        size="lg"
         onClick={handleGoogle}
         disabled={pending}
-        className="rounded border border-input p-2 disabled:opacity-50"
+        className="disabled:opacity-100"
       >
         Google でログイン
-      </button>
+      </Button>
       {/* メールアドレスとパスワードは、Google の設定が壊れた日に
-          管理UIへ入る手段として残す（全体設計書 §9） */}
+          管理UIへ入る手段として残す（全体設計書 §9）。
+          普段使う入り口ではないので、ボタンは枠だけの `outline` にする */}
       <p className="text-center">または</p>
-      <label className="flex flex-col gap-1">
+      <Label className={fieldLabel}>
         メールアドレス
-        <input
-          type="email"
-          name="email"
-          required
-          className="rounded border border-input p-2"
-        />
-      </label>
-      <label className="flex flex-col gap-1">
+        <Input type="email" name="email" required />
+      </Label>
+      <Label className={fieldLabel}>
         パスワード
-        <input
-          type="password"
-          name="password"
-          required
-          className="rounded border border-input p-2"
-        />
-      </label>
-      <button
+        <Input type="password" name="password" required />
+      </Label>
+      <Button
         type="submit"
+        variant="outline"
+        size="lg"
         disabled={pending}
-        className="rounded border border-input p-2 disabled:opacity-50"
+        // `border-input`: 枠だけのボタンの枠は input の色にする（CLAUDE.md「色」）。
+        // 部品の既定は `border-border` で、背景との差が 1.22 しかなくボタンの形が
+        // 見えない（input は 3.63）。部品のコードは書き換えず、呼ぶ側で渡す
+        className="border-input disabled:opacity-100"
       >
         {pending ? "送信中" : "サインイン"}
-      </button>
-      <p className="text-destructive empty:hidden" aria-live="polite">
-        {error}
-      </p>
+      </Button>
+      {/* 断りを色だけで伝えない（`app/form.tsx` と同じ形。CLAUDE.md「色」） */}
+      {error !== null && (
+        <Alert variant="destructive">
+          <AlertTitle>サインインできませんでした</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </form>
   );
 }

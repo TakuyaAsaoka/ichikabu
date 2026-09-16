@@ -1,4 +1,6 @@
-import { type Action, ActionForm, field, fieldLabel } from "./form";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { type Action, ActionForm, fieldLabel } from "./form";
 
 /** 編集のときの初期値。登録では渡さない（設計書 §3） */
 type ThemeRow = { id: number; name: string };
@@ -22,16 +24,10 @@ export function ThemeForm({
   return (
     <ActionForm action={action} submitLabel={submitLabel}>
       {theme && <input type="hidden" name="id" value={theme.id} />}
-      <label className={fieldLabel}>
+      <Label className={fieldLabel}>
         テーマ名
-        <input
-          type="text"
-          name="name"
-          required
-          defaultValue={theme?.name}
-          className={field}
-        />
-      </label>
+        <Input type="text" name="name" required defaultValue={theme?.name} />
+      </Label>
     </ActionForm>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { findGaps, GAP_KINDS, GAP_TITLES, jstToday } from "../../src/status";
 import { requireSession } from "../guard";
 import { Nav } from "../nav";
@@ -35,9 +36,13 @@ export default async function Page() {
                 rows.map((gap) => (
                   <li
                     key={gap.href ?? gap.label}
-                    className="border-b border-border py-1 text-destructive"
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
                   >
-                    {gap.label}{" "}
+                    {/* 抜けであることを言葉で出す。色だけで運ばない（CLAUDE.md「色」）。
+                        赤い文字だけだと、色の見分けが付きにくい人に何も伝わらない。
+                        文章は foreground のままにして、色は印にだけ付ける */}
+                    <Badge variant="destructive">抜け</Badge>
+                    {gap.label}
                     {gap.href !== null && (
                       <Link href={gap.href} className="underline">
                         直す
