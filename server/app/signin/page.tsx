@@ -32,7 +32,7 @@ export default async function SignInPage({
     // `min-h-dvh` の中に `p-6` が入る）。ファイルをまたぐ結び付きが1つ減る。
     //
     // **カードで包まない**（#163 で討論して決めた）。
-    // `card.tsx` の白い面は背景 `#f7f7fb` との明るさの差が 1.07、
+    // shadcn の `card` の白い面は背景 `#f7f7fb` との明るさの差が 1.07、
     // 既定の枠（`ring-1 ring-foreground/10` を白の上で解いた `#e8e9eb`）は
     // 背景の上で 1.14 しかなく、囲いとして見えない（`border` の 1.22 より低い）。
     // 枠を `input` の色にすれば 3.87 で見えるが、

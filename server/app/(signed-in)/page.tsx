@@ -4,12 +4,14 @@ import { db } from "../../src/db";
 import { stock, theme, themeStock } from "../../src/db/schema";
 import { addStock, addTheme } from "../actions";
 import { requireSession } from "../guard";
+import { RegisterDetails } from "../register-details";
 import { StockForm } from "../stock-form";
 import { ThemeForm } from "../theme-form";
 import { ThemeStockForm } from "../theme-stock-form";
 
 /**
- * 銘柄とテーマの画面。登録フォームと一覧を縦に並べる（設計書 §3）。
+ * 銘柄とテーマの画面。銘柄とテーマの一覧を並べる（設計書 §3）。
+ * 登録フォームは各一覧の見出しの下に閉じて置き、押したときだけ開く（#165）。
  * 銘柄・テーマは各行から編集ページへ行ける（編集・削除 設計書 §3）。
  * テーマ所属は直す列が無いため、行から削除ページへ行く（保有とテーマ所属の削除 設計書 §2）。
  * 並べ替え・絞り込みは付けない。
@@ -59,12 +61,10 @@ export default async function Page() {
       <h1 className="text-xl font-bold">銘柄とテーマ</h1>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">銘柄を登録</h2>
-        <StockForm action={addStock} submitLabel="銘柄を登録" />
-      </section>
-
-      <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">銘柄一覧（{stocks.length}件）</h2>
+        <RegisterDetails label="銘柄を登録">
+          <StockForm action={addStock} submitLabel="銘柄を登録" />
+        </RegisterDetails>
         <ul className="flex flex-col gap-1">
           {stocks.map((row) => (
             <li
@@ -87,17 +87,13 @@ export default async function Page() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">テーマを登録</h2>
-        <ThemeForm action={addTheme} submitLabel="テーマを登録" />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">テーマ所属を登録</h2>
-        <ThemeStockForm themes={themes} stocks={stocks} />
-      </section>
-
-      <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">テーマ一覧（{themes.length}件）</h2>
+        <RegisterDetails label="テーマを登録">
+          <ThemeForm action={addTheme} submitLabel="テーマを登録" />
+        </RegisterDetails>
+        <RegisterDetails label="テーマ所属を登録">
+          <ThemeStockForm themes={themes} stocks={stocks} />
+        </RegisterDetails>
         <ul className="flex flex-col gap-1">
           {themes.map((row) => {
             const belongings = themeStocks.filter((s) => s.themeId === row.id);
