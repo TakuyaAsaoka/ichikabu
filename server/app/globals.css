@@ -125,6 +125,9 @@
    * フォーカスの輪は ring の色で、透かさずに描く。上の outline-ring/50 のままだと
    * 背景との差が 3 を割り、キーボードで操作している人が現在地を見失う（ring は 8.59）
    *
+   * **効くのは素の要素（リンクなど）だけ。** 部品は `outline-none` を持ち、
+   * 層の優先順位でこの規則に勝つ（#176）。部品の輪は下の層の外の規則で描く
+   *
    * **`var(--color-ring)` と書かない**（#162）。`@theme inline` が `:root` に出す
    * `--color-ring: var(--ring)` は、宣言した `:root` で `#3a3f8f` に解決されてから
    * 下へ伝わる。そのため、ネイビーの面の上で `[--ring:var(--sidebar-ring)]` と
@@ -134,6 +137,38 @@
    */
   :focus-visible {
     outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * `focus-visible:ring-*` を持つ部品（ボタン・入力欄・選択欄・文章欄など）のフォーカスの輪を、透かさずに描く（#176）。
+ *
+ * 部品は `outline-none` で上の outline を消し、`focus-visible:ring-3 focus-visible:ring-ring/50`
+ * の半分透かした輪だけを出す。部品のコードは書き換えないので、輪の色が入る変数を
+ * 透かさない色で上書きする。`--ring` を直に読むので、ネイビーの面の打ち消しも届く。
+ * 消す操作のボタンは部品が `ring-destructive/20` で役割の色を付けているので、その色のまま透かさない。
+ *
+ * **outline を層の外へ出す形にしない。** 半分透かした輪と重なって3重の線に見え、
+ * メニューの行（`accent` の面で現在地を示す）にはマウスを乗せただけでも枠が出る（実測）。
+ *
+ * ハイコントラスト表示（forced-colors）では輪（box-shadow）が描かれず、
+ * 部品の印が何も無くなるので、そのときだけ outline を戻す。
+ *
+ * **`@layer` の外に置く。** 中に入れると部品のクラスに負けて効かない。
+ * 変数の名前は Tailwind の決めたもの。守っているのは app/globals-css.test.ts
+ */
+:focus-visible {
+  --tw-ring-color: var(--ring);
+}
+
+[data-variant="destructive"]:focus-visible {
+  --tw-ring-color: var(--destructive);
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid;
     outline-offset: 2px;
   }
 }
