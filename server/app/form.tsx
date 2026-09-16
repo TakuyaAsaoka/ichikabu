@@ -1,8 +1,10 @@
 "use client";
 
 import { type ReactNode, useActionState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { type Action, NOTICES } from "./notice";
 
 // 5つのフォームが同じ骨格を持っていたため、ここに括り出した（設計書 §4.1）。
 // useActionState がここに移ったことで、各フォームは初期値を出すだけの
@@ -33,14 +35,8 @@ export const fieldLabel = "flex flex-col items-start gap-1";
  */
 export const fieldSelect = "w-full";
 
-/** Server Action は useActionState の形（前の状態と FormData を受け取る）で渡す */
-export type Action = (
-  previous: string | null,
-  formData: FormData,
-) => Promise<string | null>;
-
 /**
- * Server Action を送るフォームの外枠。送信中の表示とエラー表示を持つ。
+ * Server Action を送るフォームの外枠。送信中の表示・断りの表示・済んだあとの知らせを持つ。
  * confirm に文字列を渡すと、送信ボタンを押したときに確認ダイアログが出る
  */
 export function ActionForm({
@@ -63,7 +59,21 @@ export function ActionForm({
   variant?: "default" | "destructive";
   children: ReactNode;
 }) {
-  const [error, formAction, pending] = useActionState(action, null);
+  const [error, formAction, pending] = useActionState(
+    async (_previous: string | null, formData: FormData) => {
+      const result = await action(formData);
+      // 知らせは送るたびにここで出し、状態には残さない。状態に残して useEffect で
+      // 出す形だと、同じ登録が2回続いたときに状態が変わらず2回目が出ない（#164 の討論）。
+      // 更新・削除はここへ戻らずに移る（`redirect()`）。移った先で出すのは
+      // `app/app-shell/done-notice.tsx`
+      if ("notice" in result) {
+        toast(NOTICES[result.notice]);
+        return null;
+      }
+      return result.error;
+    },
+    null,
+  );
 
   return (
     <form action={formAction} className="flex flex-col gap-3">

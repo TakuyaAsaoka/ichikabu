@@ -23,7 +23,13 @@ import { PASSWORD, redirectedTo, signInAs } from "../test/render-page";
 import { requestHeaders } from "../test/setup";
 import {
   addEvent,
+  addEvents,
+  addStock,
+  addTheme,
+  addThemeStock,
   editEvent,
+  editStock,
+  editTheme,
   removeEvent,
   removeStock,
   removeTheme,
@@ -84,22 +90,22 @@ beforeEach(async () => {
 const adminOnlyDeletes = [
   {
     label: "銘柄",
-    run: () => removeStock(null, form({ id: "1" })),
+    run: () => removeStock(form({ id: "1" })),
     remaining: () => db.select().from(stock),
   },
   {
     label: "テーマ",
-    run: () => removeTheme(null, form({ id: "1" })),
+    run: () => removeTheme(form({ id: "1" })),
     remaining: () => db.select().from(theme),
   },
   {
     label: "テーマ所属",
-    run: () => removeThemeStock(null, form({ themeId: "1", stockId: "1" })),
+    run: () => removeThemeStock(form({ themeId: "1", stockId: "1" })),
     remaining: () => db.select().from(themeStock),
   },
   {
     label: "イベント",
-    run: () => removeEvent(null, form({ id: "1" })),
+    run: () => removeEvent(form({ id: "1" })),
     remaining: () => db.select().from(event),
   },
 ];
@@ -133,12 +139,11 @@ const eventFields = {
 const revalidated = [
   {
     label: "行き先のある編集",
-    run: () =>
-      redirectedTo(() => editEvent(null, form({ ...eventFields, id: "1" }))),
+    run: () => redirectedTo(() => editEvent(form({ ...eventFields, id: "1" }))),
   },
   {
     label: "行き先の無い登録",
-    run: () => addEvent(null, form(eventFields)),
+    run: () => addEvent(form(eventFields)),
   },
 ];
 
@@ -161,11 +166,119 @@ const revalidated = [
 const unauthenticated = [
   {
     label: "削除",
-    run: () => removeEvent(null, form({ id: "1" })),
+    run: () => removeEvent(form({ id: "1" })),
   },
   {
     label: "登録",
-    run: () => addEvent(null, form(eventFields)),
+    run: () => addEvent(form(eventFields)),
+  },
+];
+
+/**
+ * 12本それぞれが、済んだあとに出す知らせのキー（Issue #164）。
+ *
+ * 知らせのキーは `action()` の必須の引数なので付け忘れは型で落ちるが、
+ * 別の操作のキーを付ける取り違え（テーマの登録で「銘柄を登録しました」）は
+ * 型では落ちない。そのため12本すべてを並べる。
+ *
+ * 登録はその画面に留まるので戻り値で、更新・削除は移った先の URL の印で渡す。
+ * 管理者で走らせる（削除を含むため）。対象は `seedTargets()` の1件ずつで、
+ * 消すと他の行が参照を失うもの（銘柄・テーマ）は、別の1件を作ってから消す
+ */
+const notified = [
+  {
+    label: "addStock",
+    run: () =>
+      addStock(form({ market: "JP", ticker: "6758", name: "ソニーグループ" })),
+    expected: { notice: "stock-added" },
+  },
+  {
+    label: "addTheme",
+    run: () => addTheme(form({ name: "半導体" })),
+    expected: { notice: "theme-added" },
+  },
+  {
+    label: "addThemeStock",
+    run: async () => {
+      await createTheme("半導体");
+      return addThemeStock(form({ themeId: "2", stockId: "1" }));
+    },
+    expected: { notice: "theme-stock-added" },
+  },
+  {
+    label: "addEvent",
+    run: () => addEvent(form(eventFields)),
+    expected: { notice: "event-added" },
+  },
+  {
+    label: "addEvents",
+    run: () =>
+      addEvents(
+        form({
+          rows: [
+            "米消費者物価指数（2026年7月分）",
+            "米CPI",
+            "market:GLOBAL",
+            "2026-08-12",
+            "",
+            "21:30",
+            "2",
+            "",
+            "",
+            "",
+          ].join("\t"),
+        }),
+      ),
+    expected: { notice: "events-added" },
+  },
+  {
+    label: "editStock",
+    run: () =>
+      redirectedTo(() =>
+        editStock(
+          form({ id: "1", market: "JP", ticker: "7203", name: "トヨタ" }),
+        ),
+      ),
+    expected: "/?done=stock-updated",
+  },
+  {
+    label: "editTheme",
+    run: () => redirectedTo(() => editTheme(form({ id: "1", name: "防衛" }))),
+    expected: "/?done=theme-updated",
+  },
+  {
+    label: "editEvent",
+    run: () => redirectedTo(() => editEvent(form({ ...eventFields, id: "1" }))),
+    expected: "/events?done=event-updated",
+  },
+  {
+    label: "removeStock",
+    run: async () => {
+      await createStock(stockInput({ ticker: "6758", name: "ソニーグループ" }));
+      return redirectedTo(() => removeStock(form({ id: "2" })));
+    },
+    expected: "/?done=stock-removed",
+  },
+  {
+    label: "removeTheme",
+    run: async () => {
+      await createTheme("半導体");
+      return redirectedTo(() => removeTheme(form({ id: "2" })));
+    },
+    expected: "/?done=theme-removed",
+  },
+  {
+    label: "removeThemeStock",
+    run: () =>
+      redirectedTo(() =>
+        removeThemeStock(form({ themeId: "1", stockId: "1" })),
+      ),
+    expected: "/?done=theme-stock-removed",
+  },
+  {
+    label: "removeEvent",
+    run: () => redirectedTo(() => removeEvent(form({ id: "1" }))),
+    expected: "/events?done=event-removed",
   },
 ];
 
@@ -182,12 +295,14 @@ describe("管理者ではない入力者", () => {
   });
 
   it.each(adminOnlyDeletes)("$label を削除できない", async (target) => {
-    expect(await target.run()).toBe("削除できるのは管理者だけ");
+    expect(await target.run()).toEqual({ error: "削除できるのは管理者だけ" });
     expect(await target.remaining()).toHaveLength(1);
   });
 
   it("イベントを登録できる", async () => {
-    expect(await addEvent(null, form(eventFields))).toBeNull();
+    expect(await addEvent(form(eventFields))).toEqual({
+      notice: "event-added",
+    });
     expect(await db.select().from(event)).toHaveLength(2);
   });
 
@@ -199,7 +314,7 @@ describe("管理者ではない入力者", () => {
       .from(user)
       .where(eq(user.email, EDITOR));
 
-    await addEvent(null, form(eventFields));
+    await addEvent(form(eventFields));
 
     const rows = await db.select().from(auditLog);
     expect(rows).toHaveLength(1);
@@ -215,7 +330,6 @@ describe("管理者ではない入力者", () => {
     // 緑のまま通る（Issue #112 で実測）
     const to = await redirectedTo(() =>
       editEvent(
-        null,
         form({
           id: "1",
           title: "日銀の金融政策決定会合（変更後）",
@@ -226,7 +340,7 @@ describe("管理者ではない入力者", () => {
         }),
       ),
     );
-    expect(to).toBe("/events");
+    expect(to).toBe("/events?done=event-updated");
 
     const [row] = await db.select().from(event);
     expect(row.title).toBe("日銀の金融政策決定会合（変更後）");
@@ -248,15 +362,19 @@ describe("管理者", () => {
   it("イベントを削除できて、イベントの画面へ戻る", async () => {
     // 拒み方だけを入れて全員を拒んでいないことを、ここで固定する。
     // 行き先まで見る理由は上と同じ
-    const to = await redirectedTo(() => removeEvent(null, form({ id: "1" })));
-    expect(to).toBe("/events");
+    const to = await redirectedTo(() => removeEvent(form({ id: "1" })));
+    expect(to).toBe("/events?done=event-removed");
     expect(await db.select().from(event)).toEqual([]);
+  });
+
+  it.each(notified)("$label が済んだことを知らせる", async (target) => {
+    expect(await target.run()).toEqual(target.expected);
   });
 
   it("削除でも画面が作り直される", async () => {
     // `revalidated` の表の3通り目。`adminOnly` の側だけ作り直しを飛ばす壊し方は、
     // 上の2本では緑のまま通る（Issue #149 で実測）
-    await redirectedTo(() => removeEvent(null, form({ id: "1" })));
+    await redirectedTo(() => removeEvent(form({ id: "1" })));
 
     expect(revalidatePath).toHaveBeenCalledWith("/");
   });

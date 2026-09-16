@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { Toaster } from "@/components/ui/sonner";
 import { isAdmin } from "../../src/admin";
 import { AccountMenu } from "./account-menu";
+import { DoneNotice } from "./done-notice";
 import { BottomTabs, SidebarNav } from "./nav";
 
 /**
@@ -67,6 +69,14 @@ export function AppShell({
       </div>
 
       <BottomTabs admin={admin} />
+
+      {/* 登録・更新・削除が済んだあとの知らせ（Issue #164）。画面に固定して出すので、
+          長い画面の途中のフォームで登録しても見える位置に出る。
+          `theme="light"`: 部品の既定は OS の設定に合わせるが、この画面は明るい色しか持たない。
+          `mobileOffset`: スマホでは下のタブ（`h-16` = 64px）の上に出す。既定の 16px だと
+          タブに重なる */}
+      <Toaster theme="light" mobileOffset={{ bottom: 80 }} />
+      <DoneNotice />
     </div>
   );
 }
