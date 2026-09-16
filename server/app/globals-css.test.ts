@@ -479,22 +479,25 @@ describe("影を使わない", () => {
   // 位置は部品のクラスより後ろのままだった。実測）。勝ち負けを決めているのは
   // 並び順ではなく層なので、**書いてある場所**を見る。
   // 規則の手前で中括弧が開きっぱなしなら、何かの中に入っている
-  it.each([
-    '[data-slot="button"][data-variant="default"]:hover',
+  it.each<{ name: string; find?: RegExp }>([
+    { name: '[data-slot="button"][data-variant="default"]:hover' },
     // 知らせのトースト（#164）。sonner が層の外に差し込む影に勝つには、層の外に要る
-    '[data-sonner-toaster] [data-sonner-toast][data-styled="true"]',
-    "[data-sonner-toaster] [data-sonner-toast]:focus-visible",
+    { name: '[data-sonner-toaster] [data-sonner-toast][data-styled="true"]' },
+    { name: "[data-sonner-toaster] [data-sonner-toast]:focus-visible" },
     // 部品のフォーカスの輪（#176）。`@layer base` の `:focus-visible` と見分けるため、
     // 選び方に続く宣言まで含めて探す（位置は選び方の頭）
-    /(?<![\]\w-]):focus-visible\s*\{\s*--tw-ring-color:\s*var\(--ring\)/,
-    /\[data-variant="destructive"\]:focus-visible\s*\{\s*--tw-ring-color/,
-    "@media (forced-colors: active)",
-  ])("%s の上書きは、@layer の外に置いてある", (selector) => {
+    {
+      name: "部品の輪の色を決める :focus-visible",
+      find: /(?<![\]\w-]):focus-visible\s*\{\s*--tw-ring-color:\s*var\(--ring\)/,
+    },
+    {
+      name: '[data-variant="destructive"]:focus-visible',
+      find: /\[data-variant="destructive"\]:focus-visible\s*\{\s*--tw-ring-color/,
+    },
+    { name: "@media (forced-colors: active)" },
+  ])("$name の上書きは、@layer の外に置いてある", ({ name, find }) => {
     const css = stripComments(readFileSync(globalsCss, "utf8"));
-    const at =
-      typeof selector === "string"
-        ? css.indexOf(selector)
-        : (css.match(selector)?.index ?? -1);
+    const at = find ? (css.match(find)?.index ?? -1) : css.indexOf(name);
     expect(at).toBeGreaterThan(-1);
 
     const before = css.slice(0, at);
