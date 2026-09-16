@@ -111,7 +111,7 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 - **`table.tsx` は入れて、使わないので消した**（#161）。イベント一覧を表にする案は、720px に収めるのに一覧から項目を落とす必要があり、設計書の決定と衝突したため見送った
 - **イベント一覧は、PC（`lg` 以上）だけ `grid` と `subgrid` で列をそろえ、1件を1行に収める**（#172。`server/app/(signed-in)/events/page.tsx`）。項目は落とさず、名称と出典だけを切り詰める。一覧から名称と出典を外す案は、設計書の「一覧に出典を出す」を覆すので採らなかった
   - 最初の試作は、入力者を最長のメール（21文字）にすると**名称が1文字まで切られた**。行ごとの「出典: 」「入力: 」と出典の列の最小幅が先に幅を取っていた。前置きを `lg:sr-only` にして列の見出しに移し、文字を `lg:text-sm` にして 165px 残した
-  - 開発用DBの入力者は全件「記録なし」なので、幅を測るときは本番の長いメールに置き換えて測る
+  - 開発用DBの入力者は全件「記録なし」なので、幅を測るときは本番の長いメールに置き換えて測る。対象（テーマ名）と入力者の列は上限が無く、長い値が1件あると全行の名称の列が縮む
   - 列の数は包みの `lg:grid-cols-[...]` に書く。行に項目を足して列を足し忘れても、エラーにならず2段に折れるだけ（`page.test.ts` が数を突き合わせる）
 - **`shadcn init` は動かない**（`server/` に `next.config.*` が無く「We could not detect a supported framework」で止まる）。`server/components.json` は手で書いてある
 - **`shadcn add` は、部品が取り込む包みを全部は足さない。** `button`・`badge`・`alert` の `class-variance-authority`、`native-select` の `lucide-react` などは `pnpm add` で足す（足し忘れは `pnpm typecheck` で落ちる）

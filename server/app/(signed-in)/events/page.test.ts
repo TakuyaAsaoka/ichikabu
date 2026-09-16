@@ -78,7 +78,7 @@ describe("イベントの画面", () => {
     ).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-12-01"]);
   });
 
-  it("PC で1件を1行に並べる列の数と、見出しと行の項目の数が合っている", async () => {
+  it("PC で1件を1行に並べる列の数と、見出しの位置が、行の項目と合っている", async () => {
     // 列の数は包みの `lg:grid-cols-[...]` に書き、行の項目とは別の場所にある（#172）。
     // 項目を足して列を足し忘れてもエラーにならず、1件が2段に折れるだけになる。
     // jsdom はレイアウトを計算しないので、見た目では気づけない。数を突き合わせる。
@@ -98,11 +98,19 @@ describe("イベントの画面", () => {
     // 列は `_` で区切って書く（`minmax(0,2fr)` の中に `_` は入らない）
     const columns = html.match(/lg:grid-cols-\[([^\]]+)\]/)?.[1].split("_");
     expect(columns).toBeDefined();
-    expect(htmlOf(html, "section > div > [aria-hidden] > *")).toHaveLength(
-      columns?.length ?? 0,
-    );
+    const head = htmlOf(html, "section > div > [aria-hidden] > *");
+    expect(head).toHaveLength(columns?.length ?? 0);
     // 日付は要素で包まず、行の先頭の文字のまま置いている（1つ上の検査が読むため）
-    expect(htmlOf(html, "li > *").length + 1).toBe(columns?.length);
+    const cells = htmlOf(html, "li > *");
+    expect(cells.length + 1).toBe(columns?.length);
+    // 数だけでなく、見出しの文字が行の同じ列の中身を指していることも見る。
+    // 行の項目を並べ替えて見出しを直し忘れると、ここで赤くなる
+    expect(head.indexOf("出典")).toBe(
+      cells.findIndex((cell) => cell.includes("出典: ")) + 1,
+    );
+    expect(head.indexOf("入力")).toBe(
+      cells.findIndex((cell) => cell.includes("入力: ")) + 1,
+    );
   });
 
   it("登録フォームは2つとも閉じて描かれ、それぞれの操作から開く", async () => {

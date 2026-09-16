@@ -114,10 +114,12 @@ export default async function Page() {
                 <li
                   key={row.id}
                   // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
-                  // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない
+                  // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない。
+                  // `gap-x-2` は PC でも効き、包みの `lg:gap-x-2` と同じ値にしてある。
+                  // 変えると見出しと行の列が見た目でずれる（テストでは赤くならない）
                   className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 lg:col-span-full lg:grid lg:grid-cols-subgrid"
                 >
-                  {/* **日付を行の先頭から動かさない。** `app/events/page.test.ts` が
+                  {/* **日付を行の先頭から動かさない。** `page.test.ts` が
                     行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。
                     前に何かを足すと、並び順の検査が日付以外を比べ始める */}
                   {row.startDate}
