@@ -27,12 +27,14 @@ export default async function SignInPage({
     // #162（サインイン後の骨組み）が同じ行を触る。1段内側に包めば signin だけで閉じる。
     //
     // **カードで包まない**（#163 で討論して決めた）。
-    // `card.tsx` の白い面は背景 `#f7f7fb` との明るさの差が 1.07、既定の枠は 1.14 で、
+    // `card.tsx` の白い面は背景 `#f7f7fb` との明るさの差が 1.07、
+    // 既定の枠（`ring-1 ring-foreground/10` を白の上で解いた `#e8e9eb`）は 1.14 で、
     // 囲いとして見えない。枠を `input` の色にすれば 3.87 で見えるが、
     // 部品の既定（枠・文字の大きさ）を呼ぶ側で3つ打ち消すことになる
     //
     // `min-h-[calc(100dvh-3rem)]`: 3rem は <main> の `p-6` の上下ぶん。
-    // これを引かないと、包みが画面より縦に長くなって下に隙間が出る
+    // これを引かないと、包みが画面より縦に長くなって下に隙間が出る。
+    // 余白のほうが変わったときに気づけるよう、`page.test.ts` が `p-6` を見ている
     <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-sm flex-col justify-center gap-6">
       {/* 見出しの文字は変えない。`test/pages.test.ts` の表と1文字ずつ突き合わせている */}
       <h1 className="text-center text-2xl font-bold">イチカブ 管理</h1>
