@@ -3,8 +3,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Toaster } from "@/components/ui/sonner";
-import { DoneNotice } from "./done-notice";
+import { AppShell } from "./app-shell";
 
 /**
  * `useSearchParams()` の戻り値。
@@ -18,6 +17,8 @@ const searchParams = { current: new URLSearchParams() };
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useSearchParams: () => searchParams.current,
+  // 骨組みの行き先（`app/app-shell/nav.tsx`）が今いる画面を読む
+  usePathname: () => window.location.pathname,
 }));
 
 // トーストは部品の外の置き場に残るので消す（理由は `app/form.test.tsx` の afterEach）
@@ -41,13 +42,12 @@ function navigateTo(url: string) {
   searchParams.current = new URLSearchParams(window.location.search);
 }
 
+/**
+ * 本物の骨組みを描く。Toaster と DoneNotice を自分で並べて描くと、
+ * 骨組みから片方を外しても緑のまま通る
+ */
 function Shell() {
-  return (
-    <>
-      <Toaster theme="light" />
-      <DoneNotice />
-    </>
-  );
+  return <AppShell email="editor@example.com">画面の中身</AppShell>;
 }
 
 describe("移った先で出す知らせ", () => {
