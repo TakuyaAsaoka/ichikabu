@@ -111,10 +111,11 @@ describe("サインインの画面", () => {
     const layout = stripComments(
       readFileSync(new URL("../layout.tsx", import.meta.url), "utf8"),
     );
+    const main = /<main className="([^"]*)"/.exec(layout)?.[1]?.split(/\s+/);
 
-    expect(
-      /<main className="([^"]*)"/.exec(layout)?.[1]?.split(/\s+/),
-    ).toContain("p-6");
+    // 「`p-6` があるか」では足りない。`p-6 pt-10` のように上下だけ上書きすると、
+    // 余白は 3rem でなくなるのに `p-6` は残る。上下に効く指定がこれだけであることを見る
+    expect(main?.filter((name) => /^p[tby]?-/.test(name))).toEqual(["p-6"]);
   });
 
   it("エラーが無いときはエラー文を出さない", async () => {
