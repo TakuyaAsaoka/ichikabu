@@ -195,11 +195,12 @@ sonner のトーストは自分の CSS を `@layer` の外に差し込んで影�
 | 要素 | 描き方 | 置き場 |
 |---|---|---|
 | 素の要素（リンクなど） | 2px の `outline`。shadcn の既定の `outline-ring/50` だけだと背景との差が 3 を割る | `globals.css` の `@layer base` の `:focus-visible` |
-| 部品（ボタン・入力欄・選択欄） | 部品の 3px の輪（`ring-3 ring-ring/50`）の色の変数 `--tw-ring-color` を透かさない `--ring` に上書きする。消す操作のボタンは `--destructive` | `globals.css` の `@layer` の外 |
+| `focus-visible:ring-*` を持つ部品（ボタン・入力欄・選択欄・文章欄など） | 部品の 3px の輪（`ring-3 ring-ring/50`）の色の変数 `--tw-ring-color` を透かさない `--ring` に上書きする。消す操作のボタンは `--destructive` | `globals.css` の `@layer` の外 |
 
 - 部品は `outline-none` を持ち、層の優先順位で `@layer base` の `outline` に勝つ。上書きを `@layer` の中に置くと効かない
 - **`outline` を `@layer` の外へ出す形にしない。** 部品の半分透かした輪と重なって3重の線に見える。メニューの行（`accent` の面で現在地を示す）にも枠が出て、Radix がマウスを乗せただけで行にフォーカスを移すため、マウス操作でも枠が出る（Chromium・WebKit で実測）
-- ハイコントラスト表示（`forced-colors: active`）では輪（`box-shadow`）が描かれず部品の印が0になるので、そのときだけ `outline` を戻している
+- ハイコントラスト表示（`forced-colors: active`）では輪（`box-shadow`）が描かれず部品の印が0になるので、そのときだけ `outline` を戻している（メニューの行にも枠が出るが、部品の `outline-hidden` がこの表示で元から枠を出すので変わらない）
+- **入力欄に `aria-invalid` を使い始めたら、`[aria-invalid="true"]:focus-visible` にも `--destructive` を足す。** 層の外の上書きは部品の `aria-invalid:ring-destructive/20` にも勝つので、エラーの欄にフォーカスした間だけ輪がネイビーになる（いまは `server/app` で0件）
 - `--tw-ring-color` は Tailwind が決めた名前。名前が変わるとエラーも出ずに半分透かした輪へ戻るので、`globals-css.test.ts` が組んだ CSS で結び付きを見ている
 
 **部品が「色を薄める」で作る状態は、そのつど測る。** shadcn は指を乗せた・押せない状態を、色を薄めて表すことがある。薄めた面や文字は明るさの差が落ちるので、目安を割ることがある（#161 で2つ見つけた）。部品のコードは書き換えず、`globals.css` か呼ぶ側の `className` で打ち消す。

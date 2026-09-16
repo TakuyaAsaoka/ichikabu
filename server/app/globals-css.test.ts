@@ -431,7 +431,7 @@ describe("影を使わない", () => {
     );
   });
 
-  // 部品（ボタン・入力欄・選択欄）は `outline-none` で上の outline を消し、
+  // `focus-visible:ring-*` を持つ部品（ボタン・入力欄・選択欄・文章欄など）は `outline-none` で上の outline を消し、
   // `focus-visible:ring-3 focus-visible:ring-ring/50` の半分透かした輪だけを出す（#176）。
   // 部品のコードは書き換えないので、輪の色の変数を透かさない色で上書きする。
   // 消す操作のボタンは部品が `ring-destructive/20` で役割の色を付けているので、その色のまま透かさない。
@@ -457,10 +457,22 @@ describe("影を使わない", () => {
     const name = source.match(/:focus-visible\s*\{\s*(--[\w-]+):\s*var\(--ring\);/)?.[1];
     expect(name).toBeDefined();
 
-    const color = await buildWith(["focus-visible:ring-ring/50"]);
-    const width = await buildWith(["focus-visible:ring-3"]);
-    expect(color).toContain(`${name}:`);
-    expect(width).toContain(`var(${name}`);
+    // 組んだ CSS には globals.css の上書きそのものも入るので、部品のクラスの規則だけを切り出して見る
+    const css = await buildWith([
+      "focus-visible:ring-ring/50",
+      "focus-visible:ring-3",
+    ]);
+    const ruleOf = (selector: string) => {
+      const start = css.indexOf(selector);
+      expect(start).toBeGreaterThan(-1);
+      return css.slice(start, css.indexOf("\n  }", start));
+    };
+    expect(ruleOf(".focus-visible\\:ring-ring\\/50:focus-visible")).toContain(
+      `${name}:`,
+    );
+    expect(ruleOf(".focus-visible\\:ring-3:focus-visible")).toContain(
+      `var(${name}`,
+    );
   });
 
   // 既定のボタンに指を乗せたときの面の上書き（#161）。上の「明るさの差」は
