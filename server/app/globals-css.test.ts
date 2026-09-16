@@ -446,11 +446,14 @@ describe("影を使わない", () => {
   // 位置は部品のクラスより後ろのままだった。実測）。勝ち負けを決めているのは
   // 並び順ではなく層なので、**書いてある場所**を見る。
   // 規則の手前で中括弧が開きっぱなしなら、何かの中に入っている
-  it("指を乗せた面の上書きは、@layer の外に置いてある", () => {
-    const css = readFileSync(globalsCss, "utf8");
-    const at = css.indexOf(
-      '[data-slot="button"][data-variant="default"]:hover',
-    );
+  it.each([
+    '[data-slot="button"][data-variant="default"]:hover',
+    // 知らせのトースト（#164）。sonner が層の外に差し込む影に勝つには、層の外に要る
+    '[data-sonner-toaster] [data-sonner-toast][data-styled="true"]',
+    "[data-sonner-toaster] [data-sonner-toast]:focus-visible",
+  ])("%s の上書きは、@layer の外に置いてある", (selector) => {
+    const css = stripComments(readFileSync(globalsCss, "utf8"));
+    const at = css.indexOf(selector);
     expect(at).toBeGreaterThan(-1);
 
     const before = css.slice(0, at);
@@ -458,6 +461,19 @@ describe("影を使わない", () => {
       (before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length;
 
     expect(depth).toBe(0);
+  });
+
+  // sonner のトーストは既定で影を持ち、フォーカスの輪も影で描いて outline を消している
+  // （dist/index.mjs の `__insertCSS`）。部品の中の CSS なので、上の `shadow-*` の見張りは届かない。
+  // 効いているかどうかは強さ（属性の数）でも決まるので、選び方ごと見る
+  it("知らせのトーストの影を消し、フォーカスの輪を ring の色で出す", async () => {
+    const css = await buildWith([]);
+    expect(css).toMatch(
+      /\[data-sonner-toaster\] \[data-sonner-toast\]\[data-styled="true"\]\s*\{\s*box-shadow:\s*none/,
+    );
+    expect(css).toMatch(
+      /\[data-sonner-toaster\] \[data-sonner-toast\]:focus-visible\s*\{\s*box-shadow:\s*none;\s*outline:\s*2px solid var\(--ring\)/,
+    );
   });
 });
 
