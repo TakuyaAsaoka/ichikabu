@@ -19,8 +19,8 @@ import { buttonVariants } from "@/components/ui/button";
  * （幅 390px のブラウザで実測）。
  *
  * 見た目は目立ちの弱い塗りのボタン（`secondary`）。中の送信ボタン（`primary`）より
- * 強く見せない。枠だけのボタンにしないのは、枠の色を呼ぶ側で直す決まり
- * （`app/globals-css.test.ts`）が `<Button>` しか見張らず、ここでは効かないため
+ * 強く見せない。面と背景の明るさの差は小さい（`#ecebfb` と `#f7f7fb`）ので、
+ * 押せるものだと示すのは藍の文字と矢印になる
  */
 export function RegisterDetails({
   label,
