@@ -62,8 +62,9 @@ export function ActionForm({
   const [error, formAction, pending] = useActionState(
     async (_previous: string | null, formData: FormData) => {
       const result = await action(formData);
-      // 知らせは送るたびにここで出し、状態には残さない。状態に残して useEffect で
-      // 出す形だと、同じ登録が2回続いたときに状態が変わらず2回目が出ない（#164 の討論）。
+      // 知らせは送るたびにここで出し、状態には残さない。知らせのキーを状態に残して
+      // useEffect で出す形だと、同じ登録が2回続いたときに状態が前と同じ値のままで
+      // 効果が走らず、2回目が出ない（#164 の討論。壊して form.test.tsx が赤になるのを確認）。
       // 更新・削除はここへ戻らずに移る（`redirect()`）。移った先で出すのは
       // `app/app-shell/done-notice.tsx`
       if ("notice" in result) {

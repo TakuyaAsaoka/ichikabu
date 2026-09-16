@@ -115,6 +115,8 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 - **畳まないサイドバーに shadcn の `sidebar` は入れない**（#162）。727行と7つの部品（`sheet`・`tooltip`・`skeleton` 等）を連れてくるが、`collapsible="none"` では Sheet・Ctrl/⌘+B・ツールチップの経路が全部使われない。素の `<aside>` で足りる（`server/app/app-shell/app-shell.tsx`）。開閉とキーボードの扱いが本当に要るアカウントのメニューには `dropdown-menu` を使っている
 - **スマホの下のタブの名前から `whitespace-nowrap` を外さない**（#162）。管理者は監査ログが入って5つ並び、390px では1つの中身が 70px になる。「銘柄とテーマ」は 71.6px でこれより広いが、折り返さない指定のおかげでその行だけ縮まずに保たれ、残りが少しずつ譲る（320px まで溢れないことを実測）。外すと2行になり 64px の帯から溢れる
 - **`server/biome.json` は `components/ui/**` だけ `noLabelWithoutControl` を切ってある**（#162）。`dropdown-menu` の `DropdownMenuPrimitive.Label` は入力欄を持たない見出しだが、`labelComponents` に `Label` を入れてあるため名前で当たる。部品は書き換えない決まりなので、部品の置き場だけ規則の対象から外した。見たいのは `server/app/` のフォームの入れ子なので、そちらは対象のまま残る
+- **登録・更新・削除が済んだ知らせは sonner のトースト**（#164）。文言は `server/app/notice.ts` の表1か所。登録は Server Action の戻り値で `app/form.tsx` が出し、更新・削除は行き先の `?done=` の印を `app/app-shell/done-notice.tsx` が読んで出す。**登録を同じ画面への `redirect` にしない**（画面の先頭へ飛びフォーカスが外れる。`replace` でも同じ。実測）。断りはトーストにせず、フォームの直下のまま
+- **sonner はトーストを部品の外の1つの置き場に持ち、新しく描いた Toaster へ出し直す。** jsdom のテストは `afterEach` で `toast.dismiss()` を呼ばないと、前のテストの知らせが次に出る
 - **`server/biome.json` にコメントを書かない。** biome は設定を読めずに既定へ戻り、エラーが1件から131件に増える（#162 で実測）。理由はこの表に書く
 
 ### 色
@@ -186,6 +188,7 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 **角丸は使う。影は使わない。** `--radius` は `0.5rem`。面の区切りは 1px の枠線。
 shadcn の部品が既定で持つ `shadow-xs` などは、部品を書き換えず `globals.css` の `@theme` で影の値を消してある（クラスを書いても何も生成されない）。
 フォーカスの輪（`ring-*`）は別の値なので残る。
+sonner のトーストは自分の CSS を `@layer` の外に差し込んで影を付けるので、`globals.css` の `@layer` の外で属性を1つ多く重ねて消してある（#164）。
 
 **フォーカスの輪は `ring` の色で、透かさずに描く**（`globals.css` の `:focus-visible`）。shadcn の既定の `outline-ring/50` だけだと背景との差が 3 を割る。
 
