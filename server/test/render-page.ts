@@ -46,8 +46,10 @@ export async function signInAs(email: string): Promise<void> {
  * この形が効くのは、返る要素の中に非同期のコンポーネントが入れ子で無いときだけ。
  * 入れ子があると `renderToStaticMarkup` は待てずに落ちる。
  *
- * **`app/layout.tsx` はここでは描かれない。** 画面の行き先（`app/nav.tsx`）を
- * レイアウトに置かないのはこのため（Issue #112 で討論して決めた）
+ * **レイアウトはここでは描かれない。** Next.js のルーターが合成するため、
+ * この呼び方では一度も通らない。骨組み（`app/(signed-in)/layout.tsx`）を見るときは
+ * レイアウトの関数をこの `render` に直に渡す（`test/pages.test.ts` の `renderShell`）。
+ * レイアウトも非同期の関数なので、画面と同じように描ける（Issue #162 で実測）
  */
 export async function render(page: Page): Promise<string> {
   return renderToStaticMarkup(await page());

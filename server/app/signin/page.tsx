@@ -20,11 +20,16 @@ export default async function SignInPage({
   const { error } = await searchParams;
 
   return (
-    // 他の9画面と同じ型（`app/layout.tsx` の <main> に見出しと中身を直に積む）を
-    // やめ、幅を絞った1列を画面の中央に置く（#163）。
+    // 他の9画面と同じ型（見出しと中身を幅 `max-w-3xl` の1列に直に積む）をやめ、
+    // 幅を絞った1列を画面の中央に置く（#163）。
     //
-    // **`app/layout.tsx` の <main> は触らない。** あそこを変えると9画面に効くうえ、
-    // #162（サインイン後の骨組み）が同じ行を触る。1段内側に包めば signin だけで閉じる。
+    // **外枠も余白もこの画面が持つ。** 根の `app/layout.tsx` は `<html>` と `<body>`
+    // だけで、`<main>` を持たない（#162 で外した。サインイン後の骨組みが
+    // `<main>` の幅と余白を決めるため、サイドバーの外側に置けない）。
+    // #163 は `app/layout.tsx` の `<main>` の `p-6` を当てにして
+    // `min-h-[calc(100dvh-3rem)]` と書いていたが、余白がこの要素に移ったので
+    // 引き算そのものが要らなくなった（`box-sizing: border-box` なので
+    // `min-h-dvh` の中に `p-6` が入る）。ファイルをまたぐ結び付きが1つ減る。
     //
     // **カードで包まない**（#163 で討論して決めた）。
     // `card.tsx` の白い面は背景 `#f7f7fb` との明るさの差が 1.07、
@@ -32,11 +37,7 @@ export default async function SignInPage({
     // 背景の上で 1.14 しかなく、囲いとして見えない（`border` の 1.22 より低い）。
     // 枠を `input` の色にすれば 3.87 で見えるが、
     // 部品の既定（枠・文字の大きさ）を呼ぶ側で3つ打ち消すことになる
-    //
-    // `min-h-[calc(100dvh-3rem)]`: 3rem は <main> の `p-6` の上下ぶん。
-    // これを引かないと、包みが画面より縦に長くなって下に隙間が出る。
-    // 余白のほうが変わったときに気づけるよう、`page.test.ts` が `p-6` を見ている
-    <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-sm flex-col justify-center gap-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 p-6">
       {/* 見出しの文字は変えない。`test/pages.test.ts` の表と1文字ずつ突き合わせている */}
       <h1 className="text-center text-2xl font-bold">イチカブ 管理</h1>
       {error && (
@@ -57,6 +58,6 @@ export default async function SignInPage({
         </Alert>
       )}
       <SignInForm />
-    </div>
+    </main>
   );
 }

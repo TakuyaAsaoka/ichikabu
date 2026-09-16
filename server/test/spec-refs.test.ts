@@ -102,11 +102,14 @@ describe("設計書が指しているコードが実在する", () => {
       decl: "export async function findGaps(",
       section: "状態画面の設計書 §2",
     },
+    // #112 の `Nav` は #162 で骨組み（サイドバーと下のタブ）に置き換わった。
+    // 設計書 §3 には覆したことと新しい置き場所を書き足してあるので、
+    // 指し先もそちらへ付け替える
     {
       spec: "../../docs/records/specs/2026-08-16-112-split-admin-screens-design.md",
-      code: "../app/nav.tsx",
-      name: "Nav",
-      decl: "export function Nav(",
+      code: "../app/app-shell/app-shell.tsx",
+      name: "AppShell",
+      decl: "export function AppShell(",
       section: "管理画面を分ける設計書 §3",
     },
     {

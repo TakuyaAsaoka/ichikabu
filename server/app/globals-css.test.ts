@@ -230,6 +230,48 @@ describe("色の明るさの差", () => {
     expect(buttonTags().length).toBeGreaterThan(0);
   });
 
+  /**
+   * 骨組み（#162）の、外すと静かに壊れるクラス。
+   * どれも見た目が崩れるだけでエラーにならず、テストも他に赤くならない。
+   *
+   * 見るのはファイル全体の文字列。いま両方とも1か所にしか無いので足りるが、
+   * 同じクラスが増えたら、タグ単位で見る上の `tagsOf` の形へ寄せる
+   */
+  it.each([
+    {
+      klass: "whitespace-nowrap",
+      file: "app-shell/nav.tsx",
+      breaks:
+        "管理者の下のタブ5つが2行になり、64px の帯から溢れる（390px では名前が 71.6px、枠は 70px）",
+    },
+    {
+      klass: "pb-24",
+      file: "app-shell/app-shell.tsx",
+      breaks: "画面の最後の行が下のタブに隠れて押せなくなる（タブは 64px）",
+    },
+  ])("$klass を外すと「$breaks」", ({ file, klass }) => {
+    const source = stripComments(
+      readFileSync(path.join(import.meta.dirname, file), "utf8"),
+    );
+
+    expect(source).toContain(klass);
+  });
+
+  it("ネイビーの面2つの両方で、フォーカスの輪の色を差し替えている", () => {
+    // サイドバー（PC）とヘッダー（スマホ）の2か所。外すと輪と面の差が 1.54 になり、
+    // キーボードの現在地が見えない。
+    // **数まで見る。** 「1か所でもある」だと、片方だけ直した状態を緑で通す
+    // （#162 のレビューで実際に片方が抜けていた）
+    const source = stripComments(
+      readFileSync(
+        path.join(import.meta.dirname, "app-shell/app-shell.tsx"),
+        "utf8",
+      ),
+    );
+
+    expect(source.split("[--ring:var(--sidebar-ring)]")).toHaveLength(3);
+  });
+
   /** 消す・外す操作のフォーム。送信ボタンの名前で見分ける */
   const removalForms = () =>
     tagsOf("ActionForm").filter(({ tag }) =>
@@ -316,11 +358,15 @@ describe("影を使わない", () => {
   });
 
   // 部品を通さない素の入力欄とボタンにも、見える輪を出す。
-  // outline-ring/50（半分透かした ring）だけだと背景との差が 3 を割る
+  // outline-ring/50（半分透かした ring）だけだと背景との差が 3 を割る。
+  //
+  // **読む変数は `--ring` で、`--color-ring` ではない**（#162）。後者は
+  // `@theme inline` が `:root` に出すもので、宣言した所で値に解決されてから
+  // 下へ伝わるため、ネイビーの面の上の打ち消しが届かない（理由は globals.css）
   it("フォーカスした要素に ring の色の輪を透かさずに出す", async () => {
     const css = await buildWith([]);
     expect(css).toMatch(
-      /:focus-visible\s*\{\s*outline:\s*2px solid var\(--color-ring\)/,
+      /:focus-visible\s*\{\s*outline:\s*2px solid var\(--ring\)/,
     );
   });
 

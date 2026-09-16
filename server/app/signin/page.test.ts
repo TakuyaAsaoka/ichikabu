@@ -103,18 +103,25 @@ describe("サインインの画面", () => {
     ).not.toEqual([]);
   });
 
-  it("縦の中央寄せが引いている 3rem は、<main> の上下の余白と同じ", () => {
-    // `app/signin/page.tsx` の `min-h-[calc(100dvh-3rem)]` は、
-    // `app/layout.tsx` の <main> が持つ `p-6`（上下 1.5rem ずつ）を引いている。
-    // 余白のほうを変えると、サインインの画面だけが縦に画面をはみ出す。
-    // 結び付きは文章では切れるので、ここで見る
-    const layout = stripComments(
-      readFileSync(new URL("../layout.tsx", import.meta.url), "utf8"),
-    );
-    const main = /<main className="([^"]*)"/.exec(layout)?.[1]?.split(/\s+/);
+  it("縦の高さと余白を、同じ要素が持っている", () => {
+    // #163 は `app/layout.tsx` の <main> が持つ `p-6`（上下 1.5rem ずつ）を当てにして
+    // `min-h-[calc(100dvh-3rem)]` と書いていた。#162 でその <main> が無くなり、
+    // 余白もこの画面へ移ったので、引き算そのものが要らなくなった
+    // （`box-sizing: border-box` なので `min-h-dvh` の中に `p-6` が入る）。
+    //
+    // **2つが別の要素に分かれると、引き算が戻ってくる。** 同じ要素にあることを見る。
+    // 余白が無くなると、狭い画面で欄が窓の端に着く
+    const main = /<main className="([^"]*)"/
+      .exec(
+        stripComments(
+          readFileSync(new URL("./page.tsx", import.meta.url), "utf8"),
+        ),
+      )?.[1]
+      ?.split(/\s+/);
 
-    // 「`p-6` があるか」では足りない。`p-6 pt-10` のように上下だけ上書きすると、
-    // 余白は 3rem でなくなるのに `p-6` は残る。上下に効く指定がこれだけであることを見る
+    expect(main).toContain("min-h-dvh");
+    // 上下に効く余白の指定がこれだけであることを見る。`p-6 pt-10` のように
+    // 上下だけ上書きすると、中央寄せがずれるのに `p-6` は残る
     expect(main?.filter((name) => /^p[tby]?-/.test(name))).toEqual(["p-6"]);
   });
 

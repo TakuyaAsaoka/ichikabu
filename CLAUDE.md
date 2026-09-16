@@ -112,6 +112,10 @@ iPhone から使う配信先（＝本番）は Netlify（`https://ichikabu.netli
 - **`shadcn init` は動かない**（`server/` に `next.config.*` が無く「We could not detect a supported framework」で止まる）。`server/components.json` は手で書いてある
 - **`shadcn add` は、部品が取り込む包みを全部は足さない。** `button`・`badge`・`alert` の `class-variance-authority`、`native-select` の `lucide-react` などは `pnpm add` で足す（足し忘れは `pnpm typecheck` で落ちる）
 - **`shadcn add` は `globals.css` の `@import "shadcn/tailwind.css"` と `@import "tw-animate-css"` も足さない。** 消すとエラーにならずに開閉の見た目だけが効かなくなるので、2行とも消さない（`server/app/globals-css.test.ts` が赤にする）
+- **畳まないサイドバーに shadcn の `sidebar` は入れない**（#162）。727行と7つの部品（`sheet`・`tooltip`・`skeleton` 等）を連れてくるが、`collapsible="none"` では Sheet・Ctrl/⌘+B・ツールチップの経路が全部使われない。素の `<aside>` で足りる（`server/app/app-shell/app-shell.tsx`）。開閉とキーボードの扱いが本当に要るアカウントのメニューには `dropdown-menu` を使っている
+- **スマホの下のタブの名前から `whitespace-nowrap` を外さない**（#162）。管理者は監査ログが入って5つ並び、390px では1つの中身が 70px になる。「銘柄とテーマ」は 71.6px でこれより広いが、折り返さない指定のおかげでその行だけ縮まずに保たれ、残りが少しずつ譲る（320px まで溢れないことを実測）。外すと2行になり 64px の帯から溢れる
+- **`server/biome.json` は `components/ui/**` だけ `noLabelWithoutControl` を切ってある**（#162）。`dropdown-menu` の `DropdownMenuPrimitive.Label` は入力欄を持たない見出しだが、`labelComponents` に `Label` を入れてあるため名前で当たる。部品は書き換えない決まりなので、部品の置き場だけ規則の対象から外した。見たいのは `server/app/` のフォームの入れ子なので、そちらは対象のまま残る
+- **`server/biome.json` にコメントを書かない。** biome は設定を読めずに既定へ戻り、エラーが1件から131件に増える（#162 で実測）。理由はこの表に書く
 
 ### 色
 
