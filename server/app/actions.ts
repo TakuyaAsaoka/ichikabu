@@ -90,7 +90,8 @@ type Write = (formData: FormData) => Promise<WriteResult>;
  * @param options.adminOnly 管理者だけができる操作（削除）に付ける
  * @param options.redirectTo 成功したときの行き先。省くとその画面に留まる。
  *   更新・削除は一覧に戻す（設計書 §5.3）。編集ページに留まらせると
- *   「更新した」を出すための状態を別に持つことになる
+ *   「更新した」を出すための状態を別に持つことになる。
+ *   `?` 以降を含めない（知らせの印を `?done=` で後ろに付けるため）
  */
 function action(
   write: Write,

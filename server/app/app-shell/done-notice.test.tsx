@@ -59,6 +59,24 @@ describe("移った先で出す知らせ", () => {
     await vi.waitFor(() => expect(announced("イベントを削除しました")).toBe(1));
   });
 
+  // sonner は幅 600px 以下で `--mobile-offset-bottom`、それより広いと `--offset-bottom` を使う。
+  // 下のタブは 768px 未満まで出るので、片方だけだと 601〜767px でタブに重なる
+  // （レビューの指摘。700px で実測）。位置の計算は jsdom ではできないので、渡した値を見る
+  it("どの幅でも、下のタブ（64px）の上に出す", async () => {
+    navigateTo("/?done=stock-updated");
+
+    render(<Shell />);
+    await vi.waitFor(() => expect(announced("銘柄を更新しました")).toBe(1));
+
+    const toaster = document.querySelector<HTMLElement>(
+      "[data-sonner-toaster]",
+    );
+    expect(toaster?.style.getPropertyValue("--offset-bottom")).toBe("80px");
+    expect(toaster?.style.getPropertyValue("--mobile-offset-bottom")).toBe(
+      "80px",
+    );
+  });
+
   it("知らせを出したら、URL から印を外す（再読み込みしても出ない）", async () => {
     navigateTo("/events?done=event-removed");
     render(<Shell />);
