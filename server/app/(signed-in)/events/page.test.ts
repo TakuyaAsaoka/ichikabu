@@ -78,6 +78,33 @@ describe("イベントの画面", () => {
     ).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-12-01"]);
   });
 
+  it("PC で1件を1行に並べる列の数と、見出しと行の項目の数が合っている", async () => {
+    // 列の数は包みの `lg:grid-cols-[...]` に書き、行の項目とは別の場所にある（#172）。
+    // 項目を足して列を足し忘れてもエラーにならず、1件が2段に折れるだけになる。
+    // jsdom はレイアウトを計算しないので、見た目では気づけない。数を突き合わせる。
+    // 非アクティブのバッジは名称と同じ枠に入れてあるので、付いても項目は増えない
+    await db.insert(event).values({
+      title: "日本銀行 金融政策決定会合",
+      shortLabel: "日銀会合",
+      startDate: "2026-10-01",
+      importance: 2,
+      market: "JP",
+      active: false,
+    });
+    await signInAs(EDITOR);
+
+    const html = await render(Page);
+
+    // 列は `_` で区切って書く（`minmax(0,2fr)` の中に `_` は入らない）
+    const columns = html.match(/lg:grid-cols-\[([^\]]+)\]/)?.[1].split("_");
+    expect(columns).toBeDefined();
+    expect(htmlOf(html, "section > div > [aria-hidden] > *")).toHaveLength(
+      columns?.length ?? 0,
+    );
+    // 日付は要素で包まず、行の先頭の文字のまま置いている（1つ上の検査が読むため）
+    expect(htmlOf(html, "li > *").length + 1).toBe(columns?.length);
+  });
+
   it("登録フォームは2つとも閉じて描かれ、それぞれの操作から開く", async () => {
     // 開くとまず一覧が見え、フォームは登録するときだけ開く（#165）。
     // イベントのフォームは10欄あり、開いたまま描くと一覧が画面の下へ押しやられる

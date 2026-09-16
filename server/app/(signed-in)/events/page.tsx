@@ -84,48 +84,89 @@ export default async function Page() {
         <RegisterDetails label="まとめて登録">
           <BulkEventForm />
         </RegisterDetails>
-        <ul className="flex flex-col gap-1">
-          {events.map((row) => {
-            const id = String(row.id);
-            return (
-              <li
-                key={row.id}
-                // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
-                // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない
-                className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1"
-              >
-                {/* **日付を行の先頭から動かさない。** `app/events/page.test.ts` が
+        {/* PC（lg 以上）は列をそろえ、1件を1行に収める（#172）。名称と出典だけを
+            切り詰め、項目は1つも落とさない（出典は一覧に出す。編集・削除 設計書 §3.1）。
+            lg 未満は本文の幅が 720px に届かない（サイドバーが 224px 取る）ので、
+            いまの折り返す並びのまま全文を出す。行は1通りで、幅で変わるのはクラスだけ。
+            **行に項目を足したら、列の指定と見出しのマスも足す。** 足し忘れても
+            エラーにならず1件が2段に折れるだけなので、`page.test.ts` が数を突き合わせている */}
+        <div className="lg:grid lg:grid-cols-[auto_auto_auto_auto_minmax(0,2fr)_minmax(5rem,1fr)_auto_auto] lg:gap-x-2 lg:text-sm">
+          {/* 行の「出典: 」「入力: 」は PC では画面から消すので、何の列かをここで示す。
+              読み上げには行の側の前置きが残るので、見出しは読ませない。
+              他の列は中身で分かる。見出しを付けると中身より広い列が出て、名称の列が縮む */}
+          <div
+            aria-hidden="true"
+            className="hidden text-muted-foreground text-xs lg:col-span-full lg:grid lg:grid-cols-subgrid"
+          >
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span>出典</span>
+            <span>入力</span>
+            <span />
+          </div>
+          <ul className="flex flex-col gap-y-1 lg:col-span-full lg:grid lg:grid-cols-subgrid">
+            {events.map((row) => {
+              const id = String(row.id);
+              return (
+                <li
+                  key={row.id}
+                  // 「 / 」でつないだ1文をやめ、項目ごとに区切って並べる（#161）。
+                  // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+                >
+                  {/* **日付を行の先頭から動かさない。** `app/events/page.test.ts` が
                     行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。
                     前に何かを足すと、並び順の検査が日付以外を比べ始める */}
-                {row.startDate}
-                {row.endDate !== null && `〜${row.endDate}`}
-                <span>★{row.importance}</span>
-                <span>{row.shortLabel}</span>
-                {/* 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
-                    ここに出す（公表予定の非アクティブ化 設計書 §4）。
-                    行の頭に角括弧つきの文字を置く形をやめ、バッジにした（#161） */}
-                {!row.active && <Badge variant="secondary">非アクティブ</Badge>}
-                <span className="text-muted-foreground">
-                  {row.market ?? row.themeName ?? row.ticker}
-                </span>
-                <span className="text-muted-foreground">{row.title}</span>
-                <span className="text-muted-foreground">
-                  出典: {row.sourceName ?? "表示名なし"}
-                </span>
-                <span className="text-muted-foreground">
-                  入力:{" "}
-                  {/* 記録が無いことと、取り込みが入れたことは別（→ `creatorNamesByEventId`） */}
-                  {creators.has(id)
-                    ? (creators.get(id) ?? "取り込み")
-                    : "記録なし"}
-                </span>
-                <Link href={`/events/${row.id}`} className="underline">
-                  編集
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                  {row.startDate}
+                  {row.endDate !== null && `〜${row.endDate}`}
+                  <span>★{row.importance}</span>
+                  <span>{row.shortLabel}</span>
+                  <span className="text-muted-foreground">
+                    {row.market ?? row.themeName ?? row.ticker}
+                  </span>
+                  {/* 切り詰めた全文は `title` で読める。編集ページにも全文が出る */}
+                  <span className="flex min-w-0 items-center gap-2">
+                    {/* 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
+                      ここに出す（公表予定の非アクティブ化 設計書 §4）。
+                      行の頭に角括弧つきの文字を置く形をやめ、バッジにした（#161）。
+                      名称と同じマスに入れ、付いた行だけ列が増えないようにした（#172） */}
+                    {!row.active && (
+                      <Badge variant="secondary">非アクティブ</Badge>
+                    )}
+                    <span
+                      className="text-muted-foreground lg:truncate"
+                      title={row.title}
+                    >
+                      {row.title}
+                    </span>
+                  </span>
+                  {/* 「表示名なし」は切らない（出典の列の最小 5rem に収まる）。
+                    入っているかどうかを一覧で見るための欄なので（設計書 §3.1） */}
+                  <span
+                    className="text-muted-foreground lg:truncate"
+                    title={row.sourceName ?? undefined}
+                  >
+                    <span className="lg:sr-only">出典: </span>
+                    {row.sourceName ?? "表示名なし"}
+                  </span>
+                  <span className="text-muted-foreground">
+                    <span className="lg:sr-only">入力: </span>
+                    {/* 記録が無いことと、取り込みが入れたことは別（→ `creatorNamesByEventId`） */}
+                    {creators.has(id)
+                      ? (creators.get(id) ?? "取り込み")
+                      : "記録なし"}
+                  </span>
+                  <Link href={`/events/${row.id}`} className="underline">
+                    編集
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </section>
     </>
   );
