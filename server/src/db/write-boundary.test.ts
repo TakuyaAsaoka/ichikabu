@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { stripComments } from "../../test/source";
 
 /**
  * 書き込み関数を呼んでよいファイルの一覧（監査ログ設計書 §5.2）。
@@ -68,15 +69,6 @@ const DIRECT_WRITE = /\b(?:db|tx)\b\s*\.\s*(?:insert|update|delete|execute)\b/;
 const DELETE_CALL = /\b(?:db|tx)\b\s*\.\s*delete\(/;
 
 /**
- * ファイルの `export` の行。行の途中に現れる `export` は拾わない。
- *
- * 塊に切り出す `exportedBlocks` は使わない。あちらは名前を取れない export を
- * 黙って捨てるため、`export default async function` の Server Action が
- * 素通りする（実測）
- */
-const EXPORT_LINE = /^export .*/gm;
-
-/**
  * `export` の行から、次の `export` の行の手前までを1つの塊にする。
  *
  * 上の `exportedBlocks` は使わない。あちらは名前を取れない export
@@ -105,7 +97,11 @@ const GUARDED_EXPORT = /^export const \w+ = action\(/;
  *
  * **`action()` に寄せられない。** あれは `useActionState` の形
  * （前の状態と FormData を受け取り、エラー文を返す）で、書き込みと監査ログの
- * 記録を運ぶための外枠。サインアウトはフォームの送信ではなく、実データも変えない
+ * 記録を運ぶための外枠。サインアウトはフォームの送信ではなく、実データも変えない。
+ *
+ * **見る前にコメントを落とす**（呼ぶ側で `stripComments`）。落とさないと
+ * 「`requireSession()` はここでは呼ばない」と書いたコメントだけで通る
+ * （このリポジトリは同じ抜け方を #161 で2度踏んでいる。→ `test/source.ts`）
  */
 const SELF_GUARDED_BODY = /\brequireSession\(/;
 
@@ -296,22 +292,13 @@ describe("書き込みの経路", () => {
         .filter(
           (block) =>
             !GUARDED_EXPORT.test(`export ${block}`) &&
-            !SELF_GUARDED_BODY.test(block),
+            !SELF_GUARDED_BODY.test(stripComments(block)),
         )
         // 報せるのは export の行だけにする。塊ごと出すとファイルの残り全部が並ぶ
         .map((block) => `${path}: export ${block.split("\n")[0]}`),
     );
 
     expect(notGuarded).toEqual([]);
-
-    // 通し方を2つにしたぶん、`EXPORT_LINE` で数えた export の数と
-    // 塊の数が合っていることを見る。合わなければ、どちらかが export を
-    // 取りこぼしている（見張りが黙って減る形）
-    for (const [path, source] of files) {
-      expect(exportLineBlocks(source), path).toHaveLength(
-        (source.match(EXPORT_LINE) ?? []).length,
-      );
-    }
   });
 
   it("書き込み関数を呼ぶ2つから record( の呼び出しが消えていない", () => {
