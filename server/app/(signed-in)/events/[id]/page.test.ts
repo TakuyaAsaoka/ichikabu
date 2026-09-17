@@ -8,7 +8,7 @@ import {
 } from "../../../../src/db/write";
 import { htmlOf } from "../../../../test/dom";
 import { idOf, resetDatabase } from "../../../../test/helpers";
-import { eventInput, stockInput } from "../../../../test/inputs";
+import { eventInput, MARKET_SOURCE, stockInput } from "../../../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../../../test/render-page";
 import Page from "./page";
 
@@ -21,13 +21,17 @@ beforeEach(async () => {
   await signInAs(EDITOR);
 });
 
-/** 空にできる欄をすべて空にしたイベント。埋めたい欄だけ上書きする */
+/**
+ * 空にできる欄をなるべく空にしたイベント。埋めたい欄だけ上書きする。
+ * 出典は、市場イベントが出典なしでは入らないため埋めてある（`event_market_source_check`）
+ */
 const MINIMAL = eventInput({
   title: "CPIの発表",
   shortLabel: "CPI",
   startDate: "2026-09-01",
   importance: 2,
   market: "JP",
+  ...MARKET_SOURCE,
 });
 
 async function addEvent(overrides: Partial<EventInput> = {}): Promise<string> {

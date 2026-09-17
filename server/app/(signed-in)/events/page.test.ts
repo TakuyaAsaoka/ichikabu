@@ -11,7 +11,7 @@ import {
 } from "../../../src/db/write";
 import { htmlOf } from "../../../test/dom";
 import { entriesOf, resetDatabase } from "../../../test/helpers";
-import { eventInput } from "../../../test/inputs";
+import { eventInput, MARKET_SOURCE } from "../../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 import Page from "./page";
 
@@ -27,6 +27,7 @@ function toInput(shortLabel: string, startDate = "2026-09-01"): EventInput {
     shortLabel,
     startDate,
     market: "JP",
+    ...MARKET_SOURCE,
   });
 }
 
@@ -89,6 +90,7 @@ describe("イベントの画面", () => {
       startDate: "2026-10-01",
       importance: 2,
       market: "JP",
+      ...MARKET_SOURCE,
       active: false,
     });
     await signInAs(EDITOR);
@@ -176,6 +178,7 @@ describe("イベントの画面", () => {
       startDate: "2026-10-01",
       importance: 2,
       market: "JP",
+      ...MARKET_SOURCE,
       active: false,
     });
 

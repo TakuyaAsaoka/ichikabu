@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { resetDatabase } from "../../test/helpers";
-import { eventInput, stockInput } from "../../test/inputs";
+import { eventInput, MARKET_SOURCE, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { event, stock, theme, themeStock } from "./schema";
 import {
@@ -191,14 +191,28 @@ describe("createThemeStock", () => {
   });
 });
 
-/** 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`） */
-const BASE = eventInput();
+/**
+ * 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`）。
+ * 市場イベントは出典が無いと入らないので、出典を入れておく。
+ * **出典を見るテストは、名前とURLの両方を自分で書く**（ここに隠れた値で緑にならないように）
+ */
+const BASE = eventInput(MARKET_SOURCE);
 
 /** イベントの行が1件だけ入ったことを確かめ、その行を返す */
 async function onlyEvent() {
   const rows = await db.select().from(event);
   expect(rows).toHaveLength(1);
   return rows[0];
+}
+
+/** 銘柄を1件登録してIDを返す。銘柄イベントの対象に使う */
+async function registerToyota(): Promise<number> {
+  await createStock({ ...TOYOTA });
+  const [{ id }] = await db
+    .select({ id: stock.id })
+    .from(stock)
+    .where(eq(stock.ticker, TOYOTA.ticker));
+  return id;
 }
 
 describe("createEvent", () => {
@@ -326,17 +340,25 @@ describe("createEvent", () => {
   it("出典の名前だけだとエラー文が返る", async () => {
     // 画面に出した出典から元のページへたどれなくなる（設計書 §3.1）
     expect(
-      await createEvent({ ...BASE, market: "JP", sourceName: "内閣府" }),
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        sourceName: "内閣府",
+        sourceUrl: null,
+      }),
     ).toBe("出典の名前を入れるならURLも入れる");
     expect(await db.select().from(event)).toHaveLength(0);
   });
 
-  it("出典のURLだけで登録できる", async () => {
-    // source_url は運用者が誤登録を追うための記録で、画面に出さない使い方がある
+  it("銘柄イベントは出典のURLだけで登録できる", async () => {
+    // source_url は運用者が誤登録を追うための記録で、画面に出さない使い方がある。
+    // 各社IRは出典の記載が条件でないため、この形が正しい（出典表示設計書 §3.1）
+    const stockId = await registerToyota();
     expect(
       await createEvent({
         ...BASE,
-        market: "JP",
+        stockId,
+        sourceName: null,
         sourceUrl: "https://global.toyota/jp/ir/",
       }),
     ).toEqual(succeeded);
@@ -344,6 +366,37 @@ describe("createEvent", () => {
     const row = await onlyEvent();
     expect(row.sourceName).toBeNull();
     expect(row.sourceUrl).toBe("https://global.toyota/jp/ir/");
+  });
+
+  it("銘柄イベントは出典が無くても登録できる", async () => {
+    const stockId = await registerToyota();
+
+    expect(
+      await createEvent({ ...BASE, stockId, sourceName: null, sourceUrl: null }),
+    ).toEqual(succeeded);
+  });
+
+  it("市場イベントに出典の名前が無いとエラー文が返る", async () => {
+    // 市場イベントの出典（府省・FRB・BLS）は、出典の記載が利用の条件。
+    // 名前が無いと GET /events が出典を返さず、条件を満たさないままアプリに出る
+    // （全体設計書 §5・§5.1）。URLだけでも、何も無くても同じ
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        sourceName: null,
+        sourceUrl: null,
+      }),
+    ).toBe("市場イベントには出典の名前とURLを入れる");
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "US",
+        sourceName: null,
+        sourceUrl: "https://www.bls.gov/schedule/news_release/cpi.htm",
+      }),
+    ).toBe("市場イベントには出典の名前とURLを入れる");
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 
   it("重要度が1〜3の外だとエラー文が返る", async () => {
@@ -395,13 +448,19 @@ describe("updateEvent", () => {
     const id = await registerEvent();
 
     expect(
-      await updateEvent(id, { ...BASE, market: "JP", sourceName: "内閣府" }),
+      await updateEvent(id, {
+        ...BASE,
+        market: "JP",
+        sourceName: "内閣府",
+        sourceUrl: null,
+      }),
     ).toBe("出典の名前を入れるならURLも入れる");
-    expect((await onlyEvent()).sourceName).toBeNull();
+    expect((await onlyEvent()).sourceUrl).toBe(MARKET_SOURCE.sourceUrl);
   });
 
   it("出典の名前とURLを両方入れて更新できる", async () => {
-    // 出典を入れ忘れた行を直せること。これが Issue #43 の目的
+    // 出典を書き違えた行を直せること。これが Issue #43 の目的
+    // （出典を入れ忘れた市場イベントは、Issue #179 から DB が入れさせない）
     const id = await registerEvent();
 
     expect(

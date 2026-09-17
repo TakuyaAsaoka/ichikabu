@@ -18,7 +18,7 @@ import {
   createThemeStock,
 } from "../src/db/write";
 import { resetDatabase } from "../test/helpers";
-import { eventInput, stockInput } from "../test/inputs";
+import { eventInput, MARKET_SOURCE, stockInput } from "../test/inputs";
 import { PASSWORD, redirectedTo, signInAs } from "../test/render-page";
 import { requestHeaders } from "../test/setup";
 import {
@@ -72,6 +72,7 @@ async function seedTargets(): Promise<void> {
       shortLabel: "日銀",
       startDate: "2026-03-31",
       market: "JP",
+      ...MARKET_SOURCE,
     }),
   );
 }
@@ -224,8 +225,8 @@ const notified = [
             "21:30",
             "2",
             "",
-            "",
-            "",
+            MARKET_SOURCE.sourceUrl,
+            MARKET_SOURCE.sourceName,
           ].join("\t"),
         }),
       ),
@@ -337,6 +338,7 @@ describe("管理者ではない入力者", () => {
           startDate: "2026-04-28",
           importance: "3",
           target: "market:JP",
+          ...MARKET_SOURCE,
         }),
       ),
     );
