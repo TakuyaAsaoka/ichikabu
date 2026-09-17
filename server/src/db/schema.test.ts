@@ -1,18 +1,22 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
-import { stockInput } from "../../test/inputs";
+import { MARKET_SOURCE, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { AUDIT_RESOURCES, event, stock, theme, themeStock } from "./schema";
 
 beforeEach(resetDatabase);
 
-/** イベントの日付列の共通部分。対象の3列だけをテストごとに変える */
+/**
+ * イベントの日付列の共通部分。対象の3列だけをテストごとに変える。
+ * 出典は、市場イベントが出典なしでは入らないため入れておく（`event_market_source_check`）
+ */
 const eventBase = {
   title: "テスト用イベント",
   shortLabel: "テスト",
   startDate: "2026-08-05",
   importance: 2,
+  ...MARKET_SOURCE,
 } as const;
 
 /** 既定のティッカーは `test/inputs.ts` から取る（同じ値を2か所に書かない） */

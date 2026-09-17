@@ -6,7 +6,7 @@ import { requireSession } from "../../guard";
 /**
  * 状態の画面。登録の抜けを種類ごとに並べる（#110）。
  * 判定は持たず `src/status.ts` の `findGaps` を呼ぶだけにする。
- * 5種類それぞれの「抜けあり・抜けなし」を、画面の形に左右されずに確かめられる
+ * 4種類それぞれの「抜けあり・抜けなし」を、画面の形に左右されずに確かめられる
  * （画面そのものも検査できる。→ `src/status.ts` の注記）
  */
 export default async function Page() {

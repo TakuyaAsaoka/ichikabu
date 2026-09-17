@@ -6,6 +6,7 @@ import {
   expectPublicApiCacheHeaders,
   resetDatabase,
 } from "../../../test/helpers";
+import { MARKET_SOURCE } from "../../../test/inputs";
 import { GET } from "./route";
 
 type Event = components["schemas"]["Event"];
@@ -50,6 +51,7 @@ describe("GET /api/events", () => {
         startDate: "2026-09-17",
         importance: 3,
         market: "JP",
+        ...MARKET_SOURCE,
       },
       {
         title: "米国市場休場",
@@ -57,6 +59,7 @@ describe("GET /api/events", () => {
         startDate: "2026-11-26",
         importance: 1,
         market: "US",
+        ...MARKET_SOURCE,
       },
       {
         title: "FOMC",
@@ -64,6 +67,7 @@ describe("GET /api/events", () => {
         startDate: "2026-09-16",
         importance: 3,
         market: "GLOBAL",
+        ...MARKET_SOURCE,
       },
     ]);
 
@@ -170,6 +174,7 @@ describe("GET /api/events", () => {
         startDate: "2026-11-07",
         importance: 1,
         market: "JP",
+        ...MARKET_SOURCE,
       },
     ]);
 
@@ -232,6 +237,7 @@ describe("GET /api/events", () => {
         startDate: "2026-10-23",
         importance: 2,
         market: "JP",
+        ...MARKET_SOURCE,
       },
       {
         title: "消費者物価指数（2026年10月分）",
@@ -239,6 +245,7 @@ describe("GET /api/events", () => {
         startDate: "2026-11-20",
         importance: 2,
         market: "JP",
+        ...MARKET_SOURCE,
         active: false,
       },
       {
@@ -247,6 +254,7 @@ describe("GET /api/events", () => {
         startDate: "2020-01-01",
         importance: 2,
         market: "JP",
+        ...MARKET_SOURCE,
         active: false,
       },
     ]);
@@ -332,6 +340,7 @@ describe("GET /api/events", () => {
         time: "09:00:00",
         importance: 1,
         market: "GLOBAL",
+        ...MARKET_SOURCE,
       },
       {
         title: "A",
@@ -339,6 +348,7 @@ describe("GET /api/events", () => {
         startDate: "2026-09-16",
         importance: 1,
         market: "GLOBAL",
+        ...MARKET_SOURCE,
       },
       {
         title: "C",
@@ -346,6 +356,7 @@ describe("GET /api/events", () => {
         startDate: "2026-09-15",
         importance: 1,
         market: "GLOBAL",
+        ...MARKET_SOURCE,
       },
       {
         title: "D",
@@ -354,6 +365,7 @@ describe("GET /api/events", () => {
         time: "08:00:00",
         importance: 1,
         market: "GLOBAL",
+        ...MARKET_SOURCE,
       },
     ]);
 
@@ -371,6 +383,7 @@ describe("GET /api/events", () => {
         startDate: "2026-09-16",
         importance: 1,
         market: "GLOBAL" as const,
+        ...MARKET_SOURCE,
       })),
     );
 

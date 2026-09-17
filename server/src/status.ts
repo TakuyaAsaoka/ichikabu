@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, notExists, sql } from "drizzle-orm";
+import { and, eq, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "./db";
 import { event, stock } from "./db/schema";
 import { RIGHTS_YEARS } from "./rights";
@@ -7,7 +7,7 @@ import { RIGHTS_YEARS } from "./rights";
  * 登録の抜けを見つける。
  *
  * 判定をここに置き、`app/status/page.tsx` は呼んで並べるだけにする。
- * 5種類それぞれの「抜けあり・抜けなし」を、画面の形に左右されずに確かめられる。
+ * 4種類それぞれの「抜けあり・抜けなし」を、画面の形に左右されずに確かめられる。
  *
  * **「画面は描画できないから検査できない」と書いてあったのは誤りだった**（Issue #111 で実測）。
  * `@testing-library`・`jsdom`・`happy-dom` はどれも要らず、`react-dom/server` の
@@ -24,7 +24,6 @@ import { RIGHTS_YEARS } from "./rights";
 export const GAP_KINDS = [
   "nextEarnings",
   "fiscalMonth",
-  "sourceName",
   "pastInactive",
   "closedDays",
 ] as const;
@@ -35,7 +34,6 @@ export type GapKind = (typeof GAP_KINDS)[number];
 export const GAP_TITLES: Record<GapKind, string> = {
   nextEarnings: "次の決算日が未登録",
   fiscalMonth: "決算月なし",
-  sourceName: "出典の表示名なし",
   pastInactive: "過ぎた非アクティブ",
   closedDays: "休場日リストの不足",
 };
@@ -117,18 +115,9 @@ export async function findGaps(today: string): Promise<Gap[]> {
   const year = Number(today.slice(0, 4));
 
   // この2つだけ関数に切り出してあるのは、並び順を `toSQL()` で見るため。
-  // 残り2つは走らせた結果で守れるので切り出さない
+  // 残りの過ぎた非アクティブは走らせた結果で守れるので切り出さない
   const noNextEarnings = await noNextEarningsQuery(today);
   const noFiscalMonth = await noFiscalMonthQuery();
-
-  // 出典URLはあるが表示名が無い行。出典の記載を条件とする出典では規約の条件を
-  // 満たさず、`GET /events` が出典を返さない。
-  // 逆（名前だけ）は CHECK 制約 `event_source_name_check` が防いでいる
-  const noSourceName = await db
-    .select({ id: event.id, startDate: event.startDate, title: event.title })
-    .from(event)
-    .where(and(isNotNull(event.sourceUrl), isNull(event.sourceName)))
-    .orderBy(event.startDate);
 
   // 非アクティブのまま日付が過ぎた行（＝中止が確定した回）。消してよい行を出す。
   // 非アクティブにするのは開始日が今日以降の行だけなので、
@@ -156,11 +145,6 @@ export async function findGaps(today: string): Promise<Gap[]> {
       kind: "fiscalMonth" as const,
       label: `JP ${row.ticker} ${row.name}`,
       href: `/stocks/${row.id}`,
-    })),
-    ...noSourceName.map((row) => ({
-      kind: "sourceName" as const,
-      label: `${row.startDate} ${row.title}`,
-      href: `/events/${row.id}`,
     })),
     ...pastInactive.map((row) => ({
       kind: "pastInactive" as const,

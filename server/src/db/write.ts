@@ -26,6 +26,7 @@ const MESSAGES: Record<string, string> = {
   event_period_check: "終了日は開始日より後にする（単日は空のまま）",
   event_importance_check: "重要度は1〜3",
   event_source_name_check: "出典の名前を入れるならURLも入れる",
+  event_market_source_check: "市場イベントには出典の名前とURLを入れる",
   event_market_check: "市場は JP・US・GLOBAL のどれか",
   // 存在しないIDを指した外部キー違反。選択肢は画面がDBから出しているため、
   // 画面を通した操作では起きない。Server Action への直接POSTでだけ届く。
