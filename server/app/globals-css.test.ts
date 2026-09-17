@@ -120,6 +120,16 @@ describe("色の明るさの差", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
+  // 上の検査は、メニューの行が `accent` で塗られることに頼っている。
+  // `shadcn add --overwrite` で部品の既定が別の変数に変われば、値を見ても守れないので赤くする
+  it("メニューの行は現在地を accent の面で示す", () => {
+    const source = readFileSync(
+      path.join(root, "components", "ui", "dropdown-menu.tsx"),
+      "utf8",
+    );
+    expect(source.split("focus:bg-accent ")).toHaveLength(5);
+  });
+
   // 入力欄の見た目は `app/form.tsx` の `field` から `@/components/ui` の部品へ移った（#161）。
   // 部品のコードは書き換えない決まりなので、部品が持っている色をここで見る。
   // `shadcn add --overwrite` で入れ直したときに既定が変わっていれば赤くなる
