@@ -45,8 +45,13 @@
   --secondary-foreground: #3a3f8f;
   --muted: #efeff5;
   --muted-foreground: #5e6178;
-  --accent: #ecebfb;
-  --accent-foreground: #3a3f8f;
+  /*
+   * 現在地の面（メニューの行・下のタブの現在地）。サイドバーの現在地と同じ組み合わせ。
+   * 面だけで現在地を示すので、周りとの差を 3 以上にする（#180。前の #ecebfb は白と 1.18）。
+   * 文字を #3a3f8f のまま残せる面は無い（白と 3 以上と、文字と 4.5 以上が両立しない）
+   */
+  --accent: #2c3a60;
+  --accent-foreground: #ffffff;
   --destructive: #9f1239;
   --border: #e0e0ec;
   --input: #7d8099;

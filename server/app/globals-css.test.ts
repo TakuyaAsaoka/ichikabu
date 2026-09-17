@@ -91,6 +91,8 @@ describe("色の明るさの差", () => {
     ["primary-foreground", "primary-hover"],
     // 登録フォームを開く操作の文字と面（`app/register-details.tsx`。#165）
     ["secondary-foreground", "secondary"],
+    // 現在地の面の上の文字（メニューの行・下のタブの現在地。#180）
+    ["accent-foreground", "accent"],
   ])("文字 %s は面 %s の上で 4.5 以上ある", (text, surface) => {
     expect(contrast(colorOf(text), colorOf(surface))).toBeGreaterThanOrEqual(
       4.5,
@@ -103,6 +105,29 @@ describe("色の明るさの差", () => {
     expect(
       contrast(colorOf("input"), colorOf("background")),
     ).toBeGreaterThanOrEqual(3);
+  });
+
+  // 現在地を示すのは `accent` の面だけ。メニューの行は部品が `outline-hidden` で枠を消し
+  // `focus:bg-accent` で塗るだけで、下のタブの現在地（`app/app-shell/nav.tsx`）も面と太字だけ。
+  // 面と周りの差が 3 を割ると、キーボードで行を移ったときに選んでいる行を見失う（#180。
+  // 前の `#ecebfb` はメニューの白と 1.18、背景と 1.10 だった）
+  it.each([
+    ["popover", "メニューの面"],
+    ["background", "下のタブの面"],
+  ])("現在地の面 accent は %s（%s）の上で 3 以上ある", (surface) => {
+    expect(
+      contrast(colorOf("accent"), colorOf(surface)),
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  // 上の検査は、メニューの行が `accent` で塗られることに頼っている。
+  // `shadcn add --overwrite` で部品の既定が別の変数に変われば、値を見ても守れないので赤くする
+  it("メニューの行は現在地を accent の面で示す", () => {
+    const source = readFileSync(
+      path.join(root, "components", "ui", "dropdown-menu.tsx"),
+      "utf8",
+    );
+    expect(source.split("focus:bg-accent ")).toHaveLength(5);
   });
 
   // 入力欄の見た目は `app/form.tsx` の `field` から `@/components/ui` の部品へ移った（#161）。
@@ -424,10 +449,13 @@ describe("影を使わない", () => {
   // **読む変数は `--ring` で、`--color-ring` ではない**（#162）。後者は
   // `@theme inline` が `:root` に出すもので、宣言した所で値に解決されてから
   // 下へ伝わるため、ネイビーの面の上の打ち消しが届かない（理由は globals.css）
+  //
+  // **輪を要素から離す（outline-offset）。** 下のタブの現在地は `accent` の面で、輪の `ring` との差が
+  // 1.22 しかない。間に背景を 2px はさむので、輪は背景の上で 8.59 の差で見える（#180）
   it("フォーカスした要素に ring の色の輪を透かさずに出す", async () => {
     const css = await buildWith([]);
     expect(css).toMatch(
-      /:focus-visible\s*\{\s*outline:\s*2px solid var\(--ring\)/,
+      /:focus-visible\s*\{\s*outline:\s*2px solid var\(--ring\);\s*outline-offset:\s*2px;/,
     );
   });
 
