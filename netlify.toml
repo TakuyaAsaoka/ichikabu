@@ -1,4 +1,4 @@
-# Netlify のビルド設定（設計書 docs/records/specs/2026-08-13-74-deploy-target-design.md §4）。
+# Netlify のビルド設定（Issue #74）。
 #
 # 自動デプロイはここでは止められない。Netlify の画面で
 # Project configuration > Build & deploy > Continuous deployment > Build settings の

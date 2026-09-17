@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { type Action, NOTICES } from "./notice";
 
-// 5つのフォームが同じ骨格を持っていたため、ここに括り出した（設計書 §4.1）。
+// 5つのフォームが同じ骨格を持っていたため、ここに括り出した（#43）。
 // useActionState がここに移ったことで、各フォームは初期値を出すだけの
 // Server Component になっている
 
@@ -53,7 +53,7 @@ export function ActionForm({
    * ボタンの色。消す・外す操作は `destructive` を渡す。
    *
    * **`confirm` の有無から決めない。** テーマ所属を外す画面は削除だが確認を出さない
-   * （テーマも銘柄も残り、入れ直せるため。設計書 §3）ので、
+   * （テーマも銘柄も残り、入れ直せるため）ので、
    * `confirm` で決めるとこの画面だけ登録と同じ色になる
    */
   variant?: "default" | "destructive";
@@ -89,7 +89,7 @@ export function ActionForm({
         // 描いたHTMLに1文字も出ず、テストから確かめられない（Issue #123）
         data-confirm={confirm}
         // 確認は <form onSubmit> ではなくここに置く。送信ボタンの click を止めれば
-        // 送信自体が始まらず、React を挟まないブラウザの動きだけで済む（設計書 §4.1）
+        // 送信自体が始まらず、React を挟まないブラウザの動きだけで済む
         onClick={(e) => {
           const message = e.currentTarget.dataset.confirm;
           if (message && !window.confirm(message)) {

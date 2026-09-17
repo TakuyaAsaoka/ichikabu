@@ -6,7 +6,7 @@ import SwiftUI
 /// 画面から切り離してテストできるように、状態を持たない関数だけを置く
 enum EventLayout {
 	/// 日付の計算はすべてJST・グレゴリオ暦・日曜始まりで行う。
-	/// 端末のタイムゾーンや暦の設定でセルの日付がずれてはならない（設計書 §2 判断4）
+	/// 端末のタイムゾーンや暦の設定でセルの日付がずれてはならない
 	static let calendar: Calendar = {
 		var calendar = Calendar(identifier: .gregorian)
 		if let jst = TimeZone(identifier: "Asia/Tokyo") {
@@ -46,7 +46,7 @@ enum EventLayout {
 	}
 
 	/// 月グリッドに描く6週×7日。月の実際の週数によらず常に42日を返すので、
-	/// どの月も同じ高さになる（設計書 §2 判断6）
+	/// どの月も同じ高さになる
 	static func weeks(inMonthOf monthStart: Date) -> [[Date]] {
 		let weekday = calendar.component(.weekday, from: monthStart)  // 日曜=1
 		guard
@@ -61,13 +61,13 @@ enum EventLayout {
 
 	/// その日のセルに出すイベント。
 	/// 日付は `2026-08-04` 形式のゼロ埋め文字列なので、文字列の大小がそのまま日付の前後になる。
-	/// 単日（`endDate` が nil）は `startDate` に縮退させ、期間と同じ式で扱う（設計書 §2 判断3）
+	/// 単日（`endDate` が nil）は `startDate` に縮退させ、期間と同じ式で扱う
 	static func events(on key: String, from events: [Event]) -> [Event] {
 		events.filter { $0.startDate <= key && ($0.endDate ?? $0.startDate) >= key }
 	}
 
 	/// グリッド上部に出す月サマリ。その月に**重なる**イベントを数える。
-	/// 期間イベントはセルには各日出るが、出来事としては1件なので月ごとに1しか数えない（設計書 §5）
+	/// 期間イベントはセルには各日出るが、出来事としては1件なので月ごとに1しか数えない
 	static func summary(forMonthOf monthStart: Date, from events: [Event]) -> (
 		total: Int, importantCount: Int
 	) {
@@ -92,7 +92,7 @@ enum EventLayout {
 	static func visible(_ events: [Event], holdings: [Int], stocks: [Stock]) -> [Event] {
 		let held = stocks.filter { holdings.contains($0.id) }
 		// `Stock.market`（JP・US）と `EventMarket`（JP・US・GLOBAL）は値の集合が違うので
-		// 別の型になる。文字列に直して比べるのはここだけ（ログイン廃止 設計書 §3.1）
+		// 別の型になる。文字列に直して比べるのはここだけ
 		let markets = Set(held.map(\.market.rawValue))
 		let themeIds = Set(held.flatMap(\.themeIds))
 		return events.filter { event in
@@ -123,7 +123,8 @@ enum EventLayout {
 	/// 曜日ヘッダは並び順をそのまま使うため `calendar.firstWeekday` が1であることに依存する
 	static let weekdayNames = ["日", "月", "火", "水", "木", "金", "土"]
 
-	/// 種別ごとの色。色に重要度を持たせない（全体設計書 §10.2）。
+	/// 種別ごとの色。色に重要度を持たせない（重要度は★3の赤線と太字で示す）。
+	/// 1つの色に2つの意味を持たせると、どちらも読めなくなるため。
 	/// 琥珀・藍は SwiftUI 標準に無いため、3色とも明示的に定義して彩度・明度を揃える
 	static func color(for kind: Event.kindPayload) -> Color {
 		switch kind {

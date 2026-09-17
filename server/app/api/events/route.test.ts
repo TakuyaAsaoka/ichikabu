@@ -13,7 +13,7 @@ type Event = components["schemas"]["Event"];
 
 /**
  * ハンドラを呼び、200 を確かめて本文の配列を返す。
- * `GET` は引数を取らない。誰が呼んでも同じ配列が返る（ログイン廃止 設計書 §5）
+ * `GET` は引数を取らない。誰が呼んでも同じ配列が返る
  */
 async function fetchEvents(): Promise<Event[]> {
   const res = await GET();
@@ -179,7 +179,7 @@ describe("GET /api/events", () => {
     ]);
 
     // 契約は kind と target.type が食い違う組み合わせも表せてしまうため、
-    // 両方が同じ対象を指すことをここで固定する（ログイン廃止 設計書 §3.1）
+    // 両方が同じ対象を指すことをここで固定する
     const events = await fetchEvents();
     expect(events.map((e) => [e.kind, e.target])).toEqual([
       ["stock", { type: "stock", stockId: toyota.id }],
@@ -207,7 +207,7 @@ describe("GET /api/events", () => {
   });
 
   it("出典のURLだけのイベントは source が null になる", async () => {
-    // source_url は運用者が誤登録を追うための記録で、画面には出さない（設計書 §3.1）
+    // source_url は運用者が誤登録を追うための記録で、画面には出さない
     const [toyota] = await db
       .insert(stock)
       .values({ market: "JP", ticker: "7203", name: "トヨタ自動車" })
@@ -228,7 +228,7 @@ describe("GET /api/events", () => {
 
   it("非アクティブのイベントは返らない", async () => {
     // 取り込みが「これからの回なのに公表予定に載らなくなった」と判定した行
-    // （公表予定の非アクティブ化 設計書 §1）。開始日は見ない。中止された回は
+    // （#72）。開始日は見ない。中止された回は
     // 公表日を過ぎても出してはならない
     await db.insert(event).values([
       {
@@ -265,7 +265,7 @@ describe("GET /api/events", () => {
   });
 
   it("決算月が入っている銘柄すべてについて権利付最終日が返る", async () => {
-    // 保有していることは条件にならない（ログイン廃止 設計書 §5.2）
+    // 保有していることは条件にならない
     const [toyota] = await db
       .insert(stock)
       .values({
@@ -300,12 +300,12 @@ describe("GET /api/events", () => {
     expect(new Set(events.map((e) => e.shortLabel))).toEqual(
       new Set(["7203権利", "8227権利"]),
     );
-    // 組み立ても固定する。配当落ち日はカレンダーに出さず note に入る（権利日設計書 §6）
+    // 組み立ても固定する。配当落ち日はカレンダーに出さず note に入る
     expect(events[3]).toEqual({
       id: `rights-${toyota.id}-2026`,
       kind: "stock",
       // 計算した権利日も、登録した銘柄イベントと同じ形で対象を持つ。
-      // 端末は両方を同じ式で絞れる（ログイン廃止 設計書 §3.1）
+      // 端末は両方を同じ式で絞れる
       target: { type: "stock", stockId: toyota.id },
       title: "トヨタ自動車 権利付最終日",
       shortLabel: "7203権利",
@@ -314,7 +314,7 @@ describe("GET /api/events", () => {
       time: null,
       importance: 2,
       note: "権利確定日 3月31日 ・ 配当落ち日 3月30日",
-      // 休場日リストから計算した日付で、転記元が無い（出典表示設計書 §4）
+      // 休場日リストから計算した日付で、転記元が無い
       source: null,
     });
     expect(events[2].target).toEqual({ type: "stock", stockId: shimamura.id });

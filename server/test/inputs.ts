@@ -31,7 +31,7 @@ import type { EventInput, StockInput } from "../src/db/write";
  * イベントの入力。**対象の3列はすべて null**で、埋めるのは呼ぶ側。
  *
  * 3列のうちちょうど1つだけが非NULLであることは DB の
- * `event_target_exclusive_check` が判定する（全体設計書 §5）。既定でどれかを
+ * `event_target_exclusive_check` が判定する。既定でどれかを
  * 埋めておくと、「対象を1つも選ばない」を確かめるテストが書けなくなる。
  *
  * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の上限10には引っかからない。

@@ -2,7 +2,7 @@ import IchikabuAPI
 import SwiftUI
 
 /// 持ち株を選ぶ画面。登録されている銘柄を全件並べ、タップで選ぶ・外す。
-/// 検索は付けない。銘柄は手入力で増える範囲にとどまるため（ログイン廃止 設計書 §6）
+/// 検索は付けない。銘柄は手入力で増える範囲にとどまるため
 struct HoldingsView: View {
 	let stocks: [Stock]
 	/// 選んだ銘柄ID。書き込みは呼び出し側で端末に保存される

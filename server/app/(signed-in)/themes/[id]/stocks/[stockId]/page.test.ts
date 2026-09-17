@@ -42,7 +42,7 @@ describe("テーマ所属を外す画面", () => {
     expect(themeId).not.toBe(stockId);
     expect(html).toContain(`name="themeId" value="${themeId}"`);
     expect(html).toContain(`name="stockId" value="${stockId}"`);
-    // 何を外すのかが画面に出る（設計書 §3）
+    // 何を外すのかが画面に出る
     expect(html).toContain("半導体");
     expect(html).toContain("トヨタ自動車");
   });

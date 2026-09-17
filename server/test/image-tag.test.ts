@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "../src/db";
 
-// 見ているのが compose.yaml で src/ の隣に置けないため、ここに置く（spec-refs.test.ts と同じ）。
+// 見ているのが compose.yaml で src/ の隣に置けないため、ここに置く。
 // 位置はこのファイルから決める。process.cwd() に頼ると server/ 以外から起動したときに落ちる
 const composeImage = readFileSync(
   new URL("../compose.yaml", import.meta.url),

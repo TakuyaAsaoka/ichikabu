@@ -2,15 +2,15 @@ import type { EventInput } from "../src/db/write";
 
 // "use server" を付けない素のモジュールにしてある。app/actions.ts は next/headers を
 // 使うため Vitest から読み込めず、ここに置いた変換だけがテストできる
-// （イベント登録フォーム設計書 §5。app/event-input.ts と同じ理由）
+// （app/event-input.ts と同じ理由）
 
-/** ティッカー・テーマ名からIDを引くための対応表（設計書 §3） */
+/** ティッカー・テーマ名からIDを引くための対応表 */
 export type Lookup = {
   stocks: { id: number; market: string; ticker: string }[];
   themes: { id: number; name: string }[];
 };
 
-/** 貼り付ける1行の列数（設計書 §2） */
+/** 貼り付ける1行の列数 */
 const COLUMNS = 10;
 
 /**
@@ -23,7 +23,7 @@ function toNullable(value: string): string | null {
   return text === "" ? null : text;
 }
 
-/** 対象の3列。ちょうど1つだけが埋まる（全体設計書 §4.2） */
+/** 対象の3列。ちょうど1つだけが埋まる */
 type Target = {
   market: string | null;
   themeId: number | null;
@@ -32,7 +32,7 @@ type Target = {
 
 /**
  * 対象の書き方（"market:GLOBAL" / "stock:JP:7203" / "theme:半導体"）を
- * event の3列に振り分ける。引けなければ日本語のエラー文を返す（設計書 §3）。
+ * event の3列に振り分ける。引けなければ日本語のエラー文を返す。
  *
  * 銘柄は市場とティッカーの2つで引く。stock の一意の制約は (market, ticker) の
  * 組で、ティッカーだけでは1件に定まらない
@@ -116,7 +116,7 @@ function toInput(line: string, lookup: Lookup): EventInput | string {
 
 /**
  * 貼り付けた文字列を createEvents の入力にする。
- * 読めない行があれば、行番号を付けた日本語のエラー文を返す（設計書 §4）。
+ * 読めない行があれば、行番号を付けた日本語のエラー文を返す。
  *
  * 行番号は貼り付けた行の番号のまま。落とすのは末尾の空行だけで、途中の空行は
  * そのまま列数のエラーにする。全部飛ばすと、途中に空行が1つでもあるだけで

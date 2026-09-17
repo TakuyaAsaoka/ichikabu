@@ -59,7 +59,7 @@ describe("createStock", () => {
   });
 
   it("英字入りのティッカーを登録できる", async () => {
-    // 全体設計書 §4.2「ticker は文字列」の検証。数値型だと 130A が入らない
+    // ticker が文字列であることの検証。数値型だと 130A が入らない
     expect(
       await createStock({
         market: "JP",
@@ -79,7 +79,7 @@ describe("createStock", () => {
 
   it("US銘柄に決算月を入れるとエラー文が返る", async () => {
     // 決算月はJP銘柄のみ。US銘柄に入るとJPの休場日カレンダーで計算した
-    // 権利確定日がUS銘柄に出てしまう（全体設計書 §4.1）
+    // 権利確定日がUS銘柄に出てしまう
     expect(
       await createStock({
         market: "US",
@@ -114,7 +114,7 @@ describe("createStock", () => {
   });
 
   it("空白だけの銘柄名はエラー文が返る", async () => {
-    // <input required> は "" しか弾かず "   " を通す（設計書 §5）
+    // <input required> は "" しか弾かず "   " を通す
     expect(await createStock({ ...TOYOTA, name: "   " })).toBe(
       "銘柄名を入れる",
     );
@@ -273,7 +273,7 @@ describe("createEvent", () => {
   });
 
   it("短縮ラベルが全角5文字を超えるとエラー文が返る", async () => {
-    // 「決算発表予定」は全角6文字＝幅12（設計書 §3）
+    // 「決算発表予定」は全角6文字＝幅12
     expect(
       await createEvent({
         ...BASE,
@@ -307,7 +307,7 @@ describe("createEvent", () => {
   });
 
   it("終了日が開始日と同じだとエラー文が返る", async () => {
-    // 単日は end_date IS NULL でのみ表す（全体設計書 §4.2）
+    // 単日は end_date IS NULL でのみ表す
     expect(
       await createEvent({
         ...BASE,
@@ -334,7 +334,7 @@ describe("createEvent", () => {
   });
 
   it("出典の名前だけだとエラー文が返る", async () => {
-    // 画面に出した出典から元のページへたどれなくなる（設計書 §3.1）
+    // 画面に出した出典から元のページへたどれなくなる
     expect(
       await createEvent({
         ...BASE,
@@ -348,7 +348,7 @@ describe("createEvent", () => {
 
   it("銘柄イベントは出典のURLだけで登録できる", async () => {
     // source_url は運用者が誤登録を追うための記録で、画面に出さない使い方がある。
-    // 各社IRは出典の記載が条件でないため、この形が正しい（出典表示設計書 §3.1）
+    // 各社IRは出典の記載が条件でないため、この形が正しい
     const stockId = await registerToyota();
     expect(
       await createEvent({
@@ -378,7 +378,7 @@ describe("createEvent", () => {
   });
 
   it("テーマイベントは出典が無くても登録できる", async () => {
-    // 銘柄の出来事をテーマに寄せたイベントで、出典は各社IR（全体設計書 §5）
+    // 銘柄の出来事をテーマに寄せたイベントで、出典は各社IR
     await createTheme("半導体");
     const [{ id: themeId }] = await db.select({ id: theme.id }).from(theme);
 
@@ -394,8 +394,8 @@ describe("createEvent", () => {
 
   it("市場イベントに出典の名前が無いとエラー文が返る", async () => {
     // 市場イベントの出典（府省・FRB・BLS）は、出典の記載が利用の条件。
-    // 名前が無いと GET /events が出典を返さず、条件を満たさないままアプリに出る
-    // （全体設計書 §5・§5.1）。URLだけでも、何も無くても同じ
+    // 名前が無いと GET /events が出典を返さず、条件を満たさないままアプリに出る。
+    // URLだけでも、何も無くても同じ
     expect(
       await createEvent({
         ...BASE,
@@ -460,7 +460,7 @@ describe("updateEvent", () => {
   });
 
   it("出典の名前だけを入れて更新するとエラー文が返る", async () => {
-    // 登録と同じく event_source_name_check が効く（設計書 §5.2）
+    // 登録と同じく event_source_name_check が効く
     const id = await registerEvent();
 
     expect(
@@ -516,7 +516,7 @@ describe("updateEvent", () => {
   });
 
   it("数字でないIDの更新はエラー文が返る", async () => {
-    // Number("abc") の NaN を integer 列に渡すと型変換エラーで 500 になる（設計書 §6）
+    // Number("abc") の NaN を integer 列に渡すと型変換エラーで 500 になる
     await registerEvent();
 
     expect(await updateEvent(Number("abc"), { ...BASE, market: "US" })).toBe(
@@ -614,7 +614,7 @@ describe("updateStock", () => {
   });
 
   it("イベントから参照されている銘柄のティッカーを変えても参照は外れない", async () => {
-    // 外部キーは stock.id を見るため、市場・ティッカーを直しても参照は付いてくる（設計書 §4）
+    // 外部キーは stock.id を見るため、市場・ティッカーを直しても参照は付いてくる
     const stockId = await onlyStockId();
     await createEvent({ ...BASE, stockId });
 
@@ -695,7 +695,7 @@ describe("deleteStock", () => {
   });
 
   it("テーマ所属は一緒に消える", async () => {
-    // theme_stock.stock_id は ON DELETE cascade（設計書 §2）
+    // theme_stock.stock_id は ON DELETE cascade
     const stockId = await onlyStockId();
     const themeId = await onlyThemeId();
     await createThemeStock(themeId, stockId);
@@ -707,7 +707,7 @@ describe("deleteStock", () => {
 
   it("イベントから参照されているとエラー文が返り、銘柄は消えない", async () => {
     // 制約名は登録のときと同じ event_stock_id_stock_id_fk が返る。
-    // 「その銘柄は無い」を出すと意味が正反対になる（設計書 §2）
+    // 「その銘柄は無い」を出すと意味が正反対になる
     const stockId = await onlyStockId();
     await createEvent({ ...BASE, stockId });
 
@@ -774,7 +774,7 @@ describe("updateTheme", () => {
 
 describe("deleteTheme", () => {
   it("イベントから参照されていないテーマは消え、所属も一緒に消える", async () => {
-    // theme_stock.theme_id は ON DELETE cascade（設計書 §2）
+    // theme_stock.theme_id は ON DELETE cascade
     const themeId = await onlyThemeId();
     const stockId = await onlyStockId();
     await createThemeStock(themeId, stockId);
@@ -910,7 +910,7 @@ describe("問い合わせに渡せない値", () => {
 
   it("日付・時刻に入れるとエラー文が返る", async () => {
     // 日付は Number() を通らないが、日付として読めない文字列を date 列に渡すと
-    // 同じく制約違反ではないエラーになる（イベント登録フォーム設計書 §7）。
+    // 同じく制約違反ではないエラーになる。
     // 形が違う（"" や "abc"）ときと、形は日付だが値が範囲外（"2026-13-45"）の
     // ときで pg のエラーコードが分かれるため、両方を確かめる
     for (const startDate of ["", "abc", "2026-13-45"]) {
@@ -1005,7 +1005,7 @@ describe("createEvents", () => {
   });
 
   it("1行でも制約に反すると1件も入らない", async () => {
-    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る（設計書 §4）
+    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る
     expect(
       await createEvents([marketEvent(), marketEvent({ importance: 9 })]),
     ).toBe("2行目: 重要度は1〜3");
@@ -1038,7 +1038,7 @@ describe("createEvents", () => {
 });
 
 describe("upsertMarketEvents", () => {
-  /** 公表予定から作られる1件。名称に対象期が入るのが前提（設計書 §4） */
+  /** 公表予定から作られる1件。名称に対象期が入るのが前提 */
   function statEvent(overrides: Partial<EventInput> = {}): EventInput {
     return {
       title: "消費者物価指数（2026年1月分）",
@@ -1134,7 +1134,7 @@ describe("upsertMarketEvents", () => {
       .update(event)
       .set({ shortLabel: "CPI", importance: 3, note: "手で直した備考" });
 
-    // 公表日が変わった取り込みでも、更新するのは開始日と時刻の2列だけ（設計書 §1 #6）
+    // 公表日が変わった取り込みでも、更新するのは開始日と時刻の2列だけ
     await upsertMarketEvents(
       [statEvent({ startDate: "2026-02-24" })],
       STAT_TITLE_PATTERN,
@@ -1218,7 +1218,7 @@ describe("upsertMarketEvents", () => {
   });
 
   /**
-   * 非アクティブ化のテスト（非アクティブ化 設計書 §3）。
+   * 非アクティブ化のテスト。
    * 2099年＝これからの回、1999年＝公表済みの回。今日を跨がない年にしてある
    */
   const FUTURE = statEvent({

@@ -28,7 +28,7 @@ if (!googleClientId || !googleClientSecret) {
 export const auth = betterAuth({
   secret,
   database: drizzleAdapter(db, { provider: "pg", schema }),
-  // 利用者は seed スクリプトで手動投入する（設計書 §9）。画面からは作れない。
+  // 利用者は seed スクリプトで手動投入する。画面からは作れない。
   // Google の設定が壊れた日に管理UIへ入る手段として残す（`app/signin/signin-form.tsx`）
   emailAndPassword: { enabled: true, disableSignUp: true },
   socialProviders: {
@@ -41,7 +41,7 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        // 利用者を増やせるのは seed スクリプトだけ（設計書 §9）。seed はこのフックを
+        // 利用者を増やせるのは seed スクリプトだけ。seed はこのフックを
         // 通らない経路でテーブルに直接入れるので、ここを通る作成はすべて拒む。
         //
         // プロバイダ側の disableSignUp では塞ぎきれない。Better Auth 1.6.26 は
@@ -58,12 +58,12 @@ export const auth = betterAuth({
   },
   rateLimit: {
     // 既定は本番のみ有効。開発中も動かして、制限の効きを検証できる状態にする。
-    // サインインは組み込みの規則で10秒に3回まで（設計書 §6）
+    // サインインは組み込みの規則で10秒に3回まで
     enabled: true,
     // 既定のメモリは再起動で消え、サーバーが複数台だと台ごとに別勘定になる
     storage: "database",
   },
-  // セッションは Cookie だけ（設計書 §9）。iOS の Bearer はログイン廃止で消えた。
+  // セッションは Cookie だけ。iOS の Bearer はログイン廃止で消えた。
   // nextCookies は、Server Component から getSession を呼んだときにセッションの
   // 期限延長で Cookie を書こうとして書けない状態（DBだけ進む）を防ぐ。
   // ライブラリが「配列の最後であること」を求めるため、足すときはこれより前に置く

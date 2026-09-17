@@ -10,7 +10,7 @@ const PASSWORD = "correct-horse-battery-staple";
 
 const BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
-// auth.handler を通すため、この関数はレート制限の対象になる（設計書 §6）。
+// auth.handler を通すため、この関数はレート制限の対象になる。
 // /sign-in/email は組み込み規則で10秒に3回まで。1つのテストで4回以上叩くと、
 // 401 でも 500 でもない 429 が返って原因の分かりにくい失敗になる。
 // テストをまたぐ分は beforeEach の resetDatabase が rate_limit ごと消している
@@ -104,7 +104,7 @@ describe("サインイン", () => {
       email: EMAIL,
       password: PASSWORD,
     });
-    // 管理UIが実際に使う経路（設計書 §9）。iOS の Bearer は廃止した
+    // 管理UIが実際に使う経路。iOS の Bearer は廃止した
     const cookie = signIn.headers.get("set-cookie");
     if (!cookie) {
       throw new Error("サインイン応答に set-cookie が無い");
@@ -124,8 +124,8 @@ describe("サインイン", () => {
 
   // Issue #106 で「`advanced.ipAddress.ipAddressHeaders` を足さない」と決めた。
   // 足すと Netlify 側がこのヘッダを捨てる保証が無いまま、送り手が書いた値が
-  // 回数を数える鍵になり、値を変えるだけで総当たりが素通りする
-  // （設計書 §6「IPで絞るかの決着」）。その決定をここで固定する。
+  // 回数を数える鍵になり、値を変えるだけで総当たりが素通りする。
+  // その決定をここで固定する。
   //
   // 枠が1つにまとまる理由は、テストと本番で違う。テストでは getIp が
   // `127.0.0.1` を返し（`@better-auth/core` の ip.mjs、isTest() の分岐）、

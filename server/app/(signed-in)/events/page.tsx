@@ -13,7 +13,7 @@ import { RegisterDetails } from "../../register-details";
 /**
  * イベントの画面。一覧を出す（Issue #112）。
  * 登録と貼り付けでまとめて登録は、一覧の見出しの下に閉じて置き、押したときだけ開く（#165）。
- * 各行から編集ページへ行ける（編集・削除 設計書 §3）。
+ * 各行から編集ページへ行ける（#43）。
  * 並べ替え・絞り込みは付けない
  */
 export default async function Page() {
@@ -36,7 +36,7 @@ export default async function Page() {
     .from(theme)
     .orderBy(theme.name);
 
-  // 対象は3列のうち1つだけが埋まる（全体設計書 §5）ため、
+  // 対象は3列のうち1つだけが埋まるため、
   // テーマと銘柄を外部結合し、埋まっている側だけが値を持つ形で読む
   const events = await db
     .select({
@@ -48,10 +48,10 @@ export default async function Page() {
       importance: event.importance,
       market: event.market,
       // 出典の表示名を入れ忘れた行は、出典の記載を条件とする出典では規約の
-      // 条件を満たさない。一覧でそれが分かるように出す（編集・削除 設計書 §3.1）
+      // 条件を満たさない。一覧でそれが分かるように出す（#43）
       sourceName: event.sourceName,
       // 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
-      // ここに出す（公表予定の非アクティブ化 設計書 §4）
+      // ここに出す（#72）
       active: event.active,
       themeName: theme.name,
       ticker: stock.ticker,
@@ -62,7 +62,8 @@ export default async function Page() {
     .orderBy(event.startDate);
 
   // 誰が入れたかは監査ログから引く。`event` に作成者の列は作らない
-  // （監査ログ 設計書 §5.5）。1行ずつ問い合わせず、全件を1回読んで突き合わせる
+  // （列は行を消すと一緒に消え、誰が消したかは出せない。どのみち監査ログが要る）。
+  // 1行ずつ問い合わせず、全件を1回読んで突き合わせる
   const creators = await creatorNamesByEventId();
 
   return (
@@ -85,7 +86,7 @@ export default async function Page() {
           <BulkEventForm />
         </RegisterDetails>
         {/* PC（lg 以上）は列をそろえ、1件を1行に収める（#172）。名称と出典だけを
-            切り詰め、項目は1つも落とさない（出典は一覧に出す。編集・削除 設計書 §3.1）。
+            切り詰め、項目は1つも落とさない（出典は一覧に出す。#43）。
             lg 未満は本文の幅が 720px に届かない（サイドバーが 224px 取る）ので、
             いまの折り返す並びのまま全文を出す。行は1通りで、幅で変わるのはクラスだけ。
             **行に項目を足したら、列の指定と見出しのマスも足す。** 足し忘れても
@@ -132,7 +133,7 @@ export default async function Page() {
                   {/* 切り詰めた全文は `title` で読める。編集ページにも全文が出る */}
                   <span className="flex min-w-0 items-center gap-2">
                     {/* 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
-                      ここに出す（公表予定の非アクティブ化 設計書 §4）。
+                      ここに出す（#72）。
                       行の頭に角括弧つきの文字を置く形をやめ、バッジにした（#161）。
                       名称と同じマスに入れ、付いた行だけ列が増えないようにした（#172） */}
                     {!row.active && (
@@ -146,7 +147,7 @@ export default async function Page() {
                     </span>
                   </span>
                   {/* 「表示名なし」は切らない（出典の列の最小 5rem に収まる）。
-                    入っているかどうかを一覧で見るための欄なので（設計書 §3.1） */}
+                    入っているかどうかを一覧で見るための欄なので */}
                   <span
                     className="text-muted-foreground lg:truncate"
                     title={row.sourceName ?? undefined}

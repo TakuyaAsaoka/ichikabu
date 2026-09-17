@@ -4,7 +4,7 @@ import { event, stock } from "./db/schema";
 import { RIGHTS_YEARS } from "./rights";
 
 /**
- * 登録の抜けを見つける（状態画面 設計書 §2）。
+ * 登録の抜けを見つける。
  *
  * 判定をここに置き、`app/status/page.tsx` は呼んで並べるだけにする。
  * 4種類それぞれの「抜けあり・抜けなし」を、画面の形に左右されずに確かめられる。
@@ -57,8 +57,7 @@ export const jstToday = (now: Date): string =>
 
 /**
  * 銘柄を対象にした、今日以降のイベントが1件も無い銘柄。
- * イベントに種別の列は無いため、対象が自分の銘柄で日付が未来のものを決算とみなす
- * （状態画面 設計書 §2）。
+ * イベントに種別の列は無いため、対象が自分の銘柄で日付が未来のものを決算とみなす。
  *
  * 組み立てだけを切り出してあるのは、**テストから並び順を確かめるため**
  * （`src/db/audit.ts` の `recentQuery` と同じ理由）。走らせた結果では
@@ -121,8 +120,8 @@ export async function findGaps(today: string): Promise<Gap[]> {
   const noFiscalMonth = await noFiscalMonthQuery();
 
   // 非アクティブのまま日付が過ぎた行（＝中止が確定した回）。消してよい行を出す。
-  // 非アクティブにするのは開始日が今日以降の行だけなので（公表予定の非アクティブ化
-  // 設計書 §3）、過去に落ちた非アクティブは中止が確定したもの。
+  // 非アクティブにするのは開始日が今日以降の行だけなので、
+  // 過去に落ちた非アクティブは中止が確定したもの。
   // 期間のイベントは終わりの日で見る。始まってから終わるまでの間は過ぎていない
   const pastInactive = await db
     .select({ id: event.id, startDate: event.startDate, title: event.title })
@@ -160,8 +159,8 @@ export async function findGaps(today: string): Promise<Gap[]> {
  * 休場日リストの不足。翌年ぶんが載っていなければ出す。
  *
  * 足し忘れても権利付最終日が黙って出なくなるだけでエラーにならない
- * （`rightsDates` は載っていない年に `null` を返す）。運用（全体設計書 §14）が
- * 「毎年2月に翌年ぶんを足す」と決めているため、その年のうちに翌年ぶんが要る
+ * （`rightsDates` は載っていない年に `null` を返す）。運用で「毎年2月に翌年ぶんを
+ * 足す」と決めているため（`src/rights.ts` の `CLOSED_DAYS`）、その年のうちに翌年ぶんが要る
  */
 function closedDaysGap(year: number): Gap[] {
   const last = RIGHTS_YEARS[RIGHTS_YEARS.length - 1];

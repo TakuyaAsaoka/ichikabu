@@ -10,7 +10,7 @@ if (!url) {
 
 export default defineConfig({
   // schema.ts が Better Auth の生成分（auth-schema.ts）も再エクスポートしているため、
-  // 全テーブルが1本のマイグレーション履歴に載る（設計書 §9）
+  // 全テーブルが1本のマイグレーション履歴に載る
   schema: "./src/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",

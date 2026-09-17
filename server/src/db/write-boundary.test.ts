@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { stripComments } from "../../test/source";
 
 /**
- * 書き込み関数を呼んでよいファイルの一覧（監査ログ設計書 §5.2）。
+ * 書き込み関数を呼んでよいファイルの一覧。
  *
  * 監査ログの記録は `app/actions.ts` と `scripts/import-stat-schedule.ts` の
  * 2箇所に差し込んである。3つ目の経路が増えると、その経路の書き込みは
@@ -24,8 +24,8 @@ const ALLOWED = ["app/actions.ts", "scripts/import-stat-schedule.ts"];
  * |---|---|
  * | `src/db/write.ts` | 書き込みの層そのもの |
  * | `src/db/audit.ts` | `audit_log` に書く唯一のファイル |
- * | `src/db/seed-event.ts` | 開発用データ。固定値を入れるだけで記録しない（設計書 §5.2） |
- * | `src/db/seed-user.ts` | 利用者の投入。Better Auth のフックを通さない経路（設計書 §9） |
+ * | `src/db/seed-event.ts` | 開発用データ。固定値を入れるだけで記録しない |
+ * | `src/db/seed-user.ts` | 利用者の投入。Better Auth のフックを通さない経路 |
  */
 const ALLOWED_DIRECT_WRITERS = [
   "src/db/audit.ts",

@@ -75,7 +75,7 @@ struct APIClientTests {
 		#expect(stocks.count == 2)
 		#expect(stocks[0].market == .JP)
 		#expect(stocks[0].ticker == "7203")
-		// 所属テーマは端末側のテーマイベントの判定に使う（ログイン廃止 設計書 §3.2）
+		// 所属テーマは端末側のテーマイベントの判定に使う
 		#expect(stocks[0].themeIds == [10])
 		#expect(stocks[1].themeIds.isEmpty)
 	}

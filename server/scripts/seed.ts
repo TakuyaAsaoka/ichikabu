@@ -26,7 +26,7 @@ for (const { email, password } of users) {
 }
 
 // 開発用データは利用者に紐づかない。アプリは認証を持たず、誰が見ても同じ
-// イベントが返る（ログイン廃止 設計書 §5）
+// イベントが返る
 const { created: eventCount } = await seedEvents();
 console.log(`イベントを ${eventCount} 件作成した`);
 

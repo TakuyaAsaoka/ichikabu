@@ -17,7 +17,7 @@ import {
 
 /**
  * 操作の区分。対象は `resourceType` が別に持つため、`create_event` のように
- * 対象を混ぜた値にはしない（設計書 §5.1）
+ * 対象を混ぜた値にはしない
  */
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -25,10 +25,10 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditResource = (typeof AUDIT_RESOURCES)[number];
 
 /**
- * 監査ログに書く1件（設計書 §5.1）。
+ * 監査ログに書く1件。
  *
  * 誰が操作したかは持たない。この形を組み立てるのは `src/db/write.ts` で、
- * あの層はDBだけを見ていてセッションを知らないため（設計書 §6）。
+ * あの層はDBだけを見ていてセッションを知らないため。
  * 利用者IDは記録を書く側（`app/actions.ts`・取り込みスクリプト）が足す
  */
 export type AuditEntry = {
@@ -49,7 +49,7 @@ type AuditTable = Table & { _: { name: AuditResource } };
  * 行のキーをDBの列名に直す。
  *
  * Drizzle が返す行のキーは `shortLabel` のような TypeScript 側の名前で、
- * 設計書 §5.4 の復元SQL（`jsonb_populate_record(NULL::event, previous_values)`）は
+ * 消した行を戻すSQL（`jsonb_populate_record(NULL::event, previous_values)`）は
  * **列名（`short_label`）でしか行を組み立てられない**。TypeScript 側の名前で
  * 入れると、名前の違う列が全部 NULL になって NOT NULL 違反で戻せない（実測）
  */
@@ -100,7 +100,7 @@ export function updatedEntry(
 
 /**
  * 削除の記録を作る。消える前の行をまるごと `previousValues` に残す。
- * これが消した行の唯一の写しで、設計書 §5.4 の復元はここからしか戻せない
+ * これが消した行の唯一の写しで、消した行はここからしか戻せない
  */
 export function deletedEntry(
   table: AuditTable,
@@ -117,7 +117,7 @@ export function deletedEntry(
 }
 
 /**
- * 記録を書く。**このファイルだけが `audit_log` に書く**（設計書 §5.2）。
+ * 記録を書く。**このファイルだけが `audit_log` に書く**。
  * 成功で null、失敗で画面に出す日本語のエラー文を返す。
  *
  * 失敗を握りつぶさない。`console.error` の行き先は Netlify の関数のログで、
@@ -166,12 +166,13 @@ export type AuditRow = {
  * 新しい順に全件読む（`app/audit/page.tsx`）。
  *
  * `previousValues` と `newValues` は返さない。1行が行まるごとの写しで、
- * 一覧に並べると読めない量になる。消した行を戻すのは設計書 §5.4 の
- * `jsonb_populate_record` を psql で流す手順のままにする。
+ * 一覧に並べると読めない量になる。消した行を戻すのは
+ * `jsonb_populate_record` を psql で流す手順のままにする（`docs/guides/backup.md` §2
+ * 「消した行を1件だけ戻す」）。
  *
  * **件数の上限も絞り込みも付けない**（Issue #111 で討論して決めた）。
  *
- * - 上限を付けると、設計書 §5.4 の復元が届かなくなる。復元は
+ * - 上限を付けると、消した行を戻すSQLが届かなくなる。復元は
  *   `WHERE a.id = <監査ログのID>` で、その id を管理者は画面で探す。
  *   上限より古い削除は画面から永久に見えなくなり、`previousValues` は
  *   消した行の唯一の写しなので、戻す手段そのものが消える
@@ -266,7 +267,7 @@ export type ContributionRow = {
 };
 
 /**
- * 入力者ごとの操作の件数を、登録の多い順に返す（設計書 §5.5 の問い合わせ）。
+ * 入力者ごとの操作の件数を、登録の多い順に返す。
  *
  * 対象（銘柄・テーマ・イベント・テーマ所属）で絞らない。12の Server Action が
  * すべて `app/actions.ts` の `audited` を通るので、絞るとかえって条件が1つ増える。

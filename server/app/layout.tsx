@@ -11,7 +11,7 @@ export const metadata: Metadata = {
  *
  * **ここには骨組み（行き先・アカウントのメニュー）を置かない。** このレイアウトは
  * `app/signin/page.tsx` も包むため、置くとサインインしていない人の画面に
- * 管理画面のリンクが並ぶ（nav を入れて `curl /signin` で実測。状態画面 設計書 §4）。
+ * 管理画面のリンクが並ぶ（nav を入れて `curl /signin` で実測。#110）。
  * 骨組みは `app/(signed-in)/layout.tsx` が持つ（Issue #162）。
  *
  * **中身を `<main>` で包まない。** サイドバーは `<main>` の外に出る必要があり、

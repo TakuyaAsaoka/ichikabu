@@ -29,7 +29,7 @@ describe("GET /api/stocks", () => {
   });
 
   it("認証なしで銘柄一覧が返り、市場・ティッカーの昇順に並ぶ", async () => {
-    // 認証は要らない（ログイン廃止 設計書 §3.2）。トークンを渡さずに呼べる
+    // 認証は要らない。トークンを渡さずに呼べる
     await db.insert(stock).values([
       { market: "US", ticker: "NVDA", name: "NVIDIA" },
       { market: "JP", ticker: "7203", name: "トヨタ自動車" },
@@ -63,7 +63,7 @@ describe("GET /api/stocks", () => {
     ]);
 
     // 端末はこの一覧から「持っている銘柄が覆うテーマ」を作り、
-    // テーマイベントを出すかどうかを決める（ログイン廃止 設計書 §3.1）
+    // テーマイベントを出すかどうかを決める
     // 並び順は契約で決めていないので、比べる前に揃える
     const ascending = (a: number, b: number): number => a - b;
     const stocks = await fetchStocks();

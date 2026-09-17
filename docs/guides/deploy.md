@@ -1,7 +1,6 @@
 # 配信先へのデプロイ
 
 iPhone から使う配信先（＝本番）は Netlify（Next.js）と Supabase（PostgreSQL・東京）。
-設計は `docs/records/specs/2026-08-13-74-deploy-target-design.md`。
 
 ```
 iPhone ──https──▶ https://ichikabu.netlify.app ──▶ Supabase 本番DB（東京）
@@ -92,7 +91,7 @@ curl https://ichikabu.netlify.app/api/health
 | `GOOGLE_CLIENT_ID` | 要る | 要らない | 取得は `docs/guides/google-oauth.md`。`pnpm db:seed` は `.env.local` 側の値で足りる |
 | `GOOGLE_CLIENT_SECRET` | 要る | 要らない | 同上 |
 | `SEED_USERS` | 要らない | 要る | 入力者の一覧。JSON の配列で、要素は `email` と `password`。**1人目のメールアドレスは Google でログインするアカウントと同じにする**。パスワードは管理UIの入り口（Google が壊れた日の手段）に使うので消さない |
-| `ADMIN_EMAIL` | 要る | 要らない | 削除できる管理者のメールアドレス1つ（設計書 §9）。`SEED_USERS` のどれかと同じにする。**未設定だとビルドが落ちる**（`app/actions.ts` が読み込みの時点で確かめる）。`pnpm db:seed` はこの値を読まないので `.env.deploy.local` には要らない |
+| `ADMIN_EMAIL` | 要る | 要らない | 削除できる管理者のメールアドレス1つ。`SEED_USERS` のどれかと同じにする。**未設定だとビルドが落ちる**（`src/admin.ts` が読み込みの時点で確かめる）。`pnpm db:seed` はこの値を読まないので `.env.deploy.local` には要らない |
 
 Netlify 側は Project configuration > Environment variables に入れる。
 
