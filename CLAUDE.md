@@ -136,7 +136,7 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 | `primary` / `primary-foreground` | `#c2452b` / `#ffffff` | 強く目立たせる操作（既定のボタン・選択中の状態） |
 | `primary-hover` | `#ae3e27` | 既定のボタンに指を乗せたときの面（#161。→ この節の最後） |
 | `secondary` / `secondary-foreground` | `#ecebfb` / `#3a3f8f` | 目立ちの弱い塗りの操作・バッジ |
-| `accent` / `accent-foreground` | `#ecebfb` / `#3a3f8f` | 指を乗せた・選んでいる面（ゴーストボタン・メニューの行） |
+| `accent` / `accent-foreground` | `#2c3a60` / `#ffffff` | 指を乗せた・選んでいる面（メニューの行・下のタブの現在地）。サイドバーの現在地と同じ組み合わせ（#180。→ この表の下） |
 | `muted` / `muted-foreground` | `#efeff5` / `#5e6178` | 控えめな面と補足の文字（「銘柄なし」「抜けなし」など） |
 | `background` / `foreground` | `#f7f7fb` / `#1d1f33` | ページの背景と本文の文字 |
 | `card`・`popover`（`-foreground` は `#1d1f33`） | `#ffffff` | 浮いた面（カード・メニュー） |
@@ -159,6 +159,9 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 | `primary` / `background`（コーラルの文字 / 背景） | 4.70 |
 | `primary` / `muted`（コーラルの文字 / 控えめな面） | **4.39。面の中の文字には使わない** |
 | `secondary-foreground` / `secondary` | 7.80 |
+| `accent-foreground` / `accent` | 11.16 |
+| `accent` / `popover`（面。メニューの行の現在地） | 11.16 |
+| `accent` / `background`（面。下のタブの現在地） | 10.45 |
 | `muted-foreground` / `muted` | 5.30 |
 | `muted-foreground` / `background` | 5.68 |
 | `destructive` / `background` | 7.50 |
@@ -170,9 +173,17 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 | `ring` / `background`（線） | 8.59 |
 | `sidebar-ring` / `sidebar`（線。ネイビーの面の上のフォーカスの輪） | 5.93 |
 | `ring` / `sidebar`（線） | **1.54。ネイビーの面の上では `ring` を使わない** |
+| `ring` / `accent`（線） | **1.22。輪は `outline-offset` で面から離し、背景の上に描く**（背景とは 8.59） |
 | `input` / `background`（線） | 3.63 |
 | `input` / `muted`（線。面の中の入力欄） | 3.38 |
 | `border` / `background`（線） | 1.22 |
+
+**`accent` は面だけで現在地を示すので、周りとの差を 3 以上にする**（#180）。メニューの行は部品が `outline-hidden` で枠を消し、`focus:bg-accent` で塗るだけ。前の `#ecebfb` はメニューの白と 1.18、背景と 1.10 だった。
+文字を `#3a3f8f` のまま、白と 3 以上・文字と 4.5 以上を両立する面は無いので、面をネイビーにして文字を白にした。
+行に枠を足す案は、マウスを乗せただけでも枠が出る（下のフォーカスの輪の節）ので採らなかった。
+
+- 消す操作の行（`focus:bg-destructive/10`）と、下の階層を開いている親の行（`data-open:bg-accent`）は、この値では決まらない。どちらもいまは0件。使い始めるときに測り直す
+- ゴーストボタンは `accent` を使わない（このリポジトリの部品は `hover:bg-muted`）
 
 **`input` を `border` と同じ値にしない。** 入力欄は背景と同じ色の面なので、欄の形を示すのは枠だけ。
 `border` の `#e0e0ec` だと背景との差が 1.22 しかなく、欄の場所が見えない（前の管理画面の枠 `#d1d5db` も白の背景と 1.47 だった）。
