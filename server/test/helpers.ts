@@ -44,8 +44,7 @@ export function idOf(result: WriteResult): string {
 }
 
 /**
- * 公開API（`/api/events`・`/api/stocks`）がCDNに載せるヘッダを確かめる
- * （公開APIのキャッシュ 設計書 §2）。
+ * 公開API（`/api/events`・`/api/stocks`）がCDNに載せるヘッダを確かめる。
  *
  * 値は `PUBLIC_API_CACHE_HEADERS` を読まずに直に書く。読んで突き合わせると、
  * 定数を書き換えたときにこの検査も一緒に動いて緑のまま通り、何も守らなくなる
