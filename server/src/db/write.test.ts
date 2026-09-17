@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { resetDatabase } from "../../test/helpers";
-import { eventInput, stockInput } from "../../test/inputs";
+import { eventInput, MARKET_SOURCE, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { event, stock, theme, themeStock } from "./schema";
 import {
@@ -59,7 +59,7 @@ describe("createStock", () => {
   });
 
   it("英字入りのティッカーを登録できる", async () => {
-    // 全体設計書 §4.2「ticker は文字列」の検証。数値型だと 130A が入らない
+    // ticker が文字列であることの検証。数値型だと 130A が入らない
     expect(
       await createStock({
         market: "JP",
@@ -79,7 +79,7 @@ describe("createStock", () => {
 
   it("US銘柄に決算月を入れるとエラー文が返る", async () => {
     // 決算月はJP銘柄のみ。US銘柄に入るとJPの休場日カレンダーで計算した
-    // 権利確定日がUS銘柄に出てしまう（全体設計書 §4.1）
+    // 権利確定日がUS銘柄に出てしまう
     expect(
       await createStock({
         market: "US",
@@ -114,7 +114,7 @@ describe("createStock", () => {
   });
 
   it("空白だけの銘柄名はエラー文が返る", async () => {
-    // <input required> は "" しか弾かず "   " を通す（設計書 §5）
+    // <input required> は "" しか弾かず "   " を通す
     expect(await createStock({ ...TOYOTA, name: "   " })).toBe(
       "銘柄名を入れる",
     );
@@ -191,14 +191,28 @@ describe("createThemeStock", () => {
   });
 });
 
-/** 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`） */
-const BASE = eventInput();
+/**
+ * 対象3列がすべて null の土台。各テストが1列だけ埋める（→ `test/inputs.ts`）。
+ * 市場イベントは出典が無いと入らないので、出典を入れておく。
+ * **出典を見るテストは、名前とURLの両方を自分で書く**（ここに隠れた値で緑にならないように）
+ */
+const BASE = eventInput(MARKET_SOURCE);
 
 /** イベントの行が1件だけ入ったことを確かめ、その行を返す */
 async function onlyEvent() {
   const rows = await db.select().from(event);
   expect(rows).toHaveLength(1);
   return rows[0];
+}
+
+/** 銘柄を1件登録してIDを返す。銘柄イベントの対象に使う */
+async function registerToyota(): Promise<number> {
+  await createStock({ ...TOYOTA });
+  const [{ id }] = await db
+    .select({ id: stock.id })
+    .from(stock)
+    .where(eq(stock.ticker, TOYOTA.ticker));
+  return id;
 }
 
 describe("createEvent", () => {
@@ -224,11 +238,7 @@ describe("createEvent", () => {
   });
 
   it("銘柄イベントを登録するとDBに行が入る", async () => {
-    await createStock({ ...TOYOTA });
-    const [{ id: stockId }] = await db
-      .select({ id: stock.id })
-      .from(stock)
-      .where(eq(stock.ticker, TOYOTA.ticker));
+    const stockId = await registerToyota();
 
     expect(await createEvent({ ...BASE, stockId })).toEqual(succeeded);
 
@@ -263,7 +273,7 @@ describe("createEvent", () => {
   });
 
   it("短縮ラベルが全角5文字を超えるとエラー文が返る", async () => {
-    // 「決算発表予定」は全角6文字＝幅12（設計書 §3）
+    // 「決算発表予定」は全角6文字＝幅12
     expect(
       await createEvent({
         ...BASE,
@@ -297,7 +307,7 @@ describe("createEvent", () => {
   });
 
   it("終了日が開始日と同じだとエラー文が返る", async () => {
-    // 単日は end_date IS NULL でのみ表す（全体設計書 §4.2）
+    // 単日は end_date IS NULL でのみ表す
     expect(
       await createEvent({
         ...BASE,
@@ -324,19 +334,27 @@ describe("createEvent", () => {
   });
 
   it("出典の名前だけだとエラー文が返る", async () => {
-    // 画面に出した出典から元のページへたどれなくなる（設計書 §3.1）
-    expect(
-      await createEvent({ ...BASE, market: "JP", sourceName: "内閣府" }),
-    ).toBe("出典の名前を入れるならURLも入れる");
-    expect(await db.select().from(event)).toHaveLength(0);
-  });
-
-  it("出典のURLだけで登録できる", async () => {
-    // source_url は運用者が誤登録を追うための記録で、画面に出さない使い方がある
+    // 画面に出した出典から元のページへたどれなくなる
     expect(
       await createEvent({
         ...BASE,
         market: "JP",
+        sourceName: "内閣府",
+        sourceUrl: null,
+      }),
+    ).toBe("出典の名前を入れるならURLも入れる");
+    expect(await db.select().from(event)).toHaveLength(0);
+  });
+
+  it("銘柄イベントは出典のURLだけで登録できる", async () => {
+    // source_url は運用者が誤登録を追うための記録で、画面に出さない使い方がある。
+    // 各社IRは出典の記載が条件でないため、この形が正しい
+    const stockId = await registerToyota();
+    expect(
+      await createEvent({
+        ...BASE,
+        stockId,
+        sourceName: null,
         sourceUrl: "https://global.toyota/jp/ir/",
       }),
     ).toEqual(succeeded);
@@ -344,6 +362,57 @@ describe("createEvent", () => {
     const row = await onlyEvent();
     expect(row.sourceName).toBeNull();
     expect(row.sourceUrl).toBe("https://global.toyota/jp/ir/");
+  });
+
+  it("銘柄イベントは出典が無くても登録できる", async () => {
+    const stockId = await registerToyota();
+
+    expect(
+      await createEvent({
+        ...BASE,
+        stockId,
+        sourceName: null,
+        sourceUrl: null,
+      }),
+    ).toEqual(succeeded);
+  });
+
+  it("テーマイベントは出典が無くても登録できる", async () => {
+    // 銘柄の出来事をテーマに寄せたイベントで、出典は各社IR
+    await createTheme("半導体");
+    const [{ id: themeId }] = await db.select({ id: theme.id }).from(theme);
+
+    expect(
+      await createEvent({
+        ...BASE,
+        themeId,
+        sourceName: null,
+        sourceUrl: null,
+      }),
+    ).toEqual(succeeded);
+  });
+
+  it("市場イベントに出典の名前が無いとエラー文が返る", async () => {
+    // 市場イベントの出典（府省・FRB・BLS）は、出典の記載が利用の条件。
+    // 名前が無いと GET /events が出典を返さず、条件を満たさないままアプリに出る。
+    // URLだけでも、何も無くても同じ
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "JP",
+        sourceName: null,
+        sourceUrl: null,
+      }),
+    ).toBe("市場イベントには出典の名前とURLを入れる");
+    expect(
+      await createEvent({
+        ...BASE,
+        market: "US",
+        sourceName: null,
+        sourceUrl: "https://www.bls.gov/schedule/news_release/cpi.htm",
+      }),
+    ).toBe("市場イベントには出典の名前とURLを入れる");
+    expect(await db.select().from(event)).toHaveLength(0);
   });
 
   it("重要度が1〜3の外だとエラー文が返る", async () => {
@@ -391,17 +460,23 @@ describe("updateEvent", () => {
   });
 
   it("出典の名前だけを入れて更新するとエラー文が返る", async () => {
-    // 登録と同じく event_source_name_check が効く（設計書 §5.2）
+    // 登録と同じく event_source_name_check が効く
     const id = await registerEvent();
 
     expect(
-      await updateEvent(id, { ...BASE, market: "JP", sourceName: "内閣府" }),
+      await updateEvent(id, {
+        ...BASE,
+        market: "JP",
+        sourceName: "内閣府",
+        sourceUrl: null,
+      }),
     ).toBe("出典の名前を入れるならURLも入れる");
-    expect((await onlyEvent()).sourceName).toBeNull();
+    expect((await onlyEvent()).sourceUrl).toBe(MARKET_SOURCE.sourceUrl);
   });
 
   it("出典の名前とURLを両方入れて更新できる", async () => {
-    // 出典を入れ忘れた行を直せること。これが Issue #43 の目的
+    // 出典を書き違えた行を直せること。これが Issue #43 の目的
+    // （出典を入れ忘れた市場イベントは、Issue #179 から DB が入れさせない）
     const id = await registerEvent();
 
     expect(
@@ -441,7 +516,7 @@ describe("updateEvent", () => {
   });
 
   it("数字でないIDの更新はエラー文が返る", async () => {
-    // Number("abc") の NaN を integer 列に渡すと型変換エラーで 500 になる（設計書 §6）
+    // Number("abc") の NaN を integer 列に渡すと型変換エラーで 500 になる
     await registerEvent();
 
     expect(await updateEvent(Number("abc"), { ...BASE, market: "US" })).toBe(
@@ -539,7 +614,7 @@ describe("updateStock", () => {
   });
 
   it("イベントから参照されている銘柄のティッカーを変えても参照は外れない", async () => {
-    // 外部キーは stock.id を見るため、市場・ティッカーを直しても参照は付いてくる（設計書 §4）
+    // 外部キーは stock.id を見るため、市場・ティッカーを直しても参照は付いてくる
     const stockId = await onlyStockId();
     await createEvent({ ...BASE, stockId });
 
@@ -620,7 +695,7 @@ describe("deleteStock", () => {
   });
 
   it("テーマ所属は一緒に消える", async () => {
-    // theme_stock.stock_id は ON DELETE cascade（設計書 §2）
+    // theme_stock.stock_id は ON DELETE cascade
     const stockId = await onlyStockId();
     const themeId = await onlyThemeId();
     await createThemeStock(themeId, stockId);
@@ -632,7 +707,7 @@ describe("deleteStock", () => {
 
   it("イベントから参照されているとエラー文が返り、銘柄は消えない", async () => {
     // 制約名は登録のときと同じ event_stock_id_stock_id_fk が返る。
-    // 「その銘柄は無い」を出すと意味が正反対になる（設計書 §2）
+    // 「その銘柄は無い」を出すと意味が正反対になる
     const stockId = await onlyStockId();
     await createEvent({ ...BASE, stockId });
 
@@ -699,7 +774,7 @@ describe("updateTheme", () => {
 
 describe("deleteTheme", () => {
   it("イベントから参照されていないテーマは消え、所属も一緒に消える", async () => {
-    // theme_stock.theme_id は ON DELETE cascade（設計書 §2）
+    // theme_stock.theme_id は ON DELETE cascade
     const themeId = await onlyThemeId();
     const stockId = await onlyStockId();
     await createThemeStock(themeId, stockId);
@@ -835,7 +910,7 @@ describe("問い合わせに渡せない値", () => {
 
   it("日付・時刻に入れるとエラー文が返る", async () => {
     // 日付は Number() を通らないが、日付として読めない文字列を date 列に渡すと
-    // 同じく制約違反ではないエラーになる（イベント登録フォーム設計書 §7）。
+    // 同じく制約違反ではないエラーになる。
     // 形が違う（"" や "abc"）ときと、形は日付だが値が範囲外（"2026-13-45"）の
     // ときで pg のエラーコードが分かれるため、両方を確かめる
     for (const startDate of ["", "abc", "2026-13-45"]) {
@@ -930,7 +1005,7 @@ describe("createEvents", () => {
   });
 
   it("1行でも制約に反すると1件も入らない", async () => {
-    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る（設計書 §4）
+    // 2件目の重要度が範囲外。1件目は正しいが、取り引きごと戻る
     expect(
       await createEvents([marketEvent(), marketEvent({ importance: 9 })]),
     ).toBe("2行目: 重要度は1〜3");
@@ -963,7 +1038,7 @@ describe("createEvents", () => {
 });
 
 describe("upsertMarketEvents", () => {
-  /** 公表予定から作られる1件。名称に対象期が入るのが前提（設計書 §4） */
+  /** 公表予定から作られる1件。名称に対象期が入るのが前提 */
   function statEvent(overrides: Partial<EventInput> = {}): EventInput {
     return {
       title: "消費者物価指数（2026年1月分）",
@@ -1059,7 +1134,7 @@ describe("upsertMarketEvents", () => {
       .update(event)
       .set({ shortLabel: "CPI", importance: 3, note: "手で直した備考" });
 
-    // 公表日が変わった取り込みでも、更新するのは開始日と時刻の2列だけ（設計書 §1 #6）
+    // 公表日が変わった取り込みでも、更新するのは開始日と時刻の2列だけ
     await upsertMarketEvents(
       [statEvent({ startDate: "2026-02-24" })],
       STAT_TITLE_PATTERN,
@@ -1143,7 +1218,7 @@ describe("upsertMarketEvents", () => {
   });
 
   /**
-   * 非アクティブ化のテスト（非アクティブ化 設計書 §3）。
+   * 非アクティブ化のテスト。
    * 2099年＝これからの回、1999年＝公表済みの回。今日を跨がない年にしてある
    */
   const FUTURE = statEvent({

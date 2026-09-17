@@ -8,15 +8,15 @@ import type { Action } from "./notice";
 /** 決算月の選択肢（1〜12） */
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-/** 編集のときの初期値。登録では渡さない（設計書 §3） */
+/** 編集のときの初期値。登録では渡さない */
 type StockRow = StockInput & { id: number };
 
 /**
- * 銘柄のフォーム。登録と編集の両方で使う（設計書 §3）。
+ * 銘柄のフォーム。登録と編集の両方で使う（#67）。
  * stock を渡すと各欄に初期値が入り、更新先を表す隠しの id が付く。
  *
  * name は notNull だが空文字を弾く CHECK が無いため、required で塞ぐ。
- * required は "   " を通すため、空白だけの判定は src/db/write.ts が持つ（設計書 §5）
+ * required は "   " を通すため、空白だけの判定は src/db/write.ts が持つ
  */
 export function StockForm({
   action,

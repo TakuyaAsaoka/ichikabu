@@ -10,7 +10,7 @@ const LOOKUP: Lookup = {
   themes: [{ id: 5, name: "半導体" }],
 };
 
-/** 貼り付ける1行を組み立てる。列は10個（設計書 §2） */
+/** 貼り付ける1行を組み立てる。列は10個 */
 function rowOf(columns: Partial<Record<number, string>> = {}): string {
   const defaults = [
     "米消費者物価指数（2026年7月分）",
@@ -90,7 +90,7 @@ describe("toEventInputs", () => {
   });
 
   it("同じティッカーでも市場が違えば別の銘柄として引く", () => {
-    // stock の一意の制約は (market, ticker) の組（設計書 §3）
+    // stock の一意の制約は (market, ticker) の組
     const inputs = toEventInputs(rowOf({ 2: "stock:US:AAPL" }), LOOKUP);
 
     expect(inputs).toEqual([expect.objectContaining({ stockId: 2 })]);
@@ -167,7 +167,7 @@ describe("toEventInputs", () => {
 
   it("名称が空欄の行はエラー文が返る", () => {
     // title は notNull だが空文字を弾く CHECK が無いため、貼り付け経路でここを
-    // 弾かないと名称が空のイベントがそのまま入ってしまう（設計書 §2）
+    // 弾かないと名称が空のイベントがそのまま入ってしまう
     const inputs = toEventInputs(rowOf({ 0: "  " }), LOOKUP);
 
     expect(inputs).toBe("1行目: 名称を入れる");
@@ -186,7 +186,7 @@ describe("toEventInputs", () => {
   });
 
   it("空欄の終了日・時刻・補足・出典は null になる", () => {
-    // "" のまま date・time 列に入れると型変換エラーで500になる（設計書 §2）
+    // "" のまま date・time 列に入れると型変換エラーで500になる
     const inputs = toEventInputs(
       rowOf({ 4: "", 5: "", 7: "", 8: "", 9: "" }),
       LOOKUP,

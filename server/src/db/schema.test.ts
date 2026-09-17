@@ -1,18 +1,22 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectViolation, resetDatabase } from "../../test/helpers";
-import { stockInput } from "../../test/inputs";
+import { MARKET_SOURCE, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { AUDIT_RESOURCES, event, stock, theme, themeStock } from "./schema";
 
 beforeEach(resetDatabase);
 
-/** イベントの日付列の共通部分。対象の3列だけをテストごとに変える */
+/**
+ * イベントの日付列の共通部分。対象の3列だけをテストごとに変える。
+ * 出典は、市場イベントが出典なしでは入らないため入れておく（`event_market_source_check`）
+ */
 const eventBase = {
   title: "テスト用イベント",
   shortLabel: "テスト",
   startDate: "2026-08-05",
   importance: 2,
+  ...MARKET_SOURCE,
 } as const;
 
 /** 既定のティッカーは `test/inputs.ts` から取る（同じ値を2か所に書かない） */
@@ -252,7 +256,7 @@ describe("外部キーの削除時の挙動", () => {
   it("銘柄とテーマを参照する外部キーは restrict か cascade で宣言されている", async () => {
     // onDelete を省くと既定の no action になり、削除を弾いたときのコードが
     // 23001 ではなく 23503 になる。src/db/write.ts の DELETE_MESSAGES を通らず
-    // 「その銘柄は無い」という正反対の文が戻る（銘柄・テーマの編集 設計書 §2）。
+    // 「その銘柄は無い」という正反対の文が戻る。
     // confdeltype は a=no action、r=restrict、c=cascade
     const rows = await db.execute<{ conname: string; confdeltype: string }>(sql`
       SELECT c.conname, c.confdeltype

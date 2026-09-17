@@ -17,7 +17,7 @@ xcrun simctl install booted <パス>/Ichikabu.app
 xcrun simctl launch booted com.takuyaasaoka.ichikabu
 ```
 
-サインインは無い。起動するとそのままカレンダーが出る（設計書 §9）。持ち株は右上の「持ち株」から選ぶ。
+サインインは無い。起動するとそのままカレンダーが出る。持ち株は右上の「持ち株」から選ぶ。
 
 ## ウィンドウが開かないとき
 

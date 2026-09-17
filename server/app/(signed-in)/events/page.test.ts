@@ -11,7 +11,7 @@ import {
 } from "../../../src/db/write";
 import { htmlOf } from "../../../test/dom";
 import { entriesOf, resetDatabase } from "../../../test/helpers";
-import { eventInput } from "../../../test/inputs";
+import { eventInput, MARKET_SOURCE } from "../../../test/inputs";
 import { PASSWORD, render, signInAs } from "../../../test/render-page";
 import Page from "./page";
 
@@ -20,13 +20,14 @@ const EDITOR = "editor@example.com";
 
 type EventInput = Parameters<typeof createEvent>[0];
 
-/** 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める（全体設計書 §5） */
+/** 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める */
 function toInput(shortLabel: string, startDate = "2026-09-01"): EventInput {
   return eventInput({
     title: `${shortLabel}の発表`,
     shortLabel,
     startDate,
     market: "JP",
+    ...MARKET_SOURCE,
   });
 }
 
@@ -89,6 +90,7 @@ describe("イベントの画面", () => {
       startDate: "2026-10-01",
       importance: 2,
       market: "JP",
+      ...MARKET_SOURCE,
       active: false,
     });
     await signInAs(EDITOR);
@@ -156,7 +158,7 @@ describe("イベントの画面", () => {
 
   it("非アクティブの行にはバッジが付き、アクティブな行には付かない", async () => {
     // 非アクティブの行はアプリに出ない。一覧でそれが分かる場所は他に無い
-    // （公表予定の非アクティブ化 設計書 §4）。#161 で文字の前置きからバッジに変えた。
+    // （#72）。#161 で文字の前置きからバッジに変えた。
     //
     // **アクティブな行に出ないことまで見る。** 出しっぱなしだと、印が
     // 非アクティブの行を1つも区別していないことになり、この検査が素通りする
@@ -176,6 +178,7 @@ describe("イベントの画面", () => {
       startDate: "2026-10-01",
       importance: 2,
       market: "JP",
+      ...MARKET_SOURCE,
       active: false,
     });
 

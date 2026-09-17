@@ -10,10 +10,10 @@ import { ThemeForm } from "../theme-form";
 import { ThemeStockForm } from "../theme-stock-form";
 
 /**
- * 銘柄とテーマの画面。銘柄とテーマの一覧を並べる（設計書 §3）。
+ * 銘柄とテーマの画面。銘柄とテーマの一覧を並べる。
  * 登録フォームは各一覧の見出しの下に閉じて置き、押したときだけ開く（#165）。
- * 銘柄・テーマは各行から編集ページへ行ける（編集・削除 設計書 §3）。
- * テーマ所属は直す列が無いため、行から削除ページへ行く（保有とテーマ所属の削除 設計書 §2）。
+ * 銘柄・テーマは各行から編集ページへ行ける（#67）。
+ * テーマ所属は直す列が無いため、行から削除ページへ行く（#68）。
  * 並べ替え・絞り込みは付けない。
  *
  * イベントは `app/events/page.tsx` が受け持つ（Issue #112）。
@@ -40,7 +40,7 @@ export default async function Page() {
     .from(theme)
     .orderBy(theme.name);
 
-  // テーマ所属は上の themes にぶら下げて出す（設計書 §4.2）。
+  // テーマ所属は上の themes にぶら下げて出す。
   // themes が全テーマを持っているため、ここは所属のある行だけを読めば足りる
   const themeStocks = await db
     .select({

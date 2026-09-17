@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../test/helpers";
-import { stockInput } from "../test/inputs";
+import { MARKET_SOURCE, stockInput } from "../test/inputs";
 import { db } from "./db";
 import { event, stock } from "./db/schema";
 import { RIGHTS_YEARS } from "./rights";
@@ -39,6 +39,8 @@ async function addEvent(
     startDate: `${LAST_YEAR}-05-01`,
     importance: 2,
     market: "JP",
+    // 市場イベントは出典が無いと入らない（`event_market_source_check`）
+    ...MARKET_SOURCE,
     ...values,
   });
 }
@@ -144,37 +146,6 @@ describe("決算月なし", () => {
   });
 });
 
-describe("出典の表示名なし", () => {
-  it("出典URLはあるが表示名が無い行が、開始日順に出る", async () => {
-    await addEvent({
-      title: "消費者物価指数（2027年1月分）",
-      sourceUrl: "https://www.stat.go.jp/data/cpi/",
-    });
-    // 日付が先になる回を後から作る。作った順と開始日順が同じ題材だと、
-    // `orderBy` が落ちても緑のまま通る
-    await addEvent({
-      title: "消費者物価指数（2026年12月分）",
-      startDate: `${LAST_YEAR}-01-23`,
-      sourceUrl: "https://www.stat.go.jp/data/cpi/",
-    });
-
-    expect(await gapsOf("sourceName")).toEqual([
-      `${LAST_YEAR}-01-23 消費者物価指数（2026年12月分）`,
-      `${LAST_YEAR}-05-01 消費者物価指数（2027年1月分）`,
-    ]);
-  });
-
-  it("表示名まで入っている行と、出典を持たない行は出ない", async () => {
-    await addEvent({
-      sourceUrl: "https://www.stat.go.jp/data/cpi/",
-      sourceName: "総務省統計局",
-    });
-    await addEvent({ title: "出典なし" });
-
-    expect(await gapsOf("sourceName")).toEqual([]);
-  });
-});
-
 describe("過ぎた非アクティブ", () => {
   it("非アクティブのまま日付が過ぎた行が、開始日順に出る", async () => {
     await addEvent({
@@ -224,7 +195,7 @@ describe("過ぎた非アクティブ", () => {
 
 describe("休場日リストの不足", () => {
   it("翌年ぶんが載っていない年に入ると出る", async () => {
-    // リストの最後の年に入ると、その年のうちに翌年ぶんが要る（全体設計書 §14）
+    // リストの最後の年に入ると、その年のうちに翌年ぶんが要る
     expect(await gapsOf("closedDays", `${LAST_YEAR}-01-01`)).toEqual([
       `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
     ]);
@@ -252,8 +223,8 @@ describe("findGaps", () => {
   });
 
   it("直せる画面がある抜けだけが行き先を持つ", async () => {
-    // 5種類を一度に出す。銘柄は決算月が空で未来のイベントも無く、
-    // イベントは出典の表示名が無いまま非アクティブで日付を過ぎている。
+    // 4種類を一度に出す。銘柄は決算月が空で未来のイベントも無く、
+    // イベントは非アクティブで日付を過ぎている。
     // 種類をまたいだ並びは `findGaps` の return の順。画面は種類ごとに
     // 取り出すため見た目は変わらないが、ここで固定しておく
     // 下の期待値に銘柄名が出るので、既定値に任せず明示する
@@ -266,7 +237,6 @@ describe("findGaps", () => {
       title: "消費者物価指数（2026年1月分）",
       startDate: `${LAST_YEAR - 1}-01-23`,
       active: false,
-      sourceUrl: "https://www.stat.go.jp/data/cpi/",
     });
     const [row] = await db.select({ id: event.id }).from(event);
     const today = `${LAST_YEAR}-06-01`;
@@ -278,11 +248,6 @@ describe("findGaps", () => {
         kind: "fiscalMonth",
         label: "JP 7203 トヨタ自動車",
         href: `/stocks/${stockId}`,
-      },
-      {
-        kind: "sourceName",
-        label: `${LAST_YEAR - 1}-01-23 消費者物価指数（2026年1月分）`,
-        href: `/events/${row.id}`,
       },
       {
         kind: "pastInactive",

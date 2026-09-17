@@ -138,7 +138,7 @@ struct EventLayoutTests {
 
 	@Test("月をまたぐ期間のイベントは両方の月で1件と数える")
 	func summaryCountsPeriodOncePerMonth() {
-		// セルには 8/31 と 9/1 の2日に出るが、出来事としては1件（設計書 §5）
+		// セルには 8/31 と 9/1 の2日に出るが、出来事としては1件
 		let events = [event(id: 1, startDate: "2026-08-31", endDate: "2026-09-01")]
 		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-08-01"), from: events).total == 1)
 		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-09-01"), from: events).total == 1)
@@ -175,7 +175,7 @@ struct EventLayoutTests {
 
 	@Test("同じ月の中の期間イベントは1件と数える")
 	func summaryCountsPeriodOnce() {
-		// セルには2日に出るが、出来事としては1件（設計書 §5）
+		// セルには2日に出るが、出来事としては1件
 		let events = [event(id: 1, startDate: "2026-09-16", endDate: "2026-09-17")]
 		#expect(EventLayout.summary(forMonthOf: jstNoon("2026-09-01"), from: events).total == 1)
 	}

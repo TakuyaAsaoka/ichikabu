@@ -9,7 +9,7 @@ type StockChoice = { id: number; market: string; ticker: string; name: string };
 /**
  * テーマ所属の登録フォーム。
  * テーマか銘柄が0件のときはフォームを出さない。選択肢が空の選択欄を出すと、
- * 送信しても外部キー違反になり、制約違反の日本語化を通らず 500 になる（設計書 §4.3）
+ * 送信しても外部キー違反になり、制約違反の日本語化を通らず 500 になる
  */
 export function ThemeStockForm({
   themes,

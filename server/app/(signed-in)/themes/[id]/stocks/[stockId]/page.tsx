@@ -7,9 +7,10 @@ import { ActionForm } from "../../../../../form";
 import { requireId, requireSession } from "../../../../../guard";
 
 /**
- * テーマ所属を外すページ（設計書 §2）。
+ * テーマ所属を外すページ（#68）。
  * 直す列が無いため編集フォームは無く、削除だけを置く。
- * テーマIDのスラッグ名は親の `[id]` に合わせる（設計書 §2.1）
+ * テーマIDのスラッグ名は親の `[id]` に合わせる。`[themeId]` にしてもビルドは通るが、
+ * 同じ位置で `/themes/[id]` と名前が割れる
  */
 export default async function Page({
   params,
@@ -18,7 +19,7 @@ export default async function Page({
 }) {
   await requireSession();
 
-  // 複合主キーなので2列とも判定する（設計書 §4）
+  // 複合主キーなので2列とも判定する
   const { id, stockId: rawStockId } = await params;
   const themeId = requireId(id);
   const stockId = requireId(rawStockId);
@@ -49,7 +50,7 @@ export default async function Page({
           {row.themeName} / {row.market} {row.ticker} {row.name}
         </p>
         {/* 確認ダイアログは出さない。外れるのは所属だけで、テーマも銘柄も残り、
-            テーマ所属フォームから入れ直せる（設計書 §3） */}
+            テーマ所属フォームから入れ直せる */}
         {/* 外すのも消す操作なので、登録・更新とは色を分ける（#161）。
             確認を出さないこととは別（→ 上の注記） */}
         <ActionForm

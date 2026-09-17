@@ -28,15 +28,15 @@ import { requireSession, requireUserId, type Session } from "./guard";
 import { type Action, DONE_PARAM, type NoticeKey } from "./notice";
 
 // サインインはここに置かない。ブラウザから Better Auth の HTTP エンドポイントを
-// 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため（設計書 §6）
+// 叩く（app/signin/signin-form.tsx）。auth.api の直接呼び出しは回数制限を通らないため
 
 /**
  * 管理者かどうかを確かめる。管理者なら null、そうでなければ拒む理由を返す。
- * 削除は取り返せないため、管理者だけができる（設計書 §9）。
+ * 削除は取り返せないため、管理者だけができる。
  *
  * 拒み方を `redirect()` にしない。削除は成功しても `redirect()` するため、
  * 拒否と成功が同じ `NEXT_REDIRECT` になり、拒まれたことを画面でもテストでも
- * 見分けられなくなる（実測。→ 入力者を3人にする設計書 §4）。
+ * 見分けられなくなる（実測）。
  * 戻り値のエラー文は、他の Server Action と同じく ActionForm が表示する。
  *
  * セッションを自分で読まずに受け取る。読むと、記録に残す利用者IDを取るために
@@ -47,7 +47,7 @@ function requireAdmin(session: Session): string | null {
 }
 
 /**
- * 書き込みを実行し、成功したら監査ログに記録する（設計書 §5.2）。
+ * 書き込みを実行し、成功したら監査ログに記録する。
  * 成功で null、書き込みか記録の失敗で画面に出す日本語のエラー文を返す。
  *
  * **12の Server Action がすべてこれを通る。** 個々の関数が記録を自分で呼ぶ形に
@@ -89,7 +89,7 @@ type Write = (formData: FormData) => Promise<WriteResult>;
  *   必須にしてあるので、足した1本に知らせを付け忘れると型で落ちる
  * @param options.adminOnly 管理者だけができる操作（削除）に付ける
  * @param options.redirectTo 成功したときの行き先。省くとその画面に留まる。
- *   更新・削除は一覧に戻す（設計書 §5.3）。編集ページに留まらせると
+ *   更新・削除は一覧に戻す。編集ページに留まらせると
  *   「更新した」を出すための状態を別に持つことになる。
  *   `?` 以降を含めない（知らせの印を `?done=` で後ろに付けるため）
  */
@@ -136,7 +136,7 @@ function action(
 /**
  * 決算月の入力を読む。
  * フォームの空欄は FormData で "" になり、そのまま smallint に入れると
- * 制約違反ではない型変換エラーで 500 になる（設計書 §7 A）
+ * 制約違反ではない型変換エラーで 500 になる
  */
 function toFiscalMonth(value: FormDataEntryValue | null): number | null {
   const text = String(value ?? "");
@@ -147,7 +147,7 @@ function toFiscalMonth(value: FormDataEntryValue | null): number | null {
 function toStockInput(formData: FormData): StockInput {
   return {
     // <select> の選択肢は JP と US だけだが、値の妥当性はここで絞り込まず
-    // そのまま渡し、DB の stock_market_check 制約に弾かせる（設計書 §5）
+    // そのまま渡し、DB の stock_market_check 制約に弾かせる
     market: String(formData.get("market") ?? ""),
     ticker: String(formData.get("ticker") ?? ""),
     name: String(formData.get("name") ?? ""),
@@ -190,7 +190,7 @@ export const addEvent = action(
 /**
  * イベントをまとめて登録する。
  *
- * 対象はティッカーとテーマ名で書くため、IDを引くための対応表をここで読む（設計書 §3）。
+ * 対象はティッカーとテーマ名で書くため、IDを引くための対応表をここで読む。
  * 行ごとに問い合わせず、2回の読み出しで済ませる。
  *
  * 貼り付けた行が読めなかったときの文言も、書き込みの失敗と同じ形で返す

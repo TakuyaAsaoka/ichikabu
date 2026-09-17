@@ -10,7 +10,7 @@ import { pgError } from "./pg-error";
 import { event, stock, theme, themeStock } from "./schema";
 
 /**
- * 制約違反を画面に出す日本語にする（設計書 §5）。
+ * 制約違反を画面に出す日本語にする。
  * 制約名は server/drizzle/ のマイグレーションの実物
  */
 const MESSAGES: Record<string, string> = {
@@ -26,12 +26,13 @@ const MESSAGES: Record<string, string> = {
   event_period_check: "終了日は開始日より後にする（単日は空のまま）",
   event_importance_check: "重要度は1〜3",
   event_source_name_check: "出典の名前を入れるならURLも入れる",
+  event_market_source_check: "市場イベントには出典の名前とURLを入れる",
   event_market_check: "市場は JP・US・GLOBAL のどれか",
   // 存在しないIDを指した外部キー違反。選択肢は画面がDBから出しているため、
   // 画面を通した操作では起きない。Server Action への直接POSTでだけ届く。
   //
   // この文は INSERT と UPDATE のときの意味。削除では同じ制約名が正反対の意味で
-  // 返るため、下の DELETE_MESSAGES で分ける（銘柄・テーマの編集 設計書 §2）
+  // 返るため、下の DELETE_MESSAGES で分ける
   event_theme_id_theme_id_fk: "そのテーマは無い",
   event_stock_id_stock_id_fk: "その銘柄は無い",
   theme_stock_theme_id_theme_id_fk: "そのテーマは無い",
@@ -39,7 +40,7 @@ const MESSAGES: Record<string, string> = {
 };
 
 /**
- * 参照されている行を消そうとしたときの日本語（銘柄・テーマの編集 設計書 §2）。
+ * 参照されている行を消そうとしたときの日本語。
  *
  * 制約名は MESSAGES と同じものが返る。同じ名前で意味が正反対になるため、
  * 上の表とは別に持つ。ここに載るのは ON DELETE restrict の3本だけで、
@@ -57,7 +58,7 @@ const DELETE_MESSAGES: Record<string, string> = {
  * このコードが返る経路は削除だけである。restrict が付いているのは ON DELETE の
  * 側だけで、外部キー8本の ON UPDATE はすべて no action（drizzle/0000_simple_blacklash.sql）。
  * 参照先の id は generatedAlwaysAsIdentity で更新されず、実測でも参照されている
- * 銘柄のティッカーは更新できる（銘柄・テーマの編集 設計書 §2）。
+ * 銘柄のティッカーは更新できる。
  *
  * **stock か theme を参照する外部キーを足すときは onDelete を必ず書く。**
  * 省くと既定の no action になり、削除を弾いたときのコードが 23503 になって
@@ -87,7 +88,7 @@ const INVALID_VALUE_CLASS = "22";
 
 /**
  * 書き込みの結果。失敗なら画面に出す日本語のエラー文、
- * 成功なら監査ログに渡す記録（設計書 §5.3）。
+ * 成功なら監査ログに渡す記録。
  *
  * 成功を `null` ではなく記録の並びにしてある。`null` のままだと、
  * 何を書き込んだのかがこの層から出ていかず、`resource_id` も
@@ -111,7 +112,7 @@ async function run(
   } catch (error) {
     const { code, constraint } = pgError(error);
     // 削除で参照が残っているときだけ別の表を引く。制約名は登録・更新と同じものが
-    // 返るため、名前ではなくコードで振り分ける（銘柄・テーマの編集 設計書 §2）
+    // 返るため、名前ではなくコードで振り分ける
     const message = (code === RESTRICT_VIOLATION ? DELETE_MESSAGES : MESSAGES)[
       constraint ?? ""
     ];
@@ -132,10 +133,10 @@ async function run(
  * stock.name と theme.name は notNull だが空文字を弾く CHECK が無く、
  * <input required> は "" しか弾かないため "   " が素通りする。
  * テーマ名では「半導体」と「半導体 」が別のテーマとして UNIQUE も素通りし、
- * 画面には見分けの付かない選択肢が2つ並ぶ（テーマ登録 設計書 §3.1）。
+ * 画面には見分けの付かない選択肢が2つ並ぶ。
  *
  * CHECK 制約にはしない。空を弾くことはできても「半導体 」を「半導体」に
- * そろえる正規化はできず、この関数の置き換えにならない（銘柄・テーマの編集 設計書 §5）
+ * そろえる正規化はできず、この関数の置き換えにならない
  */
 function trimmedName(value: string): string | null {
   const trimmed = value.trim();
@@ -147,7 +148,7 @@ export type StockInput = {
   market: string;
   ticker: string;
   name: string;
-  /** 決算月（1〜12）。JP銘柄のみ。US銘柄では null（全体設計書 §4.1） */
+  /** 決算月（1〜12）。JP銘柄のみ。US銘柄では null */
   fiscalMonth: number | null;
 };
 
@@ -160,7 +161,7 @@ function stockValues(input: StockInput, name: string) {
   return { ...input, name, market: sql`${input.market}` };
 }
 
-/** 複合主キーの `resource_id`。列の値を ":" でつなぐ（設計書 §5.1） */
+/** 複合主キーの `resource_id`。列の値を ":" でつなぐ */
 function compositeId(...values: (string | number)[]): string {
   return values.join(":");
 }
@@ -211,26 +212,26 @@ export function createThemeStock(
 
 export type EventInput = {
   title: string;
-  /** カレンダーのセルに出す略号。幅の上限はここで判定する（全体設計書 §14 #10） */
+  /** カレンダーのセルに出す略号。幅の上限はここで判定する */
   shortLabel: string;
   startDate: string;
-  /** null は単日を表す（全体設計書 §4.2） */
+  /** null は単日を表す */
   endDate: string | null;
   /** JST。null は時刻なし */
   time: string | null;
   importance: number;
   note: string | null;
   sourceUrl: string | null;
-  /** 画面に出す出典の名前。入れるなら sourceUrl も要る（出典表示設計書 §3.1） */
+  /** 画面に出す出典の名前。入れるなら sourceUrl も要る */
   sourceName: string | null;
   // 以下3列が対象。ちょうど1つだけ非NULLであることは DB の
-  // event_target_exclusive_check が判定する。ここでは絞り込まない（設計書 §4）
+  // event_target_exclusive_check が判定する。ここでは絞り込まない
   market: string | null;
   themeId: number | null;
   stockId: number | null;
 };
 
-/** 短縮ラベルの上限。半角を1・全角を2として数えた幅で、10 は全角5文字ぶん（設計書 §3） */
+/** 短縮ラベルの上限。半角を1・全角を2として数えた幅で、10 は全角5文字ぶん */
 const SHORT_LABEL_MAX_WIDTH = 10;
 
 /**
@@ -243,7 +244,7 @@ function labelWidth(text: string): number {
 
 /**
  * 短縮ラベルの幅を判定し、長すぎれば日本語のエラー文を返す。
- * 短縮ラベルの幅だけは DB に制約が無いためここで判定する（設計書 §3）
+ * 短縮ラベルの幅だけは DB に制約が無いためここで判定する
  */
 function tooLongLabel(shortLabel: string): string | null {
   return labelWidth(shortLabel) > SHORT_LABEL_MAX_WIDTH
@@ -282,7 +283,7 @@ const MAX_ID = 2147483647;
  *
  * 画面やURLから来る id は文字列で、Number() が NaN や integer の範囲外の数を
  * 返すことがある。それをそのまま integer 列に渡すと、制約違反ではない
- * 型変換エラーになり、日本語化を通らず 500 になる（イベントの編集・削除 設計書 §6）。
+ * 型変換エラーになり、日本語化を通らず 500 になる。
  *
  * event.id・stock.id・theme.id で1つを使う。3列とも
  * integer().primaryKey().generatedAlwaysAsIdentity() で判定に差が入る余地が無い
@@ -301,7 +302,7 @@ function invalidId(id: number, label: string): string | null {
  * 該当するIDが無ければ0件更新になり、成功として空の記録を返す。
  *
  * 市場とティッカーも変えられる。参照しているイベント・テーマ所属は
- * stock.id で紐づいているため、変えても参照は外れない（設計書 §4）
+ * stock.id で紐づいているため、変えても参照は外れない
  */
 export async function updateStock(
   id: number,
@@ -351,10 +352,10 @@ function themeStockEntries(
 /**
  * 銘柄を削除する。成功で記録、失敗で日本語のエラー文を返す。
  * 該当するIDが無ければ0件削除になり、成功として空の記録を返す。
- * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）。
+ * イベントから参照されていると消せず、テーマ所属は一緒に消える。
  *
  * テーマ所属は CASCADE に任せず、同じ取り引きの中で先に自分で消す。
- * DBに任せると消えた行を受け取る機会が無く、記録に残せない（監査ログ 設計書 §5.4）。
+ * DBに任せると消えた行を受け取る機会が無く、記録に残せない。
  * 銘柄の削除が参照に阻まれれば、こちらの削除も一緒に巻き戻る
  */
 export async function deleteStock(id: number): Promise<WriteResult> {
@@ -413,7 +414,7 @@ export async function updateTheme(
 /**
  * テーマを削除する。成功で記録、失敗で日本語のエラー文を返す。
  * 該当するIDが無ければ0件削除になり、成功として空の記録を返す。
- * イベントから参照されていると消せず、テーマ所属は一緒に消える（設計書 §2）。
+ * イベントから参照されていると消せず、テーマ所属は一緒に消える。
  *
  * テーマ所属を先に自分で消す理由は `deleteStock` と同じ
  */
@@ -502,7 +503,7 @@ export async function updateEvent(
 
 /**
  * イベントを削除する。成功で記録、失敗で日本語のエラー文を返す。
- * event は他のテーブルから参照されないため、外部キー違反は起きない（設計書 §3.2）
+ * event は他のテーブルから参照されないため、外部キー違反は起きない
  */
 export async function deleteEvent(id: number): Promise<WriteResult> {
   return (
@@ -548,14 +549,13 @@ export type UpsertResult = {
   deactivated: string[];
   /**
    * 監査ログに渡す記録。**この経路は `app/actions.ts` を通らないため、
-   * ここで返さないと取り込みの書き込みが1件も記録に残らない**（設計書 §5.2）
+   * ここで返さないと取り込みの書き込みが1件も記録に残らない**
    */
   entries: AuditEntry[];
 };
 
 /**
- * 公表予定の取り込み用に、市場イベントを登録または更新する
- * （公表予定の取り込み設計書 §4）。
+ * 公表予定の取り込み用に、市場イベントを登録または更新する。
  *
  * 名称が無ければ登録し、あれば**開始日と時刻だけ**を更新する。短縮ラベル・
  * 重要度・備考は運用者が手で直す列なので上書きしない。
@@ -567,7 +567,7 @@ export type UpsertResult = {
  * ぶん起きやすくはなったが、起きたら管理UIの一覧で見つかる（Issue #82）。
  *
  * 渡した並びに無い名称のうち、`ownedTitlePattern` に当たる**これからの回**は
- * 非アクティブにする（非アクティブ化 設計書 §3）。中止・延期で公表予定から
+ * 非アクティブにする。中止・延期で公表予定から
  * 消えた回がカレンダーに残り続けないようにするため。公表済みの回は触らない。
  * その日に発表はあり、載せなくなっただけだからである。
  * **一度に2件以上を非アクティブにするなら投げる**（下記）。
@@ -578,7 +578,7 @@ export type UpsertResult = {
  * @param ownedTitlePattern 取り込みが名づける名称の形（PostgreSQL の正規表現）。
  *   この形に当たる行だけを非アクティブにする。出典URLで見分けないのは、
  *   取り込みが落とす回（東京都区部・年平均）を運用者が手で登録すると出典URLが
- *   同じになり、公表予定に載っているのに非アクティブになるため（設計書 §2）
+ *   同じになり、公表予定に載っているのに非アクティブになるため
  */
 export async function upsertMarketEvents(
   inputs: EventInput[],
@@ -699,7 +699,7 @@ export async function upsertMarketEvents(
     // 登録も更新も残らない。
     //
     // 本物の中止が同じ回に2件重なると、直すまで取り込みが通らなくなる。
-    // そのときは管理UIで該当の行を消してから流し直す（非アクティブ化 設計書 §4）。
+    // そのときは管理UIで該当の行を消してから流し直す。
     // 実際に重なるのを見てから上限を上げる
     if (deactivated.length > 1) {
       throw new Error(
@@ -719,7 +719,7 @@ class BulkFailure extends Error {}
 /**
  * イベントをまとめて登録する。成功で記録、失敗で行番号付きの日本語のエラー文を返す。
  *
- * **1行でも失敗したら1件も入れない**（設計書 §4）。一部だけ入った状態は、
+ * **1行でも失敗したら1件も入れない**。一部だけ入った状態は、
  * 何が入って何が入らなかったのかを運用者が確かめられず、貼り直すと二重に入る。
  *
  * 1行ずつ INSERT する。まとめて1回の INSERT にすると、どの行が失敗したかが

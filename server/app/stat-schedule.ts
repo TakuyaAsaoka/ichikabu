@@ -4,15 +4,16 @@ import type { EventInput } from "../src/db/write";
 // 使うため Vitest から読み込めず、ここに置いた変換だけがテストできる
 // （app/bulk-event-input.ts と同じ理由）
 
-/** 消費者物価指数の公表予定（設計書 §2） */
+/** 消費者物価指数の公表予定 */
 const SCHEDULE_URL = "https://www.stat.go.jp/data/kouhyou/e-stat_cpi.xml";
 
 /**
- * 登録するイベントの、公表回によらない値（設計書 §1）。
+ * 登録するイベントの、公表回によらない値（#64）。
  *
  * 対象は `JP`。米CPI を `GLOBAL` にしているのは日本株にも効くからで
  * （src/db/seed-event.ts）、日本のCPI は米国株の保有者には効かない。
- * 出典の名前とURLは、全体設計書 §2.1 の条件4を満たすために入れる
+ * 出典の名前とURLを入れる。公表予定を取り込んでよいのは、出典の条件が
+ * `source_name` と `source_url` の2つを埋めるだけで満たせる出典に限っている
  */
 const COMMON = {
   shortLabel: "日本CPI",
@@ -26,28 +27,34 @@ const COMMON = {
   sourceUrl: "https://www.stat.go.jp/data/cpi/",
 } as const satisfies Partial<EventInput>;
 
-/** 統計名。名称の前に付ける。この XML は消費者物価指数のものだけを読む（設計書 §1 #4） */
+/**
+ * 統計名。名称の前に付ける。この XML は消費者物価指数のものだけを読む。
+ * 統計局が配信する他の9本は中身を確かめていない
+ */
 const STATISTIC_NAME = "消費者物価指数";
 
-/** 使う区分。東京都区部（中旬速報値）は入れない（設計書 §1 #3） */
+/**
+ * 使う区分。東京都区部（中旬速報値）は入れない。株式市場に効くのは全国のほうで、
+ * 合わせると年24件になり、カレンダーの1日2件の枠を食う
+ */
 const AREA = "全国";
 
 // 以下の正規表現は、総務省が機械で作っているこの XML の形に合わせたもの。
 // class_3・class_4・class_5 は name が空のまま入れ子になっているだけなので、
 // class_2 の中身をそのまま次の正規表現に渡せば飛ばせる。
 // **属性が増えたり <![CDATA[ が入ったりすると壊れる。** そうなったら
-// XML パーサのライブラリを足す（設計書 §2.2）
+// XML パーサのライブラリを足す
 const CLASS_1 = /<class_1\s+name="([^"]*)">([\s\S]*?)<\/class_1>/g;
 const CLASS_2 = /<class_2\s+name="([^"]*)">([\s\S]*?)<\/class_2>/g;
 
 /** 月次の対象期の形。下の名称の形と共通の部品にするため、文字列で持つ */
 const MONTHLY_SHAPE = "[0-9]{4}年[0-9]{1,2}月分";
 
-/** 対象期が月次かどうか。年平均・年度平均・接続指数はこの形にならない（設計書 §2.3） */
+/** 対象期が月次かどうか。年平均・年度平均・接続指数はこの形にならない */
 const MONTHLY = new RegExp(`^${MONTHLY_SHAPE}$`);
 
 /**
- * 取り込みが名づける名称の形（非アクティブ化 設計書 §2）。
+ * 取り込みが名づける名称の形（#72）。
  * **この形の名称の行は取り込みのもの**とみなし、公表予定に無くなれば非アクティブにする。
  *
  * 下の `toStatEvents` が作る名称と同じ2つの部品から組み立てている。統計名や
@@ -83,10 +90,10 @@ function release(entry: string, key: keyof typeof RELEASE, period: string) {
 }
 
 /**
- * 公表予定 XML を EventInput の並びにする。全国の月次だけを返す（設計書 §2）。
+ * 公表予定 XML を EventInput の並びにする。全国の月次だけを返す。
  *
  * 公表日時は日本時間そのまま。FOMC・米CPI のような時差の換算は要らない
- * （全体設計書 §4.1 は日付・時刻を日本時間で入れると決めている）
+ * （イベントの日付・時刻は日本時間で入れる決まり）
  */
 export function toStatEvents(xml: string): EventInput[] {
   const events: EventInput[] = [];
@@ -111,7 +118,7 @@ export function toStatEvents(xml: string): EventInput[] {
 }
 
 /**
- * 公表予定 XML のバイト列を文字列にする（設計書 §2.1）。
+ * 公表予定 XML のバイト列を文字列にする。
  *
  * UTF-16LE で配信されている。`curl` で落として `iconv` で UTF-8 に直す手は
  * 使えない。宣言が `UTF-16` のまま残るため XML として読めなくなる。

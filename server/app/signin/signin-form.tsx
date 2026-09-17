@@ -20,7 +20,7 @@ function messageFor(status: number): string {
  *
  * Server Action からサーバー側の `auth.api.signInEmail` を呼ぶのではなく、
  * ブラウザから Better Auth の HTTP エンドポイントを叩く。`auth.api` の直接呼び出しは
- * 回数制限を通らないため（設計書 §6）
+ * 回数制限を通らないため
  */
 export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function SignInForm() {
         Google でログイン
       </Button>
       {/* メールアドレスとパスワードは、Google の設定が壊れた日に
-          管理UIへ入る手段として残す（全体設計書 §9）。
+          管理UIへ入る手段として残す。
           普段使う入り口ではないので、ボタンは枠だけの `outline` にする */}
       <p className="text-center">または</p>
       <Label className={fieldLabel}>

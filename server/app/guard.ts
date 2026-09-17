@@ -33,8 +33,7 @@ export type Session = NonNullable<
  *
  * **画面と Server Action の両方がこれを通る。** Server Action は画面を通さず
  * 直接POSTできるため、画面側の確認とは別に Server Action でも確かめる
- * （Next.js 同梱ドキュメント 01-app/01-getting-started/07-mutating-data.md の警告。
- * → 監査ログ 設計書 §4）。
+ * （Next.js 同梱ドキュメント 01-app/01-getting-started/07-mutating-data.md の警告）。
  *
  * `app/signin/page.tsx` はこれを使わない。あの画面は「サインイン**済み**なら
  * 追い返す」という逆の判定で、行き先も違う
@@ -78,7 +77,7 @@ export async function requireAdminSession(): Promise<Session> {
  * 画面やURLから来る id は文字列で、`Number()` が NaN や integer の範囲外の数を
  * 返すことがある。それをそのまま integer 列に渡すと、制約違反ではない
  * 型変換エラーになり、日本語化を通らず 500 になる
- * （イベントの編集・削除 設計書 §6）。判定は Server Action と同じ `isId` を使う
+ * （#43）。判定は Server Action と同じ `isId` を使う
  */
 export function requireId(raw: string): number {
   const id = Number(raw);

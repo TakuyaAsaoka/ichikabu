@@ -31,7 +31,7 @@ import type { EventInput, StockInput } from "../src/db/write";
  * イベントの入力。**対象の3列はすべて null**で、埋めるのは呼ぶ側。
  *
  * 3列のうちちょうど1つだけが非NULLであることは DB の
- * `event_target_exclusive_check` が判定する（全体設計書 §5）。既定でどれかを
+ * `event_target_exclusive_check` が判定する。既定でどれかを
  * 埋めておくと、「対象を1つも選ばない」を確かめるテストが書けなくなる。
  *
  * 短縮ラベル「日銀会合」は全角4文字（幅8）で、幅の上限10には引っかからない。
@@ -53,6 +53,19 @@ export function eventInput(overrides: Partial<EventInput> = {}): EventInput {
     ...overrides,
   };
 }
+
+/**
+ * 市場イベントの出典。市場イベントは出典の名前とURLが無いと入らない
+ * （DB の `event_market_source_check`。Issue #179）。
+ *
+ * **出典を見ていないテスト**が市場イベントを作るときに展開する。
+ * `eventInput` の既定値にはしない。銘柄・テーマのイベントに出典が無い形も
+ * 正しく、既定で埋めると「出典の名前だけ」を確かめるテストが URL を隠し持つ
+ */
+export const MARKET_SOURCE = {
+  sourceName: "総務省統計局",
+  sourceUrl: "https://www.stat.go.jp/data/cpi/",
+} as const;
 
 /**
  * 銘柄の列に入れる値。**`market` を `"JP" | "US"` に狭めてある。**

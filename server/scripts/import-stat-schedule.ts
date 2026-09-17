@@ -8,9 +8,9 @@ import { record } from "../src/db/audit";
 import { upsertMarketEvents } from "../src/db/write";
 
 /**
- * 総務省統計局の消費者物価指数の公表予定を取り込む（設計書 §1）。
+ * 総務省統計局の消費者物価指数の公表予定を取り込む。
  *
- * 決まった間隔での自動実行は入れないと決めた（設計書 §7・Issue #107）。
+ * 決まった間隔での自動実行は入れないと決めた（Issue #107）。
  * XML は16ヶ月先まで載っているので月1回で足り、本番へは週1回のバックアップと
  * 同じ回に手で叩く（docs/guides/backup.md §1.5）。何を入れて何が変わったかはここに出す
  */
@@ -29,7 +29,7 @@ const { created, changed, deactivated, entries } = await upsertMarketEvents(
   STAT_TITLE_PATTERN,
 );
 
-// 利用者IDは空。人ではなく取り込みが書いたことを表す（監査ログ 設計書 §5.2）。
+// 利用者IDは空。人ではなく取り込みが書いたことを表す。
 // この経路は app/actions.ts を通らないので、ここで記録しないと実データの
 // ほとんどが残らない。失敗は黙って進めず投げる。上の「1件も取れなかった」と
 // 同じ理由で、黙って成功させると記録できていないことに気づけない。
@@ -55,7 +55,7 @@ for (const { title, from, to } of changed) {
 }
 
 // 中止・延期で公表予定から消えたこれからの回。行は残り、カレンダーに出なくなる。
-// アクティブに戻った回は出さない。運用者がすることが無いため（設計書 §5）
+// アクティブに戻った回は出さない。運用者がすることが無いため
 console.log(`非アクティブにした: ${deactivated.length} 件`);
 for (const title of deactivated) {
   console.log(`  - ${title}`);

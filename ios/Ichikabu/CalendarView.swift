@@ -1,7 +1,10 @@
 import IchikabuAPI
 import SwiftUI
 
-/// メイン画面。等高の月グリッドを横スワイプで送る（全体設計書 §10）
+/// メイン画面。等高の月グリッドを横スワイプで送る。
+/// 金融・投資のアプリは日付順の一覧ばかりで、月グリッドを主画面にした例は見つからなかった。
+/// それを承知のうえで月グリッドを選んだ。
+/// セル幅の狭さと1日3件以上の日は、短縮ラベル・2件までの表示・日付のシートで補う
 struct CalendarView: View {
 	@State private var events: [Event] = []
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
@@ -29,11 +32,11 @@ struct CalendarView: View {
 	/// 集合を出し分けると、閉じている最中に候補が入れ替わることになる
 	@State private var sheetHeight: PresentationDetent = .fraction(0.45)
 
-	/// 起動月の前後12ヶ月（設計書 §2 判断5）
+	/// 起動月の前後12ヶ月
 	private static let monthRange = -12...12
 
 	var body: some View {
-		// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（ログイン廃止 設計書 §4）
+		// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（Issue #87）
 		let shown = EventLayout.visible(events, holdings: holdings, stocks: stocks)
 
 		NavigationStack {
@@ -65,7 +68,7 @@ struct CalendarView: View {
 
 	/// その日のイベントのシートを出す。
 	/// 高さを 0.45 に戻すのは、持ち株の一覧で `.large` にしたまま日付を開くと
-	/// カレンダーが隠れ、続けて別の日付をタップできなくなるため（設計書 §3）
+	/// カレンダーが隠れ、続けて別の日付をタップできなくなるため
 	private func showDay(_ day: Date) {
 		sheetHeight = .fraction(0.45)
 		selectedDay = day
@@ -115,7 +118,7 @@ struct CalendarView: View {
 			}
 		}
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
-		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう（設計書 §3）。
+		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう。
 		//
 		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
 		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
@@ -137,7 +140,7 @@ struct CalendarView: View {
 			}
 			.presentationDetents([.fraction(0.45), .large], selection: $sheetHeight)
 			// 0.45 まで下げている間は裏を操作できる。
-			// これでシートを開いたまま別の日付をタップできる（全体設計書 §10.1）
+			// これでシートを開いたまま別の日付をタップできる
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
 	}
@@ -196,7 +199,7 @@ private struct MonthPage: View {
 			Text(EventLayout.title(for: monthStart))
 				.font(.headline)
 
-			// グリッドを読む前に「今月は荒れるか」に答える（全体設計書 §10.2）
+			// グリッドを読む前に「今月は荒れるか」に答える
 			Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
 				.font(.caption)
 				.foregroundStyle(.secondary)
@@ -210,7 +213,7 @@ private struct MonthPage: View {
 				}
 			}
 
-			// 6週を等分するので、どの月も同じ高さになる（設計書 §2 判断6）
+			// 6週を等分するので、どの月も同じ高さになる
 			ForEach(Array(EventLayout.weeks(inMonthOf: monthStart).enumerated()), id: \.offset) {
 				_, week in
 				HStack(spacing: 0) {
@@ -223,7 +226,7 @@ private struct MonthPage: View {
 							isToday: EventLayout.calendar.isDate(day, inSameDayAs: today),
 							events: EventLayout.events(on: EventLayout.key(for: day), from: events)
 						)
-						// 埋め草（月外の日）はイベントを出していないのでタップも受けない（設計書 §3）。
+						// 埋め草（月外の日）はイベントを出していないのでタップも受けない。
 						// onTapGesture ではなく Button にするのは、押せる要素だと
 						// VoiceOver に伝わるようにするため
 						if isInMonth {
@@ -243,7 +246,7 @@ private struct MonthPage: View {
 }
 
 /// 日付タップで開くシート。その日の全件を出す。
-/// セルで `+N` に省略された分も、セルには出さない正式名称と★の実数もここに出る（全体設計書 §10.2）
+/// セルで `+N` に省略された分も、セルには出さない正式名称と★の実数もここに出る
 private struct DaySheet: View {
 	let date: Date
 	let events: [Event]
@@ -268,7 +271,7 @@ private struct DaySheet: View {
 	private func row(for event: Event) -> some View {
 		VStack(alignment: .leading, spacing: 4) {
 			HStack(spacing: 6) {
-				// セル上は「★3か否か」の2値だが、シートでは実数を出す（全体設計書 §10.2）。
+				// セル上は「★3か否か」の2値だが、シートでは実数を出す。
 				// 1〜3 に収めるのは、String(repeating:count:) が負の数で落ちるため。
 				// openapi.yaml は 1〜3 と書いているが、生成コードは範囲を検査しない
 				Text(String(repeating: "★", count: min(max(event.importance, 0), 3)))
@@ -285,8 +288,8 @@ private struct DaySheet: View {
 			if let note = event.note {
 				Text(note).font(.caption).foregroundStyle(.secondary)
 			}
-			// 出典の記載を条件とする出典を使うために、利用者に見える形で出す
-			// （全体設計書 §5.1）。source が無い行には何も出さない
+			// 出典の記載を条件とする出典を使うために、利用者に見える形で出す。
+			// source が無い行には何も出さない
 			if let source = event.source {
 				// URLとして読めないときも名前だけは出す。リンクごと消すと、
 				// 出典を出していないのと同じ状態が静かにできてしまう
@@ -308,12 +311,13 @@ private struct DaySheet: View {
 /// 1日ぶんのセル
 private struct DayCell: View {
 	let day: Date
-	/// 表示中の月の日か。42セルの前後の埋め草は日番号だけ出す（設計書 §2 判断9）
+	/// 表示中の月の日か。42セルの前後の埋め草は日番号だけ出す。
+	/// イベントまで出すと、前後の月のイベントが2つのページに現れ、月サマリの件数と合わなくなる
 	let isInMonth: Bool
 	let isToday: Bool
 	let events: [Event]
 
-	/// セルに出すのは2件まで（全体設計書 §10.2）
+	/// セルに出すのは2件まで
 	private static let visibleCount = 2
 
 	var body: some View {
@@ -350,7 +354,8 @@ private struct DayCell: View {
 			}
 	}
 
-	/// ★3のラベルだけ左端に赤の細線と太字。★1・★2に差はつけない（全体設計書 §10.2）
+	/// ★3のラベルだけ左端に赤の細線と太字。★1・★2に差はつけない。
+	/// セルの幅に★を3つは描けないため、セルでは「★3か否か」の2値にし、★の実数はシートに出す
 	private func label(for event: Event) -> some View {
 		HStack(spacing: 1) {
 			if event.importance == 3 {

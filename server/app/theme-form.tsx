@@ -3,15 +3,15 @@ import { Label } from "@/components/ui/label";
 import { ActionForm, fieldLabel } from "./form";
 import type { Action } from "./notice";
 
-/** 編集のときの初期値。登録では渡さない（設計書 §3） */
+/** 編集のときの初期値。登録では渡さない */
 type ThemeRow = { id: number; name: string };
 
 /**
- * テーマのフォーム。登録と編集の両方で使う（設計書 §3）。
+ * テーマのフォーム。登録と編集の両方で使う（#67）。
  * theme を渡すと入力欄に初期値が入り、更新先を表す隠しの id が付く。
  *
  * name は notNull だが空文字を弾く CHECK が無いため、required で塞ぐ。
- * required は "   " を通すため、空白だけの判定は src/db/write.ts が持つ（設計書 §5）
+ * required は "   " を通すため、空白だけの判定は src/db/write.ts が持つ
  */
 export function ThemeForm({
   action,

@@ -2,7 +2,7 @@
 import PackageDescription
 
 // 契約（リポジトリルートの openapi.yaml）から Swift の型を生成するパッケージ。
-// 生成はビルドのたびに走るため、生成物はコミットしない（設計書 §7）。
+// 生成はビルドのたびに走るため、生成物はコミットしない。
 let package = Package(
 	name: "IchikabuAPI",
 	platforms: [.iOS(.v18)],

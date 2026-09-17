@@ -2,7 +2,7 @@ import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { entriesOf, resetDatabase } from "../../test/helpers";
-import { eventInput, stockInput } from "../../test/inputs";
+import { eventInput, MARKET_SOURCE, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { listRecent, recentQuery, record } from "./audit";
 import { auditLog, event, stock, theme, themeStock } from "./schema";
@@ -22,8 +22,11 @@ import {
 
 beforeEach(resetDatabase);
 
-/** 市場が JP の市場イベント。対象の3列は1つだけ埋める（→ `test/inputs.ts`） */
-const EVENT = eventInput({ market: "JP" });
+/**
+ * 市場が JP の市場イベント。対象の3列は1つだけ埋める（→ `test/inputs.ts`）。
+ * 市場イベントは出典が無いと入らない（`event_market_source_check`）
+ */
+const EVENT = eventInput({ market: "JP", ...MARKET_SOURCE });
 
 /** 取り込みが入れる形の市場イベント。名称は STAT_TITLE_PATTERN に当たる */
 function statEvent(overrides: Partial<EventInput> = {}): EventInput {
@@ -121,7 +124,7 @@ describe("削除の記録", () => {
     expect(row.resourceId).toBe(String(before.id));
     expect(row.newValues).toBeNull();
     // 列が1本残らず入っている。キーはDBの列名（`short_label`）で、
-    // TypeScript 側の名前（`shortLabel`）ではない。§5.4 の復元SQLが
+    // TypeScript 側の名前（`shortLabel`）ではない。下のテストの復元SQLが
     // 列名でしか行を組み立てられないため
     expect(Object.keys(row.previousValues ?? {}).sort()).toEqual(
       Object.values(getTableColumns(event))
@@ -133,7 +136,7 @@ describe("削除の記録", () => {
   });
 
   it("消した行を previous_values から元に戻せる", async () => {
-    // 設計書 §5.4 の復元。復元用の画面もコードも作らず、このSQL1文で戻す
+    // 復元用の画面もコードも作らず、このSQL1文で戻す
     await createEvent(EVENT);
     const [before] = await db.select().from(event);
     await record(null, entriesOf(await deleteEvent(before.id)));
@@ -214,7 +217,7 @@ describe("更新の記録", () => {
 describe("取り込みの記録", () => {
   it("登録・変更・非アクティブ化のそれぞれが残る", async () => {
     // 取り込みは app/actions.ts を通らない。この経路が漏れると実データの
-    // ほとんどが記録されない（設計書 §5.2）
+    // ほとんどが記録されない
     const first = await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
     await record(null, first.entries);
 
