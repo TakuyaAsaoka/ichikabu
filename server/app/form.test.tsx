@@ -149,7 +149,7 @@ describe("済んだあとの知らせ", () => {
 });
 
 describe("フォームの置き場", () => {
-  it("use client は form.tsx にだけあり、各フォームは Server Component のまま", () => {
+  it("フォームの部品では use client は form.tsx にだけあり、各フォームは Server Component のまま", () => {
     const read = (name: string) =>
       readFileSync(`${import.meta.dirname}/${name}.tsx`, "utf8");
     // 行頭固定で見る。全文照合だと「use client は要らない」のような文にも当たり、
