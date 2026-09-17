@@ -1,12 +1,12 @@
 import type { EventInput } from "../src/db/write";
 
 // "use server" を付けない素のモジュールにしてある。app/actions.ts は next/headers を
-// 使うため Vitest から読み込めず、ここに置いた変換だけがテストできる（設計書 §5）
+// 使うため Vitest から読み込めず、ここに置いた変換だけがテストできる
 
 /**
  * 空欄を null に読み替える。終了日・時刻・補足・出典は空にできるが、
  * FormData の "" を date・time 列にそのまま入れると、制約違反ではない
- * 型変換エラーで 500 になる（設計書 §5。決算月と同じ穴）。
+ * 型変換エラーで 500 になる（決算月と同じ穴）。
  *
  * 前後の空白を落としてから空かどうかを見る。空白だけの出典の表示名を通すと、
  * `source_name` が非NULLになって CHECK も抜け、アプリに中身の見えないリンクが
@@ -19,7 +19,7 @@ function toNullable(value: FormDataEntryValue | null): string | null {
 
 /**
  * 対象の <select> の値（"market:JP" / "theme:12" / "stock:3"）を event の3列に振り分ける。
- * 未選択は3列とも null になり、DB の event_target_exclusive_check が弾く（設計書 §4）
+ * 未選択は3列とも null になり、DB の event_target_exclusive_check が弾く
  */
 function toTarget(value: FormDataEntryValue | null) {
   const [kind, id = ""] = String(value ?? "").split(":");

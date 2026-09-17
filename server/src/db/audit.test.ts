@@ -121,7 +121,7 @@ describe("削除の記録", () => {
     expect(row.resourceId).toBe(String(before.id));
     expect(row.newValues).toBeNull();
     // 列が1本残らず入っている。キーはDBの列名（`short_label`）で、
-    // TypeScript 側の名前（`shortLabel`）ではない。§5.4 の復元SQLが
+    // TypeScript 側の名前（`shortLabel`）ではない。下のテストの復元SQLが
     // 列名でしか行を組み立てられないため
     expect(Object.keys(row.previousValues ?? {}).sort()).toEqual(
       Object.values(getTableColumns(event))
@@ -133,7 +133,7 @@ describe("削除の記録", () => {
   });
 
   it("消した行を previous_values から元に戻せる", async () => {
-    // 設計書 §5.4 の復元。復元用の画面もコードも作らず、このSQL1文で戻す
+    // 復元用の画面もコードも作らず、このSQL1文で戻す
     await createEvent(EVENT);
     const [before] = await db.select().from(event);
     await record(null, entriesOf(await deleteEvent(before.id)));
@@ -214,7 +214,7 @@ describe("更新の記録", () => {
 describe("取り込みの記録", () => {
   it("登録・変更・非アクティブ化のそれぞれが残る", async () => {
     // 取り込みは app/actions.ts を通らない。この経路が漏れると実データの
-    // ほとんどが記録されない（設計書 §5.2）
+    // ほとんどが記録されない
     const first = await upsertMarketEvents([statEvent()], STAT_TITLE_PATTERN);
     await record(null, first.entries);
 

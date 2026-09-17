@@ -24,7 +24,6 @@ function textOf(raw: unknown, key: "email" | "password"): string {
  *
  * JSON にしたのは、パスワードにどんな文字が入っても壊れないようにするため。
  * カンマ区切りやコロン区切りだと、区切り文字を含むパスワードで割れる
- * （設計書 §3）
  */
 export function toSeedUsers(text: string): SeedUser[] | string {
   let parsed: unknown;

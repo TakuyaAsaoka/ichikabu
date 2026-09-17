@@ -6,7 +6,7 @@ import type { components } from "../../../src/generated/api";
 import { RIGHTS_YEARS, rightsDates } from "../../../src/rights";
 
 // レスポンスの型は openapi.yaml から生成したものを参照する。
-// 契約を変えて実装が追随していなければ typecheck が落ちる（全体設計書 §8）。
+// 契約を変えて実装が追随していなければ typecheck が落ちる。
 type Event = components["schemas"]["Event"];
 
 /** 市場イベントが取りうる市場。DBの列挙と契約がずれたら呼び出し側で型が落ちる */
@@ -17,7 +17,7 @@ type EventMarket = components["schemas"]["EventMarket"];
  * DBの CHECK 制約で market / themeId / stockId のちょうど1つだけが
  * 非NULLと保証されている。CHECK 制約は型からは見えないので、
  * どれも埋まっていない行は null を返し、呼び出し側が落とす。
- * 例外は投げない（イベント取得API設計書 §4）。同じファイルの rightsEvents は
+ * 例外は投げない。同じファイルの rightsEvents は
  * 空配列で落としており、落とし方は違うが、例外を投げない点は同じ。
  *
  * 種別と対象を1つの関数から返すのは、両方が同じ3列から決まるため。
@@ -44,7 +44,7 @@ function monthDay(date: string): string {
 }
 
 /**
- * 決算月が入っている銘柄から権利付最終日のイベントを作る（権利日設計書 §6）。
+ * 決算月が入っている銘柄から権利付最終日のイベントを作る。
  * カレンダーに出すのは権利付最終日の1件だけにし、配当落ち日は `note` に書く。
  * 配当落ち日は権利付最終日の翌営業日なので、独立した情報ではない
  */
@@ -77,7 +77,7 @@ function rightsEvents(
           //「★3が N件」が毎年その月で膨らみ、荒れるかの答えにならなくなる
           importance: 2,
           note: `権利確定日 ${monthDay(dates.recordDate)} ・ 配当落ち日 ${monthDay(dates.exDate)}`,
-          // 休場日リストから計算した日付で、転記元が無い（出典表示設計書 §4）
+          // 休場日リストから計算した日付で、転記元が無い
           source: null,
         },
       ];
@@ -105,12 +105,12 @@ function compareEvents(a: Event, b: Event): number {
 
 /**
  * 有効なイベントを全件返す。認証も絞り込みも無く、誰が呼んでも同じ配列が返る
- * （ログイン廃止 設計書 §5）。持ち株での絞り込みは端末が行う
+ * （#88）。持ち株での絞り込みは端末が行う
  * （`ios/Ichikabu/EventLayout.swift` の `visible`）
  */
 export async function GET(): Promise<Response> {
   // 権利日を計算する銘柄。決算月は CHECK 制約により JP 銘柄にしか入らないので、
-  // 非NULLで絞れば市場の条件は要らない（全体設計書 §4.1）
+  // 非NULLで絞れば市場の条件は要らない
   const rightsStocks = await db
     .select({
       id: stock.id,
@@ -121,7 +121,7 @@ export async function GET(): Promise<Response> {
     .from(stock)
     .where(isNotNull(stock.fiscalMonth));
 
-  // 非アクティブの行は返さない（公表予定の非アクティブ化 設計書 §1）。
+  // 非アクティブの行は返さない（#72）。
   // 開始日は見ない。非アクティブのまま公表日を過ぎた行（＝中止された回）も
   // 出さないため、書き込み側で開始日を見て active だけで絞れる形にしてある。
   // 並べ替えは計算したイベントと結合したあとに1回だけ行うので、ここではしない
@@ -133,7 +133,7 @@ export async function GET(): Promise<Response> {
       // CHECK 制約が禁じている行。ここに来ることは無いが、型からは見えないため落とす
       if (kindAndTarget === null) return null;
       return {
-        // 計算した権利日は行IDを持てないため、契約の id は文字列（権利日設計書 §5）
+        // 計算した権利日は行IDを持てないため、契約の id は文字列
         id: String(row.id),
         ...kindAndTarget,
         title: row.title,
@@ -146,7 +146,7 @@ export async function GET(): Promise<Response> {
         importance: row.importance,
         note: row.note,
         // 出典は名前とURLが揃ったときだけ返す。URLだけの行は運用者向けの記録で、
-        // 画面には出さない（出典表示設計書 §3.1）。名前だけの行は CHECK が防いでいる
+        // 画面には出さない。名前だけの行は CHECK が防いでいる
         source:
           row.sourceName !== null && row.sourceUrl !== null
             ? { name: row.sourceName, url: row.sourceUrl }

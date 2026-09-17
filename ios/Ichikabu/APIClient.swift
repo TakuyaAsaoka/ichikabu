@@ -10,7 +10,7 @@ enum APIError: Error, Equatable {
 }
 
 /// サーバーとの通信。
-/// 経路が2本しかないため、契約からは型だけを生成し、通信は自分で書く（Issue #5 設計書 §3 判断3）。
+/// 経路が2本しかないため、契約からは型だけを生成し、通信は自分で書く（Issue #5）。
 struct APIClient {
 	/// 接続先。Debug はMacの `next dev`、Release は配信先を見る。
 	///
@@ -42,7 +42,7 @@ struct APIClient {
 
 	/// 通信に使うセッション。**Cookie を保管しない**。
 	///
-	/// このアプリは認証を持たない（ログイン廃止 設計書 §5）。`URLSession.shared` は
+	/// このアプリは認証を持たない（Issue #88）。`URLSession.shared` は
 	/// 応答の Cookie を保存して以降の要求に付けるが、Better Auth は Cookie が付いた要求に
 	/// だけ Origin を検査する。アプリは Origin を送らないため、Cookie を1つでも
 	/// 持つと、同じ配信先にある管理UIの認証の都合で要求が拒まれうる。
@@ -52,14 +52,14 @@ struct APIClient {
 		return URLSession(configuration: configuration)
 	}()
 
-	/// 有効なイベントを全件取る。認証は要らない（ログイン廃止 設計書 §5.1）
+	/// 有効なイベントを全件取る。認証は要らない（Issue #88）
 	func events() async throws -> [Event] {
 		let request = URLRequest(url: Self.baseURL.appending(path: "/api/events"))
 		let (data, response) = try await Self.session.data(for: request)
 		return try Self.events(from: data, response: response)
 	}
 
-	/// 登録されている銘柄を全件取る。認証は要らない（ログイン廃止 設計書 §3.2）
+	/// 登録されている銘柄を全件取る。認証は要らない（Issue #86）
 	func stocks() async throws -> [Stock] {
 		let request = URLRequest(url: Self.baseURL.appending(path: "/api/stocks"))
 		let (data, response) = try await Self.session.data(for: request)

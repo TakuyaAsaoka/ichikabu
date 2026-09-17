@@ -119,7 +119,7 @@ describe("STAT_TITLE_PATTERN", () => {
 
   it("取り込みが作る名称はすべてこの形に当たる", () => {
     // 当たらない名称が1つでもあると、その回は非アクティブ化の対象から外れる
-    // （非アクティブ化 設計書 §2）。名称の組み立てを変えたらここが赤くなる
+    // （#72）。名称の組み立てを変えたらここが赤くなる
     const titles = toStatEvents(XML).map((e) => e.title);
 
     expect(titles).not.toHaveLength(0);
@@ -158,7 +158,7 @@ function toUtf16Le(text: string): Uint8Array {
 
 describe("decodeStatSchedule", () => {
   it("UTF-16LE のバイト列を読むとイベントが作れる文字列になる", () => {
-    // UTF-8 として読むと1文字も合わず、イベントが1件も取れない（設計書 §2.1）
+    // UTF-8 として読むと1文字も合わず、イベントが1件も取れない
     const decoded = decodeStatSchedule(toUtf16Le(XML));
 
     expect(decoded.startsWith("<e-stat>")).toBe(true);

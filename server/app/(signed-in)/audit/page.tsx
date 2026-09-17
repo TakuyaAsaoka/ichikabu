@@ -29,7 +29,7 @@ const formatJst = (at: Date): string =>
   at.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
 
 /**
- * 監査ログの画面（監査ログ 設計書 §7）。管理者だけが開ける。
+ * 監査ログの画面。管理者だけが開ける。
  *
  * 読み出しは持たず `src/db/audit.ts` の `listRecent` を呼ぶだけにする。
  * 並び順の判定をここに書くと、DBを繋いで確かめる場所が無くなる

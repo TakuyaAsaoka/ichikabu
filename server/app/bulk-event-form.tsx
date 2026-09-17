@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { addEvents } from "./actions";
 import { ActionForm, fieldLabel } from "./form";
 
-/** 貼り付ける行の見本。タブ区切りで、終了日と補足は空にしてある（設計書 §5） */
+/** 貼り付ける行の見本。タブ区切りで、終了日と補足は空にしてある */
 const SAMPLE = [
   "米消費者物価指数（2026年7月分）",
   "米CPI",
@@ -18,7 +18,7 @@ const SAMPLE = [
 ].join("\t");
 
 /**
- * イベントの一括登録フォーム。タブ区切りの行を貼り付ける（設計書 §5）。
+ * イベントの一括登録フォーム。タブ区切りの行を貼り付ける（#60）。
  * スプレッドシートからのコピーがそのままタブ区切りになる
  */
 export function BulkEventForm() {

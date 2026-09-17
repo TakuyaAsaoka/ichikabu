@@ -24,7 +24,7 @@ function formOf(overrides: Record<string, string> = {}): FormData {
 
 describe("toEventInput", () => {
   it("空欄の終了日・時刻・補足・出典URLはnullになる", () => {
-    // "" のまま date・time 列に入れると型変換エラーで500になる（設計書 §5）
+    // "" のまま date・time 列に入れると型変換エラーで500になる
     const input = toEventInput(formOf());
 
     expect(input.endDate).toBeNull();
@@ -74,7 +74,7 @@ describe("toEventInput", () => {
   });
 
   it("対象が未選択だと3列とも null になる", () => {
-    // DB の event_target_exclusive_check が弾く形になっていることの確認（設計書 §4）
+    // DB の event_target_exclusive_check が弾く形になっていることの確認
     const input = toEventInput(formOf({ target: "" }));
 
     expect(input.market).toBeNull();

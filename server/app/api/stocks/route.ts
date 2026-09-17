@@ -5,11 +5,11 @@ import { stock, themeStock } from "../../../src/db/schema";
 import type { components } from "../../../src/generated/api";
 
 // レスポンスの型は openapi.yaml から生成したものを参照する。
-// 契約を変えて実装が追随していなければ typecheck が落ちる（全体設計書 §8）。
+// 契約を変えて実装が追随していなければ typecheck が落ちる。
 type Stock = components["schemas"]["Stock"];
 
 /**
- * 銘柄一覧。認証は要らない（ログイン廃止 設計書 §3.2）。
+ * 銘柄一覧。認証は要らない（#86）。
  * 返すのは運用者が登録した銘柄だけで、誰が何を持っているかは含まない。
  */
 export async function GET(): Promise<Response> {

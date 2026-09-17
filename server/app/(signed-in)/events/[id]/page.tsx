@@ -8,7 +8,7 @@ import { ActionForm } from "../../../form";
 import { requireId, requireSession } from "../../../guard";
 
 /**
- * イベントの編集ページ（設計書 §3）。
+ * イベントの編集ページ（#43）。
  * 登録フォームと同じ EventForm に初期値を渡して出す
  */
 export default async function Page({
@@ -57,7 +57,7 @@ export default async function Page({
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">削除</h2>
-        {/* 消したイベントは戻せないため、送信前に確認を挟む（設計書 §3.2） */}
+        {/* 消したイベントは戻せないため、送信前に確認を挟む */}
         <ActionForm
           action={removeEvent}
           submitLabel="このイベントを削除"

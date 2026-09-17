@@ -10,10 +10,10 @@ import type { Action } from "./notice";
 type Theme = { id: number; name: string };
 type Stock = { id: number; market: string; ticker: string; name: string };
 
-/** 編集のときの初期値。登録では渡さない（設計書 §4.2） */
+/** 編集のときの初期値。登録では渡さない */
 type EventRow = EventInput & { id: number };
 
-/** 重要度（★1〜3。全体設計書 §4.1） */
+/** 重要度（★1〜3） */
 const IMPORTANCES = [1, 2, 3];
 
 /**
@@ -31,11 +31,11 @@ function toTargetValue(row: EventRow): string {
 }
 
 /**
- * イベントのフォーム。登録と編集の両方で使う（設計書 §4.2）。
+ * イベントのフォーム。登録と編集の両方で使う（#43）。
  * event を渡すと各欄に初期値が入り、更新先を表す隠しの id が付く。
  *
  * 対象は1つの選択欄にまとめる。選択欄は1つしか選べないため、
- * event の3列が「ちょうど1つだけ非NULL」であることが画面の側で保たれる（設計書 §4）。
+ * event の3列が「ちょうど1つだけ非NULL」であることが画面の側で保たれる。
  * 値は "market:JP" のような形にし、app/event-input.ts で3列に振り分ける
  */
 export function EventForm({
@@ -61,7 +61,7 @@ export function EventForm({
       <Label className={fieldLabel}>
         短縮ラベル（カレンダーのセルに出す。全角5文字まで）
         {/* maxLength は半角と全角を区別しないため目安にすぎない。
-            全角換算の判定は src/db/write.ts が持つ（設計書 §7） */}
+            全角換算の判定は src/db/write.ts が持つ */}
         <Input
           type="text"
           name="shortLabel"
@@ -72,6 +72,10 @@ export function EventForm({
       </Label>
       <Label className={fieldLabel}>
         対象
+        {/* 1つのイベントが持てる対象は1つだけで、2銘柄・2テーマに効く出来事は
+            そのままでは表せない。1つの出来事は1行で登録し、複製しない。
+            銘柄とテーマの両方に出したいときは、銘柄をテーマに入れてテーマのイベント
+            1行にする（2行にすると、セルの2件の枠と月のまとめの件数を二重に使う） */}
         <NativeSelect
           name="target"
           required
@@ -124,7 +128,7 @@ export function EventForm({
       <Label className={fieldLabel}>
         時刻（JST。空にできる）
         {/* time 列は "14:00:00" の形で返るが、時刻の入力欄は秒を扱わないため、
-            先頭5文字（HH:MM）だけ渡す（設計書 §6） */}
+            先頭5文字（HH:MM）だけ渡す */}
         <Input
           type="time"
           name="time"

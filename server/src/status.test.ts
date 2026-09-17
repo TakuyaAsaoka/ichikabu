@@ -224,7 +224,7 @@ describe("過ぎた非アクティブ", () => {
 
 describe("休場日リストの不足", () => {
   it("翌年ぶんが載っていない年に入ると出る", async () => {
-    // リストの最後の年に入ると、その年のうちに翌年ぶんが要る（全体設計書 §14）
+    // リストの最後の年に入ると、その年のうちに翌年ぶんが要る
     expect(await gapsOf("closedDays", `${LAST_YEAR}-01-01`)).toEqual([
       `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
     ]);

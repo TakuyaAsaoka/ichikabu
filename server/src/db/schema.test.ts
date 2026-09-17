@@ -252,7 +252,7 @@ describe("外部キーの削除時の挙動", () => {
   it("銘柄とテーマを参照する外部キーは restrict か cascade で宣言されている", async () => {
     // onDelete を省くと既定の no action になり、削除を弾いたときのコードが
     // 23001 ではなく 23503 になる。src/db/write.ts の DELETE_MESSAGES を通らず
-    // 「その銘柄は無い」という正反対の文が戻る（銘柄・テーマの編集 設計書 §2）。
+    // 「その銘柄は無い」という正反対の文が戻る。
     // confdeltype は a=no action、r=restrict、c=cascade
     const rows = await db.execute<{ conname: string; confdeltype: string }>(sql`
       SELECT c.conname, c.confdeltype

@@ -1,10 +1,10 @@
 import Foundation
 
-/// 選んだ持ち株（銘柄ID）を端末に読み書きする（ログイン廃止 設計書 §4.1）。
+/// 選んだ持ち株（銘柄ID）を端末に読み書きする（Issue #87）。
 ///
 /// 置くのは銘柄IDの配列だけなので、数十バイトで済む。スキーマもマイグレーションも要らない。
 /// Apple Developer Program に加入したら `NSUbiquitousKeyValueStore` に差し替えて
-/// 機種変更で引き継げるようにする。**差し替えるのはこの型の中だけ**（同 §4.2）。
+/// 機種変更で引き継げるようにする。**差し替えるのはこの型の中だけ**。
 struct HoldingStore {
 	private static let key = "holdings"
 
