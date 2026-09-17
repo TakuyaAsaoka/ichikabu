@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 // この1本だけブラウザの真似（jsdom）で動かす。`vitest.config.ts` に書くと
 // 他のテストファイル全部が jsdom の読み込みに引きずられる
+
+import { readFileSync } from "node:fs";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
@@ -143,5 +145,24 @@ describe("済んだあとの知らせ", () => {
     expect(alert.textContent).toContain("登録済みのティッカー");
     expect(alert.closest("form")).not.toBeNull();
     expect(announced("登録済みのティッカー")).toBe(0);
+  });
+});
+
+describe("フォームの置き場", () => {
+  it("use client は form.tsx にだけあり、各フォームは Server Component のまま", () => {
+    const read = (name: string) =>
+      readFileSync(`${import.meta.dirname}/${name}.tsx`, "utf8");
+    // 行頭固定で見る。全文照合だと「use client は要らない」のような文にも当たり、
+    // 1行目だけだと "use client" の前にコメントが入った形を見逃す
+    for (const form of [
+      "event-form",
+      "bulk-event-form",
+      "stock-form",
+      "theme-form",
+      "theme-stock-form",
+    ]) {
+      expect(read(form), form).not.toMatch(/^"use client"/m);
+    }
+    expect(read("form")).toMatch(/^"use client"/m);
   });
 });

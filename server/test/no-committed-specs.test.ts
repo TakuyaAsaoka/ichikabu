@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// spec（docs/records/specs/）と plan（docs/records/plans/）は作業中だけ使い、コミットしない
+// spec（docs/records の specs）と plan（同じく plans）は作業中だけ使い、コミットしない
 // （~/.claude/CLAUDE.md「ドキュメント配置ルール」。Issue #169）。
 // 決まりはコードの隣のコメント・CLAUDE.md・docs/reference・docs/guides に書く。
 //

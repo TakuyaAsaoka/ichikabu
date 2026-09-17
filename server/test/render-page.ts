@@ -17,7 +17,7 @@ type Page = () => Promise<ReactNode>;
  *
  * `src/auth` は `test/setup.ts` ではなくここで読む。`test/setup.ts` は
  * `setupFiles` として全テストより先に無条件で走るため、あちらで読むと
- * サインインしないテスト（`test/spec-refs.test.ts` 等）まで `src/auth` の
+ * サインインしないテスト（`test/image-tag.test.ts` 等）まで `src/auth` の
  * 読み込みに巻き込まれる（Issue #144 で実測。`GOOGLE_CLIENT_ID` が未設定だと
  * 全滅した）。`src/auth` を読むのは、このファイルを読むテストだけになる
  */

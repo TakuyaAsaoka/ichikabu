@@ -174,6 +174,8 @@ export const event = pgTable(
     // market は「全員」を NULL で表さず GLOBAL と書く。NULL にすると
     // `market = 'JP' OR market IS NULL` のような条件が全部の問い合わせに要り、漏れる
     market: text({ enum: EVENT_MARKETS }),
+    // テーマ・銘柄を消しても、人の手で登録したイベントを黙って道連れにしない（restrict）。
+    // set null は対象の3列が全部 NULL になり、下の排他の CHECK に反する
     themeId: integer("theme_id").references(() => theme.id, {
       onDelete: "restrict",
     }),
