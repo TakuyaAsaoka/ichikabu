@@ -2,7 +2,7 @@ import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { STAT_TITLE_PATTERN } from "../../app/stat-schedule";
 import { entriesOf, resetDatabase } from "../../test/helpers";
-import { eventInput, stockInput } from "../../test/inputs";
+import { eventInput, MARKET_SOURCE, stockInput } from "../../test/inputs";
 import { db } from ".";
 import { listRecent, recentQuery, record } from "./audit";
 import { auditLog, event, stock, theme, themeStock } from "./schema";
@@ -22,8 +22,11 @@ import {
 
 beforeEach(resetDatabase);
 
-/** 市場が JP の市場イベント。対象の3列は1つだけ埋める（→ `test/inputs.ts`） */
-const EVENT = eventInput({ market: "JP" });
+/**
+ * 市場が JP の市場イベント。対象の3列は1つだけ埋める（→ `test/inputs.ts`）。
+ * 市場イベントは出典が無いと入らない（`event_market_source_check`）
+ */
+const EVENT = eventInput({ market: "JP", ...MARKET_SOURCE });
 
 /** 取り込みが入れる形の市場イベント。名称は STAT_TITLE_PATTERN に当たる */
 function statEvent(overrides: Partial<EventInput> = {}): EventInput {

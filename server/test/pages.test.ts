@@ -22,7 +22,7 @@ import {
   createThemeStock,
 } from "../src/db/write";
 import { entriesOf, idOf, resetDatabase } from "./helpers";
-import { eventInput } from "./inputs";
+import { eventInput, MARKET_SOURCE } from "./inputs";
 import {
   expectNotFound,
   PASSWORD,
@@ -72,6 +72,7 @@ async function addEvent(): Promise<string> {
         shortLabel: "CPI",
         startDate: "2026-09-01",
         market: "JP",
+        ...MARKET_SOURCE,
       }),
     ),
   );

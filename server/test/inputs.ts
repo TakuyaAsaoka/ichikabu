@@ -55,6 +55,19 @@ export function eventInput(overrides: Partial<EventInput> = {}): EventInput {
 }
 
 /**
+ * 市場イベントの出典。市場イベントは出典の名前とURLが無いと入らない
+ * （DB の `event_market_source_check`。Issue #179）。
+ *
+ * **出典を見ていないテスト**が市場イベントを作るときに展開する。
+ * `eventInput` の既定値にはしない。銘柄・テーマのイベントに出典が無い形も
+ * 正しく、既定で埋めると「出典の名前だけ」を確かめるテストが URL を隠し持つ
+ */
+export const MARKET_SOURCE = {
+  sourceName: "総務省統計局",
+  sourceUrl: "https://www.stat.go.jp/data/cpi/",
+} as const;
+
+/**
  * 銘柄の列に入れる値。**`market` を `"JP" | "US"` に狭めてある。**
  *
  * `StockInput` の `market` は `string`。画面から来た値を絞り込まずDBの

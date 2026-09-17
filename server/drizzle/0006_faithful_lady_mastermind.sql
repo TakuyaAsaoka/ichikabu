@@ -1,0 +1,1 @@
+ALTER TABLE "event" ADD CONSTRAINT "event_market_source_check" CHECK ("event"."market" IS NULL OR "event"."source_name" IS NOT NULL);

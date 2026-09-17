@@ -149,6 +149,16 @@ export const event = pgTable(
       "event_source_name_check",
       sql`${t.sourceName} IS NULL OR ${t.sourceUrl} IS NOT NULL`,
     ),
+    // 市場イベントは出典の名前が要る（上の制約と合わせてURLも要る）。市場イベントに使う
+    // 出典（府省・FRB・BLS）は、どれも出典の記載が利用の条件で（全体設計書 §5・§5.1）、
+    // 名前が無いと GET /events が出典を返さない。状態の画面で後から拾う形は、開くまでの間
+    // 条件を満たさないままアプリに出るため採らなかった（Issue #179）。
+    // 出典の記載を求めない出典を市場イベントに使い始めるときは、§5.1「出典を増やすときの
+    // 手順」の2でこの制約を見直す
+    check(
+      "event_market_source_check",
+      sql`${t.market} IS NULL OR ${t.sourceName} IS NOT NULL`,
+    ),
     // 単日は end_date IS NULL でのみ表す。= を許すと単日の表現が2通りになる（設計書 §4.2）
     check(
       "event_period_check",
