@@ -195,7 +195,6 @@ describe("GET /api/events", () => {
       startDate: "2026-09-18",
       importance: 2,
       market: "JP",
-      ...MARKET_SOURCE,
       sourceName: "総務省（PDL1.0）",
       sourceUrl: "https://www.stat.go.jp/data/cpi/",
     });

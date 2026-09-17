@@ -238,11 +238,7 @@ describe("createEvent", () => {
   });
 
   it("銘柄イベントを登録するとDBに行が入る", async () => {
-    await createStock({ ...TOYOTA });
-    const [{ id: stockId }] = await db
-      .select({ id: stock.id })
-      .from(stock)
-      .where(eq(stock.ticker, TOYOTA.ticker));
+    const stockId = await registerToyota();
 
     expect(await createEvent({ ...BASE, stockId })).toEqual(succeeded);
 
@@ -372,7 +368,27 @@ describe("createEvent", () => {
     const stockId = await registerToyota();
 
     expect(
-      await createEvent({ ...BASE, stockId, sourceName: null, sourceUrl: null }),
+      await createEvent({
+        ...BASE,
+        stockId,
+        sourceName: null,
+        sourceUrl: null,
+      }),
+    ).toEqual(succeeded);
+  });
+
+  it("テーマイベントは出典が無くても登録できる", async () => {
+    // 銘柄の出来事をテーマに寄せたイベントで、出典は各社IR（全体設計書 §5）
+    await createTheme("半導体");
+    const [{ id: themeId }] = await db.select({ id: theme.id }).from(theme);
+
+    expect(
+      await createEvent({
+        ...BASE,
+        themeId,
+        sourceName: null,
+        sourceUrl: null,
+      }),
     ).toEqual(succeeded);
   });
 

@@ -170,7 +170,7 @@ export function EventForm({
       </Label>
       <p className="text-muted-foreground text-sm">
         日付・時刻はすべてJSTで入れる。日単位で確定した日付だけを登録する。
-        出典の記載が条件の出典を使うときは、表示名を必ず入れる
+        出典の記載が条件の出典を使うときは、表示名を必ず入れる。市場イベントは出典URLと表示名の両方が要る
       </p>
     </ActionForm>
   );
