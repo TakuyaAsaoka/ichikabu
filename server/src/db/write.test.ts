@@ -314,7 +314,7 @@ describe("createEvent", () => {
         market: "JP",
         endDate: BASE.startDate,
       }),
-    ).toBe("終了日は開始日より後にする（単日は空のまま）");
+    ).toBe("終了日は開始日より後にする (単日は空のまま)");
     expect(await db.select().from(event)).toHaveLength(0);
   });
 

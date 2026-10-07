@@ -170,7 +170,7 @@ function closedDaysGap(year: number): Gap[] {
       kind: "closedDays",
       // 足す先はリストの続きの年で、今年の翌年ではない。2年以上ほうっておくと
       // その2つはずれ、今年の翌年を出すと間の年が抜けたまま埋まらない
-      label: `休場日リストが${last}年まで。${last + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
+      label: `休場日リストが${last}年まで。${last + 1}年ぶんから足す (src/rights.ts の CLOSED_DAYS)`,
       // 直すのはソースコードで、画面からは直せない
       href: null,
     },

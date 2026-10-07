@@ -92,19 +92,19 @@ describe("イベントの編集画面", () => {
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
 
     for (const label of [
-      "短縮ラベル（全角5文字まで）",
-      "終了日（任意）",
-      "時刻（任意）",
-      "出典の表示名（アプリに出る）",
+      "短縮ラベル (全角5文字まで)",
+      "終了日 (任意)",
+      "時刻 (任意)",
+      "出典の表示名 (アプリに出る)",
     ]) {
       expect(html).toContain(label);
     }
-    expect(html).not.toContain("出典URL（");
+    expect(html).not.toMatch(/出典URL\s*[（(]/);
     // 「JST」は注記に1回だけ出る
     expect(html.split("JST").length - 1).toBe(1);
     // 注記は4つの決まりを落とさない
     // 注記の段落だけを切り出す。ページの末尾まで見ると、後ろのフォームの文で緑になりうる
-    const start = html.indexOf("日本時間（JST）");
+    const start = html.indexOf("日本時間 (JST)");
     expect(start).toBeGreaterThan(-1);
     const note = html.slice(start, html.indexOf("</p>", start));
     expect(note).toContain("日まで確定した日付だけ");

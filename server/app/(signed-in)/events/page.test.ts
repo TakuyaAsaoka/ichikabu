@@ -140,7 +140,7 @@ describe("イベントの画面", () => {
     const html = await render(Page);
 
     // 見出しの件数は今日以降だけを数える
-    expect(html).toContain("イベント一覧（2件）");
+    expect(html).toContain("イベント一覧 (2件)");
     const label = (row: string) =>
       row.includes("過去の発表")
         ? "過去"
@@ -149,7 +149,7 @@ describe("イベントの画面", () => {
           : "未来";
     expect(htmlOf(html, "details:not([open]) li").map(label)).toEqual(["過去"]);
     expect(htmlOf(html, "details:not([open]) > summary > span")).toContain(
-      "過去のイベント（1件）",
+      "過去のイベント (1件)",
     );
     expect(htmlOf(html, "section > div > ul > li").map(label)).toEqual([
       "期間",

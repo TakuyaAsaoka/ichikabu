@@ -49,7 +49,7 @@ export default async function Page() {
       <h1 className="text-xl font-bold">監査ログ</h1>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">新しい順（{rows.length}件）</h2>
+        <h2 className="text-base font-bold">新しい順 ({rows.length}件)</h2>
         <ul className="flex flex-col gap-1">
           {/* 0件を黙って空白で表さない。空白は「まだ読めていない」と
               見分けが付かない（状態画面 `app/status/page.tsx` と同じ理由） */}

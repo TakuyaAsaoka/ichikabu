@@ -55,7 +55,7 @@ export function StockForm({
         <Input type="text" name="name" required defaultValue={stock?.name} />
       </Label>
       <Label className={fieldLabel}>
-        決算月（JP銘柄のみ。US銘柄は空のまま）
+        決算月 (JP銘柄のみ。US銘柄は空のまま)
         <NativeSelect
           name="fiscalMonth"
           defaultValue={stock?.fiscalMonth ?? ""}

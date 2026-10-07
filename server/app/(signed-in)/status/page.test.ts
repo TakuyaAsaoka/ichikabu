@@ -27,11 +27,11 @@ describe("状態の画面", () => {
     }
   });
 
-  it("抜けが1件も無い種類は、見出しの「（0件）」だけで示す", async () => {
+  it("抜けが1件も無い種類は、見出しの「(0件)」だけで示す", async () => {
     // 空白で表すと「抜けが無い」のか「調べていない」のか見分けが付かないので、
     // 見出しに0件と出す。その下に「抜けなし」を重ねると、同じことを2回言うことになる
     const html = await render(Page);
-    expect(html).toContain("決算月なし（0件）");
+    expect(html).toContain("決算月なし (0件)");
     expect(html).not.toContain("抜けなし");
   });
 
@@ -42,7 +42,7 @@ describe("状態の画面", () => {
     entriesOf(await createStock(stockInput({ fiscalMonth: null })));
 
     const html = await render(Page);
-    expect(html).toContain("決算月なし（1件）");
+    expect(html).toContain("決算月なし (1件)");
     expect(html).not.toContain('data-slot="badge"');
   });
 
@@ -60,7 +60,7 @@ describe("状態の画面", () => {
     expect(html).toContain(`href="/stocks/${created.resourceId}"`);
     // 種類ごとの件数まで見る。件数を見ないと、`app/status/page.tsx` の
     // 「その種類だけを取り出す」を外しても、どの区画にも同じ行が出て緑になる
-    expect(html).toContain("決算月なし（1件）");
-    expect(html).toContain("過ぎた非アクティブ（0件）");
+    expect(html).toContain("決算月なし (1件)");
+    expect(html).toContain("過ぎた非アクティブ (0件)");
   });
 });

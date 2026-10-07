@@ -12,7 +12,7 @@ function messageFor(status: number): string {
   if (status === 401) return "メールアドレスまたはパスワードが違います";
   if (status === 429)
     return "試行が多すぎます。しばらく待ってからやり直してください";
-  return `サインインに失敗しました（応答コード ${status}）`;
+  return `サインインに失敗しました (応答コード ${status})`;
 }
 
 /**

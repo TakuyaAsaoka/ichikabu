@@ -36,7 +36,7 @@ describe("アカウントのメニュー", () => {
     // スマホではメールアドレスを見せないが、読み上げには残す。
     // 読み上げの名前は中の文字から作られる（アイコンは `aria-hidden`）
     expect(screen.getByRole("button").textContent).toBe(
-      `${EMAIL}（アカウントのメニュー）`,
+      `${EMAIL} (アカウントのメニュー)`,
     );
   });
 

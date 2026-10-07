@@ -108,7 +108,7 @@ describe("toEventInputs", () => {
     // 空行自身が「2行目」のエラーとして出ることが、番号がずれていない証拠
     const inputs = toEventInputs(`${rowOf()}\n\n${rowOf()}`, LOOKUP);
 
-    expect(inputs).toBe("2行目: 列は10個にする（1個ある）");
+    expect(inputs).toBe("2行目: 列は10個にする (1個ある)");
   });
 
   it("改行コードが CRLF でも読める", () => {
@@ -120,7 +120,7 @@ describe("toEventInputs", () => {
   it("列が10個ない行はエラー文が返る", () => {
     const inputs = toEventInputs(`${rowOf()}\n名称\t短縮\tmarket:JP`, LOOKUP);
 
-    expect(inputs).toBe("2行目: 列は10個にする（3個ある）");
+    expect(inputs).toBe("2行目: 列は10個にする (3個ある)");
   });
 
   it("登録されていないティッカーはエラー文が返る", () => {

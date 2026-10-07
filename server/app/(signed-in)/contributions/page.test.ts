@@ -71,7 +71,7 @@ describe("貢献度の画面", () => {
     await signInAs(ALICE);
 
     // まとめて数えると「登録 2件」の1行になる。人数もそこで狂う
-    expect(await render(Page)).toContain("（2人）");
+    expect(await render(Page)).toContain(" (2人)");
   });
 
   it("取り込みは人数に数えない", async () => {
@@ -80,6 +80,6 @@ describe("貢献度の画面", () => {
     await signInAs(ALICE);
 
     // 行は2つ出るが、人は1人。取り込みを人数に混ぜると「2人」になる
-    expect(await render(Page)).toContain("（1人）");
+    expect(await render(Page)).toContain(" (1人)");
   });
 });

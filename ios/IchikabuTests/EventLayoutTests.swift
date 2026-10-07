@@ -188,6 +188,12 @@ struct EventLayoutTests {
 		#expect(summary.importantCount == 0)
 	}
 
+	@Test("日のシートの見出しは月日と半角の括弧つきの曜日になる")
+	func dayTitleUsesHalfWidthParens() {
+		// 2026年10月2日は金曜
+		#expect(EventLayout.dayTitle(for: jstNoon("2026-10-02")) == "10月2日 (金)")
+	}
+
 	@Test("日付キーが端末のタイムゾーンに依存しない")
 	func keyIsJST() {
 		// JST 2026-08-05 00:30 は UTC では 2026-08-04 15:30。

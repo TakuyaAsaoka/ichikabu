@@ -75,7 +75,7 @@ function toTarget(value: string, lookup: Lookup): Target | string {
 function toInput(line: string, lookup: Lookup): EventInput | string {
   const columns = line.split("\t");
   if (columns.length !== COLUMNS) {
-    return `列は${COLUMNS}個にする（${columns.length}個ある）`;
+    return `列は${COLUMNS}個にする (${columns.length}個ある)`;
   }
 
   // 名称・短縮ラベル・開始日は notNull だが空文字を弾く CHECK が無い。1件ずつの

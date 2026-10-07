@@ -59,7 +59,7 @@ export function EventForm({
         <Input type="text" name="title" required defaultValue={event?.title} />
       </Label>
       <Label className={fieldLabel}>
-        短縮ラベル（全角5文字まで）
+        短縮ラベル (全角5文字まで)
         {/* maxLength は半角と全角を区別しないため目安にすぎない。
             全角換算の判定は src/db/write.ts が持つ */}
         <Input
@@ -118,7 +118,7 @@ export function EventForm({
         />
       </Label>
       <Label className={fieldLabel}>
-        終了日（任意）
+        終了日 (任意)
         <Input
           type="date"
           name="endDate"
@@ -126,7 +126,7 @@ export function EventForm({
         />
       </Label>
       <Label className={fieldLabel}>
-        時刻（任意）
+        時刻 (任意)
         {/* time 列は "14:00:00" の形で返るが、時刻の入力欄は秒を扱わないため、
             先頭5文字（HH:MM）だけ渡す */}
         <Input
@@ -164,7 +164,7 @@ export function EventForm({
         />
       </Label>
       <Label className={fieldLabel}>
-        出典の表示名（アプリに出る）
+        出典の表示名 (アプリに出る)
         <Input
           type="text"
           name="sourceName"
@@ -175,7 +175,7 @@ export function EventForm({
       {/* 決まりはここ1か所に書く。欄の名前にも書くと、スマホで名前が2行に折れ、
           同じことを2回読むことになる（#190）。欄の名前の括弧は短い補足だけにする */}
       <p className="text-muted-foreground text-sm">
-        日付と時刻は日本時間（JST）で、日まで確定した日付だけを登録する。
+        日付と時刻は日本時間 (JST) で、日まで確定した日付だけを登録する。
         市場イベントは出典URLと表示名が要る。出典名の記載が利用の条件になっている出典も、表示名が要る。
       </p>
     </ActionForm>

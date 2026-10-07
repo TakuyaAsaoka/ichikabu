@@ -81,7 +81,7 @@ export default async function Page() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold">
-          イベント一覧（{upcoming.length}件）
+          イベント一覧 ({upcoming.length}件)
         </h2>
         <RegisterDetails label="イベントを登録">
           <EventForm
@@ -98,7 +98,7 @@ export default async function Page() {
           // 過去の行は閉じてたたむ。開いてまず見たいのはこれからの予定で、
           // 先頭から全部並べるとスマホで最初に見える行が全部過去になる（#192）。
           // 開いたときに日付が続いて読めるよう、今日以降の一覧の上に置く
-          <RegisterDetails label={`過去のイベント（${past.length}件）`}>
+          <RegisterDetails label={`過去のイベント (${past.length}件)`}>
             <EventGrid rows={past} creators={creators} />
           </RegisterDetails>
         )}
