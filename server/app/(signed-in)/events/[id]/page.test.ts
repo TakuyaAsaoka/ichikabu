@@ -99,7 +99,7 @@ describe("イベントの編集画面", () => {
     ]) {
       expect(html).toContain(label);
     }
-    expect(html).not.toContain("出典URL (");
+    expect(html).not.toMatch(/出典URL\s*[（(]/);
     // 「JST」は注記に1回だけ出る
     expect(html.split("JST").length - 1).toBe(1);
     // 注記は4つの決まりを落とさない
