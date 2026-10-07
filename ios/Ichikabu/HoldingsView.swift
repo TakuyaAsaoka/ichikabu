@@ -8,6 +8,8 @@ struct HoldingsView: View {
 	/// 選んだ銘柄ID。書き込みは呼び出し側で端末に保存される
 	@Binding var holdings: [Int]
 
+	@Environment(\.dismiss) private var dismiss
+
 	var body: some View {
 		NavigationStack {
 			List(stocks, id: \.id) { stock in
@@ -28,6 +30,13 @@ struct HoldingsView: View {
 			}
 			.navigationTitle("持ち株")
 			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				// 選ぶと選んだ時点で保存されるので、閉じるだけの「完了」でよい。
+				// 引き下げて閉じる操作は画面に書いていないので、気づけない人がいる（#194）
+				ToolbarItem(placement: .confirmationAction) {
+					Button("完了") { dismiss() }
+				}
+			}
 		}
 	}
 

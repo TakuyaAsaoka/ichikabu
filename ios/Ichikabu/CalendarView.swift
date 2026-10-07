@@ -10,6 +10,8 @@ struct CalendarView: View {
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
 	@State private var stocks: [Stock] = []
 	@State private var message: String?
+	/// イベントと銘柄を1度でも受け取れたか。受け取る前は件数が分からない
+	@State private var loaded = false
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
 
@@ -74,22 +76,25 @@ struct CalendarView: View {
 		selectedDay = day
 	}
 
-	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない
+	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない。
+	/// この状態でいちばんしてほしいのは持ち株を選ぶことなので、塗ったボタンにして
+	/// 右上の「持ち株」より強く見せる（#194）
 	private var holdingsPrompt: some View {
-		Button { showHoldings() } label: {
-			HStack {
-				Text("持ち株が未選択です")
-				Spacer()
-				Text("選ぶ").fontWeight(.semibold)
-			}
-			.font(.caption)
-			.padding(.horizontal, 12)
-			.padding(.vertical, 8)
-			.frame(maxWidth: .infinity)
-			.background(Color.yellow.opacity(0.25))
-			.contentShape(Rectangle())
+		HStack {
+			Text("持ち株が未選択です").font(.caption)
+			Spacer()
+			// 塗りは濃い青に固定する。既定の青 #007AFF と白の文字の明るさの差は 4.02、
+			// 暗い表示の #0A84FF では 3.65 で、文字の目安 4.5 を割る。#0062CC は 5.8。
+			// 文字は本文の大きさのままにする。小さくすると押せる高さがさらに縮む
+			Button("持ち株を選ぶ") { showHoldings() }
+				.buttonStyle(.borderedProminent)
+				.tint(Color(red: 0, green: 0x62 / 255, blue: 0xCC / 255))
+				.fontWeight(.semibold)
 		}
-		.buttonStyle(.plain)
+		.padding(.horizontal, 12)
+		.padding(.vertical, 6)
+		.frame(maxWidth: .infinity)
+		.background(Color.yellow.opacity(0.25))
 	}
 
 	private func grid(shown: [Event]) -> some View {
@@ -99,6 +104,9 @@ struct CalendarView: View {
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
 					events: shown,
+					// 受け取る前と、取得に失敗している間は件数を出さない。
+					// 0件かどうかは分かっていない（#194）
+					showsSummary: loaded && message == nil,
 					onSelect: { showDay($0) }
 				)
 				.tag(offset)
@@ -175,6 +183,7 @@ struct CalendarView: View {
 			async let events = APIClient().events()
 			async let stocks = APIClient().stocks()
 			(self.events, self.stocks) = try await (events, stocks)
+			loaded = true
 			// 再試行で取れたら文言を消す
 			message = nil
 		} catch {
@@ -190,6 +199,8 @@ private struct MonthPage: View {
 	let monthStart: Date
 	let today: Date
 	let events: [Event]
+	/// 月の件数の行を出すか。受け取る前と、取得に失敗している間は出さない
+	let showsSummary: Bool
 	let onSelect: (Date) -> Void
 
 	var body: some View {
@@ -200,9 +211,11 @@ private struct MonthPage: View {
 				.font(.headline)
 
 			// グリッドを読む前に「今月は荒れるか」に答える
-			Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
-				.font(.caption)
-				.foregroundStyle(.secondary)
+			if showsSummary {
+				Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
 
 			HStack(spacing: 0) {
 				ForEach(EventLayout.weekdayNames, id: \.self) { name in
@@ -277,9 +290,8 @@ private struct DaySheet: View {
 				Text(String(repeating: "★", count: min(max(event.importance, 0), 3)))
 					.font(.caption)
 					.foregroundStyle(.orange)
-				Text(event.shortLabel)
-					.font(.caption)
-					.foregroundStyle(EventLayout.color(for: event.kind))
+				// 短縮ラベルは出さない。すぐ下の名称と同じことを示すため（#194）。
+				// セルとの結び付きは、開いた日付の見出しが担う
 				if let time = event.time {
 					Text(time).font(.caption).foregroundStyle(.secondary)
 				}
