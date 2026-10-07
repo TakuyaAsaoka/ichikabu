@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../src/db";
 import { record } from "../../../src/db/audit";
 import { event } from "../../../src/db/schema";
@@ -20,8 +20,12 @@ const EDITOR = "editor@example.com";
 
 type EventInput = Parameters<typeof createEvent>[0];
 
-/** 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める */
-function toInput(shortLabel: string, startDate = "2026-09-01"): EventInput {
+/**
+ * 日経平均を対象にしたイベントの入力。対象の3列は1つだけ埋める。
+ * 日付の既定は遠い未来にする。今日より前だと過去の開閉に入り（#192）、
+ * 実際の日付が進むたびに、どちらの一覧を試しているかが変わる
+ */
+function toInput(shortLabel: string, startDate = "2999-09-01"): EventInput {
   return eventInput({
     title: `${shortLabel}の発表`,
     shortLabel,
@@ -44,6 +48,10 @@ async function addStock(ticker: string, name: string) {
 /** 各テストの前に作り直す利用者のID。記録に残す人の出どころ */
 const userIds = { admin: "", editor: "" };
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(async () => {
   await resetDatabase();
   userIds.admin = (await seedUser(ADMIN, PASSWORD)).userId;
@@ -61,10 +69,10 @@ describe("イベントの画面", () => {
     // 結合の作りが返す順（作った順でも開始日順でもない）になる。
     // 2件だとその順がたまたま開始日順と一致した（実測）
     for (const [shortLabel, startDate] of [
-      ["CPI", "2026-09-01"],
-      ["雇用統計", "2026-08-01"],
-      ["日銀会合", "2026-12-01"],
-      ["GDP", "2026-07-01"],
+      ["CPI", "2999-09-01"],
+      ["雇用統計", "2999-08-01"],
+      ["日銀会合", "2999-12-01"],
+      ["GDP", "2999-07-01"],
     ]) {
       await addEvent(shortLabel, startDate);
     }
@@ -75,8 +83,8 @@ describe("イベントの画面", () => {
     // 行の先頭は開始日。ここで見たいのは並び順だけなので先頭だけを比べる。
     // 行の中身は、この下の「入れた人が名前で出る」以降が見ている
     expect(
-      htmlOf(html, "li").map((row) => row.slice(0, "2026-08-01".length)),
-    ).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-12-01"]);
+      htmlOf(html, "li").map((row) => row.slice(0, "2999-08-01".length)),
+    ).toEqual(["2999-07-01", "2999-08-01", "2999-09-01", "2999-12-01"]);
   });
 
   it("PC で1件を1行に並べる列の数と、見出しの位置が、行の項目と合っている", async () => {
@@ -87,7 +95,8 @@ describe("イベントの画面", () => {
     await db.insert(event).values({
       title: "日本銀行 金融政策決定会合",
       shortLabel: "日銀会合",
-      startDate: "2026-10-01",
+      // 遠い未来にする。今日より前だと過去の開閉に入り、包みが2つになる
+      startDate: "2999-10-01",
       importance: 2,
       market: "JP",
       ...MARKET_SOURCE,
@@ -113,6 +122,72 @@ describe("イベントの画面", () => {
     expect(head.indexOf("入力")).toBe(
       cells.findIndex((cell) => cell.includes("入力: ")) + 1,
     );
+  });
+
+  it("一覧は今日以降から始まり、過去は閉じた開閉にたたむ", async () => {
+    // 開いてまず見たいのはこれからの予定。過去を先頭から全部並べると、
+    // スマホで最初に見える行が全部過去になる（#192）。
+    // 日付は今日に左右されない遠い過去と遠い未来にする。期間のイベントは
+    // 終わる日で決める（始まりが過去でも、終わりが今日以降なら今の予定）
+    await addEvent("過去", "1999-02-20");
+    await createEvent({
+      ...toInput("期間", "1999-03-01"),
+      endDate: "2999-03-01",
+    });
+    await addEvent("未来", "2999-02-20");
+    await signInAs(EDITOR);
+
+    const html = await render(Page);
+
+    // 見出しの件数は今日以降だけを数える
+    expect(html).toContain("イベント一覧（2件）");
+    const label = (row: string) =>
+      row.includes("過去の発表")
+        ? "過去"
+        : row.includes("期間の発表")
+          ? "期間"
+          : "未来";
+    expect(htmlOf(html, "details:not([open]) li").map(label)).toEqual(["過去"]);
+    expect(htmlOf(html, "details:not([open]) > summary > span")).toContain(
+      "過去のイベント（1件）",
+    );
+    expect(htmlOf(html, "section > div > ul > li").map(label)).toEqual([
+      "期間",
+      "未来",
+    ]);
+    // 過去の行も、今日以降の行と同じ列の指定で並ぶ（列の検査が過去の行にも効く）
+    const grids = html.match(/lg:grid-cols-\[[^\]]+\]/g);
+    expect(grids).toHaveLength(2);
+    expect(grids?.[0]).toBe(grids?.[1]);
+  });
+
+  it("今日の分は今日以降に入り、今日は日本時間で決める", async () => {
+    // 時計を日本時間の 10/7 0:30（UTC では 10/6 15:30）に止める。
+    // UTC の日付で今日を決めると、日本時間の 0〜9時は前の日になり、今日の分が過去に落ちる。
+    // 止めるのは Date だけ。ほかのタイマーまで止めると DB の待ちが進まない
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-06T15:30:00Z"));
+    await addEvent("昨日", "2026-10-06");
+    await addEvent("今日", "2026-10-07");
+    await signInAs(EDITOR);
+
+    const html = await render(Page);
+
+    const inPast = htmlOf(html, "details:not([open]) li");
+    expect(inPast.some((row) => row.includes("昨日の発表"))).toBe(true);
+    expect(inPast.some((row) => row.includes("今日の発表"))).toBe(false);
+    expect(
+      htmlOf(html, "section > div > ul > li").some((row) =>
+        row.includes("今日の発表"),
+      ),
+    ).toBe(true);
+  });
+
+  it("過去のイベントが無いときは、過去の開閉を出さない", async () => {
+    await addEvent("未来", "2999-02-20");
+    await signInAs(EDITOR);
+
+    expect(await render(Page)).not.toContain("過去のイベント");
   });
 
   it("登録フォームは2つとも閉じて描かれ、それぞれの操作から開く", async () => {
@@ -175,7 +250,8 @@ describe("イベントの画面", () => {
     await db.insert(event).values({
       title: "日本銀行 金融政策決定会合",
       shortLabel: "日銀会合",
-      startDate: "2026-10-01",
+      // 遠い未来にする。今日より前だと過去の開閉に入り、包みが2つになる
+      startDate: "2999-10-01",
       importance: 2,
       market: "JP",
       ...MARKET_SOURCE,

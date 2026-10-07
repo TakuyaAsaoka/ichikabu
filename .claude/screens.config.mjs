@@ -43,7 +43,8 @@ function openFrom(listPath, link, urlPattern) {
 }
 
 // 閉じて描く登録フォーム（server/app/register-details.tsx。Issue #165）を全部開く。
-// 閉じたままだと、この画面にしか無いフォーム（まとめて登録・テーマ所属など）がどの写真にも写らない
+// 閉じたままだと、この画面にしか無いフォーム（まとめて登録・テーマ所属など）がどの写真にも写らない。
+// イベントの画面では、たたんだ過去の一覧（#192）も一緒に開く。閉じた形は「イベント」の写真に写る
 function openAll(path) {
   return async (page) => {
     await page.goto(path);
@@ -118,7 +119,10 @@ export default {
           title: "イベントの編集",
           open: openFrom(
             "/events",
-            (page) => page.locator('a[href^="/events/"]'),
+            // 見えているリンクを押す。最初のリンクは、たたんだ過去の一覧（#192）の中で押せない。
+            // 今日以降のイベントが0件だと押せるリンクが無くなる。見本（src/db/seed-event.ts）の最後は
+            // 2027-12-09 なので、それより後に撮るなら見本の日付を延ばす
+            (page) => page.locator('a[href^="/events/"]:visible'),
             /\/events\/\d+$/,
           ),
         },
