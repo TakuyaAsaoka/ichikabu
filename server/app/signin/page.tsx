@@ -52,7 +52,7 @@ export default async function SignInPage({
           <AlertTitle>サインインできませんでした</AlertTitle>
           <AlertDescription>
             {error === "signup_disabled"
-              ? "この Google アカウントではサインインできません"
+              ? "この Google アカウントは許可されていません"
               : "Google でのサインインに失敗しました"}
           </AlertDescription>
         </Alert>

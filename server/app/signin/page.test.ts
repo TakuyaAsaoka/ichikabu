@@ -137,14 +137,12 @@ describe("サインインの画面", () => {
     const html = await render(open());
 
     expect(html).not.toContain("Google でのサインインに失敗しました");
-    expect(html).not.toContain(
-      "この Google アカウントではサインインできません",
-    );
+    expect(html).not.toContain("この Google アカウントは許可されていません");
   });
 
   it("許していない Google アカウントには、その旨を出す", async () => {
     expect(await render(open("signup_disabled"))).toContain(
-      "この Google アカウントではサインインできません",
+      "この Google アカウントは許可されていません",
     );
   });
 
