@@ -74,22 +74,23 @@ struct CalendarView: View {
 		selectedDay = day
 	}
 
-	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない
+	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない。
+	/// この状態でいちばんしてほしいのは持ち株を選ぶことなので、塗ったボタンにして
+	/// 右上の「持ち株」より強く見せる（#194）
 	private var holdingsPrompt: some View {
-		Button { showHoldings() } label: {
-			HStack {
-				Text("持ち株が未選択です")
-				Spacer()
-				Text("選ぶ").fontWeight(.semibold)
-			}
-			.font(.caption)
-			.padding(.horizontal, 12)
-			.padding(.vertical, 8)
-			.frame(maxWidth: .infinity)
-			.background(Color.yellow.opacity(0.25))
-			.contentShape(Rectangle())
+		HStack {
+			Text("持ち株が未選択です")
+			Spacer()
+			Button("持ち株を選ぶ") { showHoldings() }
+				.buttonStyle(.borderedProminent)
+				.controlSize(.small)
+				.fontWeight(.semibold)
 		}
-		.buttonStyle(.plain)
+		.font(.caption)
+		.padding(.horizontal, 12)
+		.padding(.vertical, 6)
+		.frame(maxWidth: .infinity)
+		.background(Color.yellow.opacity(0.25))
 	}
 
 	private func grid(shown: [Event]) -> some View {
@@ -99,6 +100,8 @@ struct CalendarView: View {
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
 					events: shown,
+					// 取得に失敗している間は件数を出さない。0件かどうかは分かっていない（#194）
+					showsSummary: message == nil,
 					onSelect: { showDay($0) }
 				)
 				.tag(offset)
@@ -190,6 +193,8 @@ private struct MonthPage: View {
 	let monthStart: Date
 	let today: Date
 	let events: [Event]
+	/// 月の件数の行を出すか。取得に失敗している間は出さない
+	let showsSummary: Bool
 	let onSelect: (Date) -> Void
 
 	var body: some View {
@@ -200,9 +205,11 @@ private struct MonthPage: View {
 				.font(.headline)
 
 			// グリッドを読む前に「今月は荒れるか」に答える
-			Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
-				.font(.caption)
-				.foregroundStyle(.secondary)
+			if showsSummary {
+				Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
 
 			HStack(spacing: 0) {
 				ForEach(EventLayout.weekdayNames, id: \.self) { name in
@@ -277,9 +284,8 @@ private struct DaySheet: View {
 				Text(String(repeating: "★", count: min(max(event.importance, 0), 3)))
 					.font(.caption)
 					.foregroundStyle(.orange)
-				Text(event.shortLabel)
-					.font(.caption)
-					.foregroundStyle(EventLayout.color(for: event.kind))
+				// 短縮ラベルは出さない。すぐ下の名称と同じことを示すため（#194）。
+				// セルとの結び付きは、開いた日付の見出しが担う
 				if let time = event.time {
 					Text(time).font(.caption).foregroundStyle(.secondary)
 				}
