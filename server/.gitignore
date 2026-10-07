@@ -6,3 +6,7 @@ tsconfig.tsbuildinfo
 
 # openapi-typescript の生成物。品質ゲートで毎回 `pnpm gen` するためコミットしない
 src/generated/
+
+# デプロイ（netlify deploy --build）が残すビルドの出力。リポジトリの最上位の .gitignore にもあるが、
+# biome（biome.json の vcs.useIgnoreFile）は server/ より上の .gitignore を読まないので、ここにも書く
+.netlify/
