@@ -83,10 +83,12 @@ struct CalendarView: View {
 		HStack {
 			Text("持ち株が未選択です").font(.caption)
 			Spacer()
-			// 文字は本文の大きさのままにする。小さくすると、塗りの青と白の文字の
-			// 明るさの差（約 4.0）が小さい文字の目安 4.5 を割り、押せる高さも 44pt を下回る
+			// 塗りは濃い青に固定する。既定の青 #007AFF と白の文字の明るさの差は 4.02、
+			// 暗い表示の #0A84FF では 3.65 で、文字の目安 4.5 を割る。#0062CC は 5.8。
+			// 文字は本文の大きさのままにする。小さくすると押せる高さがさらに縮む
 			Button("持ち株を選ぶ") { showHoldings() }
 				.buttonStyle(.borderedProminent)
+				.tint(Color(red: 0, green: 0x62 / 255, blue: 0xCC / 255))
 				.fontWeight(.semibold)
 		}
 		.padding(.horizontal, 12)
