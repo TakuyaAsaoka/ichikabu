@@ -21,7 +21,7 @@
 | [製品の決まり](docs/reference/product.md) | 作るもの・作らないもの・収益化・投資助言との境界 |
 | [出典の利用条件](docs/reference/source-terms.md) | イベントの日付をどの出典で確かめ、どう取ってよいか |
 | [CLAUDE.md](CLAUDE.md) | 構成・品質ゲート・配信先・管理画面の見た目の決まり |
-| [docs/guides](docs/guides) | デプロイ・バックアップ・Google でのログイン・iOS の見た目の確認の手順 |
+| [docs/guides](docs/guides) | デプロイ・バックアップ・Google でのサインイン・iOS の見た目の確認の手順 |
 
 ## 構成
 

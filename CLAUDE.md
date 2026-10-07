@@ -59,7 +59,7 @@ cp .env.example .env.local
 # ADMIN_EMAIL を埋める（削除できる管理者。SEED_USERS のどれかと同じにする。
 #   未設定だとサーバーが起動時に落ちる）
 # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET を埋める（未設定だとサーバーが起動時に落ちる）。
-#   Google でのログインを実際に試さないなら、品質ゲートを回すだけなら任意の文字列でよい。
+#   Google でのサインインを実際に試さないなら、品質ゲートを回すだけなら任意の文字列でよい。
 #   本物の値の取り方は docs/guides/google-oauth.md
 nvm use
 docker compose up -d --wait
@@ -141,7 +141,7 @@ novel-system の C 案（ネイビー×コーラル。novel-system #49）をそ�
 | `primary-hover` | `#ae3e27` | 既定のボタンに指を乗せたときの面（#161。→ この節の最後） |
 | `secondary` / `secondary-foreground` | `#ecebfb` / `#3a3f8f` | 目立ちの弱い塗りの操作・バッジ |
 | `accent` / `accent-foreground` | `#2c3a60` / `#ffffff` | 指を乗せた・選んでいる面（メニューの行・下のタブの現在地）。サイドバーの現在地と同じ組み合わせ（#180。→ この表の下） |
-| `muted` / `muted-foreground` | `#efeff5` / `#5e6178` | 控えめな面と補足の文字（「銘柄なし」「抜けなし」など） |
+| `muted` / `muted-foreground` | `#efeff5` / `#5e6178` | 控えめな面と補足の文字（「銘柄なし」「記録なし」など） |
 | `background` / `foreground` | `#f7f7fb` / `#1d1f33` | ページの背景と本文の文字 |
 | `card`・`popover`（`-foreground` は `#1d1f33`） | `#ffffff` | 浮いた面（カード・メニュー） |
 | `border` | `#e0e0ec` | 面の区切りの枠線 |
