@@ -103,10 +103,13 @@ describe("イベントの編集画面", () => {
     // 「JST」は注記に1回だけ出る
     expect(html.split("JST").length - 1).toBe(1);
     // 注記は4つの決まりを落とさない
-    const note = html.slice(html.indexOf("日本時間（JST）"));
-    expect(note).toContain("確定した日付だけ");
+    // 注記の段落だけを切り出す。ページの末尾まで見ると、後ろのフォームの文で緑になりうる
+    const start = html.indexOf("日本時間（JST）");
+    expect(start).toBeGreaterThan(-1);
+    const note = html.slice(start, html.indexOf("</p>", start));
+    expect(note).toContain("日まで確定した日付だけ");
     expect(note).toContain("市場イベントは出典URLと表示名");
-    expect(note).toContain("記載が条件の出典");
+    expect(note).toContain("出典名の記載が利用の条件");
   });
 
   it("対象の選択肢は、テーマ名順・市場ティッカー順に並ぶ", async () => {
