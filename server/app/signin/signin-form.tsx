@@ -54,7 +54,7 @@ export function SignInForm() {
       const body: { url?: string } = await response.json();
       if (!body.url) {
         setPending(false);
-        setError("Google のログインURLを取得できませんでした");
+        setError("Google のサインイン用のURLを取得できませんでした");
         return;
       }
       // Google の同意画面へ移る。戻り先は /api/auth/callback/google
@@ -111,7 +111,7 @@ export function SignInForm() {
         disabled={pending}
         className="disabled:opacity-100"
       >
-        Google でログイン
+        Google でサインイン
       </Button>
       {/* メールアドレスとパスワードは、Google の設定が壊れた日に
           管理UIへ入る手段として残す。
