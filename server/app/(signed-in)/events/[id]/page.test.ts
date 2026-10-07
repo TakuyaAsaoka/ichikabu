@@ -85,6 +85,33 @@ describe("イベントの編集画面", () => {
     expect(html).not.toContain('<option value="market:JP" selected="">');
   });
 
+  it("欄の名前は短い補足だけにし、決まりは下の注記1か所に書く", async () => {
+    // 欄の名前に説明を詰めると、スマホ（390px）で名前が2行に折れる。
+    // 同じ決まり（JST・表示名が要る）を名前と注記の両方に書くと、2回読むことになる
+    const id = await addEvent();
+    const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+
+    for (const label of [
+      "短縮ラベル（全角5文字まで）",
+      "終了日（任意）",
+      "時刻（任意）",
+      "出典の表示名（アプリに出る）",
+    ]) {
+      expect(html).toContain(label);
+    }
+    expect(html).not.toContain("出典URL（");
+    // 「JST」は注記に1回だけ出る
+    expect(html.split("JST").length - 1).toBe(1);
+    // 注記は4つの決まりを落とさない
+    // 注記の段落だけを切り出す。ページの末尾まで見ると、後ろのフォームの文で緑になりうる
+    const start = html.indexOf("日本時間（JST）");
+    expect(start).toBeGreaterThan(-1);
+    const note = html.slice(start, html.indexOf("</p>", start));
+    expect(note).toContain("日まで確定した日付だけ");
+    expect(note).toContain("市場イベントは出典URLと表示名");
+    expect(note).toContain("出典名の記載が利用の条件");
+  });
+
   it("対象の選択肢は、テーマ名順・市場ティッカー順に並ぶ", async () => {
     // テーマと銘柄はこの画面では選択肢にしか出ない。作った順と並び順がずれる
     // 題材にする。「半導体」「防衛」は、DBの照合順序がどれでも前後が入れ替わらない
