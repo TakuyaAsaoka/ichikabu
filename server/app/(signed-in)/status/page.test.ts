@@ -27,24 +27,23 @@ describe("状態の画面", () => {
     }
   });
 
-  it("抜けが1件も無い種類は「抜けなし」と出る", async () => {
-    // 空白で表すと「抜けが無い」のか「調べていない」のか見分けが付かない
-    expect(await render(Page)).toContain("抜けなし");
+  it("抜けが1件も無い種類は、見出しの「（0件）」だけで示す", async () => {
+    // 空白で表すと「抜けが無い」のか「調べていない」のか見分けが付かないので、
+    // 見出しに0件と出す。その下に「抜けなし」を重ねると、同じことを2回言うことになる
+    const html = await render(Page);
+    expect(html).toContain("決算月なし（0件）");
+    expect(html).not.toContain("抜けなし");
   });
 
-  it("抜けの行には、色だけでなく言葉の印が付く", async () => {
-    // 色の見分けが付きにくい人には、赤い文字だけでは何も伝わらない
-    // （CLAUDE.md「意味を色だけで運ばない」）。
-    // **抜けが0件のときに印が出ないことまで見る。** 出しっぱなしだと、
-    // 印が抜けの行を1つも区別していないことになり、この検査が素通りする
-    const before = await render(Page);
-    expect(before).not.toContain('data-slot="badge"');
-
+  it("抜けの行には札を付けない", async () => {
+    // 抜けであることは見出しの言葉（「決算月なし」など）が伝える。
+    // 各行に同じ「抜け」の札を付けると、見出しで分かることを行ごとに繰り返す
     // 決算月の無い銘柄は「決算月なし」の抜けになる
     entriesOf(await createStock(stockInput({ fiscalMonth: null })));
 
-    const after = await render(Page);
-    expect(after).toContain("抜け</span>");
+    const html = await render(Page);
+    expect(html).toContain("決算月なし（1件）");
+    expect(html).not.toContain('data-slot="badge"');
   });
 
   it("抜けのある行は直す先へのリンクを出す", async () => {

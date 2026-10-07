@@ -90,7 +90,7 @@ curl https://ichikabu.netlify.app/api/health
 | `BETTER_AUTH_URL` | 要る | 要らない | `https://ichikabu.netlify.app` |
 | `GOOGLE_CLIENT_ID` | 要る | 要らない | 取得は `docs/guides/google-oauth.md`。`pnpm db:seed` は `.env.local` 側の値で足りる |
 | `GOOGLE_CLIENT_SECRET` | 要る | 要らない | 同上 |
-| `SEED_USERS` | 要らない | 要る | 入力者の一覧。JSON の配列で、要素は `email` と `password`。**1人目のメールアドレスは Google でログインするアカウントと同じにする**。パスワードは管理UIの入り口（Google が壊れた日の手段）に使うので消さない |
+| `SEED_USERS` | 要らない | 要る | 入力者の一覧。JSON の配列で、要素は `email` と `password`。**1人目のメールアドレスは Google でサインインするアカウントと同じにする**。パスワードは管理UIの入り口（Google が壊れた日の手段）に使うので消さない |
 | `ADMIN_EMAIL` | 要る | 要らない | 削除できる管理者のメールアドレス1つ。`SEED_USERS` のどれかと同じにする。**未設定だとビルドが落ちる**（`src/admin.ts` が読み込みの時点で確かめる）。`pnpm db:seed` はこの値を読まないので `.env.deploy.local` には要らない |
 
 Netlify 側は Project configuration > Environment variables に入れる。

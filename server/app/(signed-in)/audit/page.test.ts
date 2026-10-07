@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { record } from "../../../src/db/audit";
 import { seedUser } from "../../../src/db/seed-user";
-import { createStock, createTheme } from "../../../src/db/write";
+import { createStock, createTheme, updateTheme } from "../../../src/db/write";
 import { entriesOf, resetDatabase } from "../../../test/helpers";
 import { stockInput } from "../../../test/inputs";
 import {
@@ -58,6 +58,21 @@ describe("監査ログの画面", () => {
     expect(html).toContain("テーマ #1");
     // 新しい銘柄の登録が、古いテーマの登録より前に出る
     expect(html.indexOf("銘柄 #1")).toBeLessThan(html.indexOf("テーマ #1"));
+  });
+
+  it("更新の記録は、貢献度の画面と同じ「更新」と出る", async () => {
+    // 同じ操作を画面ごとに別の名前（「変更」と「更新」）で呼ぶと、
+    // 別のものを数えているように見える
+    const [created] = entriesOf(await createTheme("半導体"));
+    await record(
+      userIds.admin,
+      entriesOf(await updateTheme(Number(created.resourceId), "半導体2")),
+    );
+    await signInAs(ADMIN);
+
+    const html = await render(Page);
+    expect(html).toContain("更新");
+    expect(html).not.toContain("変更");
   });
 
   it("取り込みが入れた記録は操作した人が「取り込み」と出る", async () => {

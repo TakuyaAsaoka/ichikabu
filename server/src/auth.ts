@@ -15,7 +15,7 @@ if (!secret) {
 }
 
 // 未設定でも Better Auth は警告を1行出すだけでプロバイダを登録する。
-// その状態で「Google でログイン」を押すと、本文の無い 500 が返って原因が分からない。
+// その状態で「Google でサインイン」を押すと、本文の無い 500 が返って原因が分からない。
 // 起動時に落として、設定漏れをその場で分かるようにする
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;

@@ -42,7 +42,7 @@ export default async function SignInPage({
       <h1 className="text-center text-2xl font-bold">イチカブ 管理</h1>
       {error && (
         // 中身は画面に出さない。URLに入れた文字列がそのまま出ると、
-        // このアドレスを開かせるだけで偽の案内文をログイン画面に載せられる。
+        // このアドレスを開かせるだけで偽の案内文をサインインの画面に載せられる。
         //
         // 出し方は `app/form.tsx` と同じ `Alert`。断りを色だけで伝えず、
         // 見出しの言葉でも「入れなかった」ことを出す（CLAUDE.md「色」）。
@@ -52,8 +52,8 @@ export default async function SignInPage({
           <AlertTitle>サインインできませんでした</AlertTitle>
           <AlertDescription>
             {error === "signup_disabled"
-              ? "この Google アカウントではログインできません"
-              : "Google でのログインに失敗しました"}
+              ? "この Google アカウントは許可されていません"
+              : "Google でのサインインに失敗しました"}
           </AlertDescription>
         </Alert>
       )}

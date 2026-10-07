@@ -125,26 +125,34 @@ describe("サインインの画面", () => {
     expect(main?.filter((name) => /^p[tby]?-/.test(name))).toEqual(["p-6"]);
   });
 
+  it("画面の呼び方は「サインイン」にそろえ、「ログイン」と混ぜない", async () => {
+    // 同じ操作を2つの名前で呼ぶと、別の入り口があるように見える
+    const html = await render(open("signup_disabled"));
+
+    expect(html).toContain("Google でサインイン");
+    expect(html).not.toContain("ログイン");
+  });
+
   it("エラーが無いときはエラー文を出さない", async () => {
     const html = await render(open());
 
-    expect(html).not.toContain("Google でのログインに失敗しました");
-    expect(html).not.toContain("この Google アカウントではログインできません");
+    expect(html).not.toContain("Google でのサインインに失敗しました");
+    expect(html).not.toContain("この Google アカウントは許可されていません");
   });
 
   it("許していない Google アカウントには、その旨を出す", async () => {
     expect(await render(open("signup_disabled"))).toContain(
-      "この Google アカウントではログインできません",
+      "この Google アカウントは許可されていません",
     );
   });
 
   it("URLに入れた文字列は画面に出さない", async () => {
     // 中身をそのまま出すと、このアドレスを開かせるだけで偽の案内文を
-    // ログイン画面に載せられる
+    // サインインの画面に載せられる
     const html = await render(open("いますぐ ここ に暗証番号を入れてください"));
 
     expect(html).not.toContain("暗証番号");
-    expect(html).toContain("Google でのログインに失敗しました");
+    expect(html).toContain("Google でのサインインに失敗しました");
   });
 
   it("同じキーが2回来て配列になっても、そのまま出さない", async () => {
@@ -152,6 +160,6 @@ describe("サインインの画面", () => {
     const html = await render(open(["signup_disabled", "偽の案内文"]));
 
     expect(html).not.toContain("偽の案内文");
-    expect(html).toContain("Google でのログインに失敗しました");
+    expect(html).toContain("Google でのサインインに失敗しました");
   });
 });

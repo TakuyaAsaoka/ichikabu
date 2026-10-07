@@ -5,10 +5,13 @@ import {
 } from "../../../src/db/audit";
 import { requireAdminSession } from "../../guard";
 
-/** 操作の区分の見出し。足し忘れは Record の型が落とす */
+/**
+ * 操作の区分の見出し。足し忘れは Record の型が落とす。
+ * 貢献度の画面と編集のボタンと同じ言葉にする（同じ操作を別の名前で呼ばない。#188）
+ */
 const ACTION_TITLES: Record<AuditAction, string> = {
   create: "登録",
-  update: "変更",
+  update: "更新",
   delete: "削除",
 };
 
