@@ -61,7 +61,7 @@ export default async function Page() {
       <h1 className="text-xl font-bold">銘柄とテーマ</h1>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">銘柄一覧（{stocks.length}件）</h2>
+        <h2 className="text-base font-bold">銘柄一覧 ({stocks.length}件)</h2>
         <RegisterDetails label="銘柄を登録">
           <StockForm action={addStock} submitLabel="銘柄を登録" />
         </RegisterDetails>
@@ -87,7 +87,7 @@ export default async function Page() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">テーマ一覧（{themes.length}件）</h2>
+        <h2 className="text-base font-bold">テーマ一覧 ({themes.length}件)</h2>
         <RegisterDetails label="テーマを登録">
           <ThemeForm action={addTheme} submitLabel="テーマを登録" />
         </RegisterDetails>

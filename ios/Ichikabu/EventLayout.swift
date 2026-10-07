@@ -107,7 +107,7 @@ enum EventLayout {
 		}
 	}
 
-	/// シートの見出し（`8月4日（火）`）
+	/// シートの見出し（`8月4日 (火)`）
 	static func dayTitle(for date: Date) -> String {
 		let components = calendar.dateComponents([.month, .day, .weekday], from: date)
 		guard let month = components.month, let day = components.day,
@@ -115,7 +115,7 @@ enum EventLayout {
 		else {
 			return ""
 		}
-		return "\(month)月\(day)日（\(weekdayNames[weekday - 1])）"
+		return "\(month)月\(day)日 (\(weekdayNames[weekday - 1]))"
 	}
 
 	/// 曜日名。並びは日曜始まり固定。

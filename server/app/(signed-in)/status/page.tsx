@@ -22,9 +22,9 @@ export default async function Page() {
         return (
           <section key={kind} className="flex flex-col gap-3">
             <h2 className="text-base font-bold">
-              {GAP_TITLES[kind]}（{rows.length}件）
+              {GAP_TITLES[kind]} ({rows.length}件)
             </h2>
-            {/* 抜けが無いことは見出しの「（0件）」が示す。空白にはならないので
+            {/* 抜けが無いことは見出しの「(0件)」が示す。空白にはならないので
                 「抜けが無い」と「調べていない」は見分けが付く。
                 抜けであることは見出しの言葉（「決算月なし」など）が伝えるので、
                 行ごとに「抜け」の札を重ねない（#188） */}

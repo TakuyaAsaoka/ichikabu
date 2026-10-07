@@ -35,7 +35,7 @@ export function AccountMenu({ email }: { email: string }) {
           {/* スマホではメールアドレスを見せない（幅が足りない）が、
               読み上げには残す。誰として入っているかが分からなくなるため */}
           <span className="sr-only md:not-sr-only">{email}</span>
-          <span className="sr-only">（アカウントのメニュー）</span>
+          <span className="sr-only"> (アカウントのメニュー)</span>
           <ChevronDownIcon className="size-4" aria-hidden />
         </Button>
       </DropdownMenuTrigger>

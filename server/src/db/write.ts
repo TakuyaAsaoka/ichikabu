@@ -23,7 +23,7 @@ const MESSAGES: Record<string, string> = {
   theme_name_unique: "そのテーマ名は登録済み",
   theme_stock_theme_id_stock_id_pk: "その銘柄はすでにこのテーマに登録済み",
   event_target_exclusive_check: "対象は市場・テーマ・銘柄のどれか1つを選ぶ",
-  event_period_check: "終了日は開始日より後にする（単日は空のまま）",
+  event_period_check: "終了日は開始日より後にする (単日は空のまま)",
   event_importance_check: "重要度は1〜3",
   event_source_name_check: "出典の名前を入れるならURLも入れる",
   event_market_source_check: "市場イベントには出典の名前とURLを入れる",

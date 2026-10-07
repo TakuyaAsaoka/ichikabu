@@ -25,7 +25,7 @@ export function BulkEventForm() {
   return (
     <ActionForm action={addEvents} submitLabel="まとめて登録">
       <Label className={fieldLabel}>
-        貼り付け（1行に1件。タブ区切り）
+        貼り付け (1行に1件。タブ区切り)
         {/* 高さは `rows` では決まらない。部品が `field-sizing-content` を持ち、
             中身の量で伸び縮みするため。最初の高さは `min-h-*` で決める（#161） */}
         <Textarea

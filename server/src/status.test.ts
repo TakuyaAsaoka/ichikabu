@@ -197,7 +197,7 @@ describe("休場日リストの不足", () => {
   it("翌年ぶんが載っていない年に入ると出る", async () => {
     // リストの最後の年に入ると、その年のうちに翌年ぶんが要る
     expect(await gapsOf("closedDays", `${LAST_YEAR}-01-01`)).toEqual([
-      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
+      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す (src/rights.ts の CLOSED_DAYS)`,
     ]);
   });
 
@@ -205,7 +205,7 @@ describe("休場日リストの不足", () => {
     // 2年ほうっておいた状態。「今年の翌年」を出すと1年ぶん飛ばした案内になり、
     // 間の年は誰も足さないまま権利日が出ないで残る
     expect(await gapsOf("closedDays", `${LAST_YEAR + 2}-06-01`)).toEqual([
-      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
+      `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す (src/rights.ts の CLOSED_DAYS)`,
     ]);
   });
 
@@ -257,7 +257,7 @@ describe("findGaps", () => {
       // 直すのはソースコードで、画面からは直せない
       {
         kind: "closedDays",
-        label: `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す（src/rights.ts の CLOSED_DAYS）`,
+        label: `休場日リストが${LAST_YEAR}年まで。${LAST_YEAR + 1}年ぶんから足す (src/rights.ts の CLOSED_DAYS)`,
         href: null,
       },
     ]);
