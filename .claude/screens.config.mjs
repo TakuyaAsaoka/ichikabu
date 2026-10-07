@@ -119,7 +119,8 @@ export default {
           title: "イベントの編集",
           open: openFrom(
             "/events",
-            (page) => page.locator('a[href^="/events/"]'),
+            // 見えているリンクを押す。最初のリンクは、たたんだ過去の一覧（#192）の中で押せない
+            (page) => page.locator('a[href^="/events/"]:visible'),
             /\/events\/\d+$/,
           ),
         },
