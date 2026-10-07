@@ -10,6 +10,8 @@ struct CalendarView: View {
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
 	@State private var stocks: [Stock] = []
 	@State private var message: String?
+	/// イベントと銘柄を1度でも受け取れたか。受け取る前は件数が分からない
+	@State private var loaded = false
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
 
@@ -79,14 +81,14 @@ struct CalendarView: View {
 	/// 右上の「持ち株」より強く見せる（#194）
 	private var holdingsPrompt: some View {
 		HStack {
-			Text("持ち株が未選択です")
+			Text("持ち株が未選択です").font(.caption)
 			Spacer()
+			// 文字は本文の大きさのままにする。小さくすると、塗りの青と白の文字の
+			// 明るさの差（約 4.0）が小さい文字の目安 4.5 を割り、押せる高さも 44pt を下回る
 			Button("持ち株を選ぶ") { showHoldings() }
 				.buttonStyle(.borderedProminent)
-				.controlSize(.small)
 				.fontWeight(.semibold)
 		}
-		.font(.caption)
 		.padding(.horizontal, 12)
 		.padding(.vertical, 6)
 		.frame(maxWidth: .infinity)
@@ -100,8 +102,9 @@ struct CalendarView: View {
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
 					events: shown,
-					// 取得に失敗している間は件数を出さない。0件かどうかは分かっていない（#194）
-					showsSummary: message == nil,
+					// 受け取る前と、取得に失敗している間は件数を出さない。
+					// 0件かどうかは分かっていない（#194）
+					showsSummary: loaded && message == nil,
 					onSelect: { showDay($0) }
 				)
 				.tag(offset)
@@ -178,6 +181,7 @@ struct CalendarView: View {
 			async let events = APIClient().events()
 			async let stocks = APIClient().stocks()
 			(self.events, self.stocks) = try await (events, stocks)
+			loaded = true
 			// 再試行で取れたら文言を消す
 			message = nil
 		} catch {
@@ -193,7 +197,7 @@ private struct MonthPage: View {
 	let monthStart: Date
 	let today: Date
 	let events: [Event]
-	/// 月の件数の行を出すか。取得に失敗している間は出さない
+	/// 月の件数の行を出すか。受け取る前と、取得に失敗している間は出さない
 	let showsSummary: Bool
 	let onSelect: (Date) -> Void
 

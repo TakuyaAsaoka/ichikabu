@@ -39,7 +39,9 @@ final class CalendarUITests: XCTestCase {
 	func test_持ち株の一覧は完了で閉じる() {
 		let app = launch()
 
-		app.buttons["持ち株"].tap()
+		let holdings = app.buttons["持ち株"]
+		XCTAssertTrue(holdings.waitForExistence(timeout: 10), "「持ち株」が出ない")
+		holdings.tap()
 		let sheet = app.navigationBars["持ち株"]
 		XCTAssertTrue(sheet.waitForExistence(timeout: 10), "持ち株の一覧が開かない")
 		sheet.buttons["完了"].tap()
