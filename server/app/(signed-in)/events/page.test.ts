@@ -87,7 +87,8 @@ describe("イベントの画面", () => {
     await db.insert(event).values({
       title: "日本銀行 金融政策決定会合",
       shortLabel: "日銀会合",
-      startDate: "2026-10-01",
+      // 遠い未来にする。今日より前だと過去の開閉に入り、包みが2つになる
+      startDate: "2999-10-01",
       importance: 2,
       market: "JP",
       ...MARKET_SOURCE,
@@ -113,6 +114,50 @@ describe("イベントの画面", () => {
     expect(head.indexOf("入力")).toBe(
       cells.findIndex((cell) => cell.includes("入力: ")) + 1,
     );
+  });
+
+  it("一覧は今日以降から始まり、過去は閉じた開閉にたたむ", async () => {
+    // 開いてまず見たいのはこれからの予定。過去を先頭から全部並べると、
+    // スマホで最初に見える行が全部過去になる（#192）。
+    // 日付は今日に左右されない遠い過去と遠い未来にする。期間のイベントは
+    // 終わる日で決める（始まりが過去でも、終わりが今日以降なら今の予定）
+    await addEvent("過去", "1999-02-20");
+    await createEvent({
+      ...toInput("期間", "1999-03-01"),
+      endDate: "2999-03-01",
+    });
+    await addEvent("未来", "2999-02-20");
+    await signInAs(EDITOR);
+
+    const html = await render(Page);
+
+    // 見出しの件数は今日以降だけを数える
+    expect(html).toContain("イベント一覧（2件）");
+    const label = (row: string) =>
+      row.includes("過去の発表")
+        ? "過去"
+        : row.includes("期間の発表")
+          ? "期間"
+          : "未来";
+    expect(htmlOf(html, "details:not([open]) li").map(label)).toEqual(["過去"]);
+    expect(htmlOf(html, "details:not([open]) > summary > span")).toContain(
+      "過去のイベント（1件）",
+    );
+    expect(htmlOf(html, "section > div > ul > li").map(label)).toEqual([
+      "期間",
+      "未来",
+    ]);
+    // 過去の行も、今日以降の行と同じ列の指定で並ぶ（列の検査が過去の行にも効く）
+    const grids = html.match(/lg:grid-cols-\[[^\]]+\]/g);
+    expect(grids).toHaveLength(2);
+    expect(grids?.[0]).toBe(grids?.[1]);
+  });
+
+  it("過去のイベントが無いときは、過去の開閉を出さない", async () => {
+    await addEvent("未来", "2999-02-20");
+    await signInAs(EDITOR);
+
+    expect(await render(Page)).not.toContain("過去のイベント");
   });
 
   it("登録フォームは2つとも閉じて描かれ、それぞれの操作から開く", async () => {
@@ -175,7 +220,8 @@ describe("イベントの画面", () => {
     await db.insert(event).values({
       title: "日本銀行 金融政策決定会合",
       shortLabel: "日銀会合",
-      startDate: "2026-10-01",
+      // 遠い未来にする。今日より前だと過去の開閉に入り、包みが2つになる
+      startDate: "2999-10-01",
       importance: 2,
       market: "JP",
       ...MARKET_SOURCE,
