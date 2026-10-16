@@ -9,7 +9,10 @@ struct CalendarView: View {
 	@State private var events: [Event] = []
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
 	@State private var stocks: [Stock] = []
-	@State private var message: String?
+	/// 直近の取得に失敗したか
+	@State private var failed = false
+	/// 取得している最中か。起動時の1回目も含むが、画面に出るのは失敗中の取り直しだけ
+	@State private var isLoading = false
 	/// イベントと銘柄を1度でも受け取れたか。受け取る前は件数が分からない
 	@State private var loaded = false
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
@@ -47,7 +50,13 @@ struct CalendarView: View {
 				if holdings.isEmpty {
 					holdingsPrompt
 				}
-				grid(shown: shown)
+				// 失敗したらカレンダーを出さない。前に取ったデータを持たないので、
+				// 空のマスを残すと「予定が無い月」に見える（#202）
+				if failed {
+					failure
+				} else {
+					grid(shown: shown)
+				}
 			}
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
@@ -57,10 +66,43 @@ struct CalendarView: View {
 				}
 			}
 		}
+		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
+		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう。
+		//
+		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
+		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
+		// 日付のシートを開いたままツールバーの「持ち株」を押せてしまう。
+		// 1枚の中身を入れ替える形にすれば、2枚目を出す要求そのものが起きない。
+		//
+		// カレンダーではなくここに付けるのは、取得に失敗してカレンダーが無い間も
+		// 持ち株の一覧を開けるようにするため
+		.sheet(isPresented: sheetIsShown) {
+			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
+			// nil になった時点で消えていくシートから指定が外れる
+			Group {
+				if isPickingHoldings {
+					HoldingsView(stocks: stocks, holdings: savedHoldings)
+				} else if let selectedDay {
+					DaySheet(
+						date: selectedDay,
+						events: EventLayout.events(
+							on: EventLayout.key(for: selectedDay), from: shown)
+					)
+				}
+			}
+			.presentationDetents([.fraction(0.45), .large], selection: $sheetHeight)
+			// 0.45 まで下げている間は裏を操作できる。
+			// これでシートを開いたまま別の日付をタップできる
+			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
+		}
 		.task {
 			await load()
 		}
 	}
+
+	/// 押してほしいボタンの塗り。既定の青 #007AFF と白の文字の明るさの差は 4.02、
+	/// 暗い表示の #0A84FF では 3.65 で、文字の目安 4.5 を割る。#0062CC は 5.8
+	private static let prominentTint = Color(red: 0, green: 0x62 / 255, blue: 0xCC / 255)
 
 	/// 持ち株を選ぶ画面を出す
 	private func showHoldings() {
@@ -83,18 +125,38 @@ struct CalendarView: View {
 		HStack {
 			Text("持ち株が未選択です").font(.caption)
 			Spacer()
-			// 塗りは濃い青に固定する。既定の青 #007AFF と白の文字の明るさの差は 4.02、
-			// 暗い表示の #0A84FF では 3.65 で、文字の目安 4.5 を割る。#0062CC は 5.8。
 			// 文字は本文の大きさのままにする。小さくすると押せる高さがさらに縮む
 			Button("持ち株を選ぶ") { showHoldings() }
 				.buttonStyle(.borderedProminent)
-				.tint(Color(red: 0, green: 0x62 / 255, blue: 0xCC / 255))
+				.tint(Self.prominentTint)
 				.fontWeight(.semibold)
 		}
 		.padding(.horizontal, 12)
 		.padding(.vertical, 6)
 		.frame(maxWidth: .infinity)
 		.background(Color.yellow.opacity(0.25))
+	}
+
+	/// 取得に失敗したときに、カレンダーの代わりに出す画面
+	@ViewBuilder
+	private var failure: some View {
+		if isLoading {
+			ProgressView("取得しています")
+				.frame(maxWidth: .infinity, maxHeight: .infinity)
+		} else {
+			ContentUnavailableView {
+				Label("イベントと銘柄を取得できませんでした", systemImage: "wifi.slash")
+			} description: {
+				Text("通信できる状態か確かめて、もう一度お試しください。")
+			} actions: {
+				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
+				// これが無いと復旧はアプリの再起動だけになる
+				Button("再試行") { Task { await load() } }
+					.buttonStyle(.borderedProminent)
+					.tint(Self.prominentTint)
+					.fontWeight(.semibold)
+			}
+		}
 	}
 
 	private func grid(shown: [Event]) -> some View {
@@ -104,53 +166,14 @@ struct CalendarView: View {
 					monthStart: EventLayout.month(offset: offset, from: today),
 					today: today,
 					events: shown,
-					// 受け取る前と、取得に失敗している間は件数を出さない。
-					// 0件かどうかは分かっていない（#194）
-					showsSummary: loaded && message == nil,
+					// 受け取る前は件数を出さない。0件かどうかは分かっていない（#194）
+					showsSummary: loaded,
 					onSelect: { showDay($0) }
 				)
 				.tag(offset)
 			}
 		}
 		.tabViewStyle(.page(indexDisplayMode: .never))
-		.overlay {
-			if let message {
-				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
-				// これが無いと復旧はアプリの再起動だけになる
-				Button { Task { await load() } } label: {
-					VStack(spacing: 4) {
-						Text(message).foregroundStyle(.secondary)
-						Text("再試行")
-					}
-				}
-			}
-		}
-		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
-		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう。
-		//
-		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
-		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
-		// 日付のシートを開いたままツールバーの「持ち株」を押せてしまう。
-		// 1枚の中身を入れ替える形にすれば、2枚目を出す要求そのものが起きない
-		.sheet(isPresented: sheetIsShown) {
-			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
-			// nil になった時点で消えていくシートから指定が外れる
-			Group {
-				if isPickingHoldings {
-					HoldingsView(stocks: stocks, holdings: savedHoldings)
-				} else if let selectedDay {
-					DaySheet(
-						date: selectedDay,
-						events: EventLayout.events(
-							on: EventLayout.key(for: selectedDay), from: shown)
-					)
-				}
-			}
-			.presentationDetents([.fraction(0.45), .large], selection: $sheetHeight)
-			// 0.45 まで下げている間は裏を操作できる。
-			// これでシートを開いたまま別の日付をタップできる
-			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
-		}
 	}
 
 	/// 日が選ばれているか、持ち株を選んでいる間はシートを出す。閉じられたら両方消す
@@ -177,6 +200,11 @@ struct CalendarView: View {
 	}
 
 	private func load() async {
+		// 「再試行」を続けて押したときに2本目を走らせない。走らせると、
+		// 先に終わった方が isLoading を戻し、取得の途中で「再試行」がまた出る
+		guard !isLoading else { return }
+		isLoading = true
+		defer { isLoading = false }
 		do {
 			// 2本を1回で受け取る。片方が失敗すると代入に届かないので、
 			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない
@@ -184,12 +212,11 @@ struct CalendarView: View {
 			async let stocks = APIClient().stocks()
 			(self.events, self.stocks) = try await (events, stocks)
 			loaded = true
-			// 再試行で取れたら文言を消す
-			message = nil
+			failed = false
 		} catch {
 			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
-			// 文言はイベントに限定しない
-			message = "イベントと銘柄を取得できませんでした"
+			// 見出しはイベントに限定しない
+			failed = true
 		}
 	}
 }
@@ -199,7 +226,7 @@ private struct MonthPage: View {
 	let monthStart: Date
 	let today: Date
 	let events: [Event]
-	/// 月の件数の行を出すか。受け取る前と、取得に失敗している間は出さない
+	/// 月の件数の行を出すか。受け取る前は出さない
 	let showsSummary: Bool
 	let onSelect: (Date) -> Void
 
