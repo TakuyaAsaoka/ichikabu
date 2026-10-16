@@ -11,7 +11,7 @@ struct CalendarView: View {
 	@State private var stocks: [Stock] = []
 	/// 直近の取得に失敗したか
 	@State private var failed = false
-	/// 取り直している最中か
+	/// 取得している最中か。起動時の1回目も含むが、画面に出るのは失敗中の取り直しだけ
 	@State private var isLoading = false
 	/// イベントと銘柄を1度でも受け取れたか。受け取る前は件数が分からない
 	@State private var loaded = false
@@ -200,6 +200,9 @@ struct CalendarView: View {
 	}
 
 	private func load() async {
+		// 「再試行」を続けて押したときに2本目を走らせない。走らせると、
+		// 先に終わった方が isLoading を戻し、取得の途中で「再試行」がまた出る
+		guard !isLoading else { return }
 		isLoading = true
 		defer { isLoading = false }
 		do {
