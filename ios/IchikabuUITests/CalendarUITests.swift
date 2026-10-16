@@ -14,13 +14,16 @@ final class CalendarUITests: XCTestCase {
 	}
 
 	@MainActor
-	func test_取得に失敗したら月の件数を出さない() {
+	func test_取得に失敗したらカレンダーの代わりに知らせと再試行を出す() {
 		let app = launch()
 
-		let retry = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "再試行")).firstMatch
-		XCTAssertTrue(retry.waitForExistence(timeout: 30), "「再試行」が出ない")
-		// 取れていないのに「0件」と出すと、事実と違う。
-		// 月のページは前後12ヶ月ぶん部品の一覧に入るので、どのページにも無いことを見る
+		XCTAssertTrue(app.buttons["再試行"].waitForExistence(timeout: 30), "「再試行」が出ない")
+		XCTAssertTrue(app.staticTexts["イベントと銘柄を取得できませんでした"].exists, "取得できなかったことが出ない")
+		// 取れていないのに空のマスや「0件」を出すと、予定が無い月に見える。
+		// 月のページは前後12ヶ月ぶん部品の一覧に入るので、どのページにも無いことを見る。
+		// 日のマスは読み上げ名が日番号で始まる押せる要素（DayCell）
+		let days = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "^[0-9]+.*"))
+		XCTAssertEqual(days.count, 0, "取得に失敗しているのに日のマスが出ている")
 		let summaries = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "★3が"))
 		XCTAssertEqual(summaries.count, 0, "取得に失敗しているのに月の件数が出ている")
 	}
