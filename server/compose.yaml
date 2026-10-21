@@ -2,6 +2,11 @@
 # その時点の安定版を使う。使っているのは PostgreSQL の標準機能（num_nonnulls・
 # GENERATED ALWAYS AS IDENTITY）だけなので、本番を別のところへ移すことになっても
 # pg_dump で足りる。
+#
+# Docker はミニPCで動く（home-infra の dev-containers の決まり）。名前は <本番の名前>-dev にし、
+# Mac のパスは bind mount しない（ミニPCにそのパスが無い）。
+# 名前を決め打ちにしているので、どの worktree から up しても同じ1組に当たる
+name: ichikabu-dev
 services:
   db:
     # ダイジェストまで書く。同じ 18.4 でも土台の debian:trixie-slim が上がると
@@ -21,7 +26,13 @@ services:
       # postgres:18 のデータ配置は /var/lib/postgresql/18/docker であり、
       # ボリューム宣言は /var/lib/postgresql。ここを取り違えると永続化されない
       - pgdata:/var/lib/postgresql
-      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # テスト用のデータベース ichikabu_test を、初回の初期化で作る。
+    # テストは実行のたびに全テーブルを空にするので、開発用（ichikabu）と分ける。
+    # 初期化の SQL はファイルを bind mount せずここで書き出す（イメージは上の版のまま使う）
+    entrypoint:
+      - sh
+      - -c
+      - echo 'CREATE DATABASE ichikabu_test;' > /docker-entrypoint-initdb.d/init.sql && exec docker-entrypoint.sh postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
