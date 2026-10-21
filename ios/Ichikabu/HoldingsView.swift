@@ -16,7 +16,7 @@ struct HoldingsView: View {
 				// 選んだ銘柄のイベントが段階2ではまだ出ないことがあるため
 				// （Issue #87 の検証時の罠）、選べたことはこの行のチェックで示す
 				Button { toggle(stock.id) } label: { row(for: stock) }
-					.buttonStyle(.plain)
+					.buttonStyle(.bare)
 					// チェックの印は目で見る人にしか伝わらないため、選択の状態を VoiceOver にも渡す
 					.accessibilityAddTraits(holdings.contains(stock.id) ? .isSelected : [])
 			}
@@ -42,10 +42,10 @@ struct HoldingsView: View {
 
 	private func row(for stock: Stock) -> some View {
 		HStack {
-			VStack(alignment: .leading, spacing: 2) {
+			VStack(alignment: .leading, spacing: Space.s2) {
 				Text(stock.name)
 				Text("\(stock.market.rawValue) \(stock.ticker)")
-					.font(.caption)
+					.font(.captionRegular)
 					.foregroundStyle(.secondary)
 			}
 			Spacer()
