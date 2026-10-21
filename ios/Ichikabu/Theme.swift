@@ -8,7 +8,7 @@ import SwiftUI
 // | `.font(.caption)`・`.font(Font.caption)` などの OS の文字の型・`.font(.system(size:))` | `Font` の名前（`.captionRegular` など） |
 // | `spacing:` の数字 | `Space` の段 |
 // | `cornerRadius:` の数字・`.cornerRadius(` | 角丸の段（使う所がまだ無いので置いていない。初めて使うときに `Radius` を足す） |
-// | `.buttonStyle(.plain)`・`.buttonStyle(.glass)` など、下の2つ以外のボタンの形式 | `.prominent`・`.bare` |
+// | `.buttonStyle(.plain)`・`.buttonStyle(.glass)` など、`.prominent`・`.bare` 以外のボタンの形式 | `.prominent`・`.bare` |
 //
 // - 間を空けない `spacing: 0` は数字のまま書く。`.none` という名前にすると
 //   `spacing: .none` が nil になり、OS の既定の間に変わる
