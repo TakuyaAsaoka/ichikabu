@@ -5,9 +5,11 @@ import Testing
 /// 決まりは `Theme.swift` の冒頭にある。テストはシミュレータで動くが、Mac のソースをそのまま読める
 @Suite("画面のファイルの書き方")
 struct ThemeTests {
-	/// 直に書かないもの。`spacing: 0` は数字のまま書くので当てない
+	/// 直に書かないもの。`spacing: 0` は数字のまま書くので当てない。
+	/// ボタンの形式は名前で数え上げず、`.prominent`・`.bare` 以外を全部当てる（OS が `.glass` などを増やしても漏れない）。
+	/// 文字を変数に入れてから `.font(x)` に渡す形は見つけられない
 	private static let forbidden =
-		#"\.font\(\.(largeTitle|title|title2|title3|headline|subheadline|body|callout|footnote|caption|caption2|system)\b|spacing: *[1-9]|cornerRadius: *[0-9]|\.buttonStyle\(\.(plain|bordered|borderedProminent|borderless)\)"#
+		#"\.font\((Font)?\.(largeTitle|title|title2|title3|headline|subheadline|body|callout|footnote|caption|caption2|system)\b|spacing: *(0\.[0-9]*[1-9]|[1-9])|cornerRadius: *[0-9]|\.cornerRadius\(|\.buttonStyle\((?!\.(prominent|bare)\))"#
 
 	/// アプリのソースの置き場（`ios/Ichikabu`）。このファイルの場所から辿る
 	private static let appSources = URL(filePath: #filePath)
@@ -20,7 +22,7 @@ struct ThemeTests {
 			.compactMap { $0 as? URL }
 			.filter { $0.pathExtension == "swift" && $0.lastPathComponent != "Theme.swift" }
 		// 置き場を取り違えると0件で通ってしまうので、読めたことを先に確かめる
-		#expect(files.contains { $0.lastPathComponent == "CalendarView.swift" })
+		try #require(files.contains { $0.lastPathComponent == "CalendarView.swift" })
 
 		var violations: [String] = []
 		for file in files {

@@ -5,19 +5,21 @@ import SwiftUI
 //
 // | 直に書かないもの | 代わりに使うもの |
 // |---|---|
-// | `.font(.caption)` などの OS の文字の型・`.font(.system(size:))` | `Font` の名前（`.captionRegular` など） |
+// | `.font(.caption)`・`.font(Font.caption)` などの OS の文字の型・`.font(.system(size:))` | `Font` の名前（`.captionRegular` など） |
 // | `spacing:` の数字 | `Space` の段 |
-// | `cornerRadius:` の数字 | 角丸の段（使う所がまだ無いので置いていない。初めて使うときに `Radius` を足す） |
-// | `.buttonStyle(.plain)` などの OS のボタンの形式 | `.prominent`・`.bare` |
+// | `cornerRadius:` の数字・`.cornerRadius(` | 角丸の段（使う所がまだ無いので置いていない。初めて使うときに `Radius` を足す） |
+// | `.buttonStyle(.plain)`・`.buttonStyle(.glass)` など、下の2つ以外のボタンの形式 | `.prominent`・`.bare` |
 //
 // - 間を空けない `spacing: 0` は数字のまま書く。`.none` という名前にすると
 //   `spacing: .none` が nil になり、OS の既定の間に変わる
 // - `.padding` と `.frame` の数字は対象の外
 // - 名前を足すのは使う所ができてから。使う所ごとの役割の名前（`Space.cardTitleGap` など）にはしない。
 //   役割で分けると、そろえる相手の無い名前ばかり増える（novel-work-matching-system #524）
-// - 太字は `.bold()` で作る。`.weight(.bold)` とは描画が違い、日本語が一段太くなる（同 #522）
+// - `Font` の名前で太字を作るときは `.bold()` を使う。`.weight(.bold)` とは描画が違い、
+//   日本語が一段太くなる（同 #522）。`.fontWeight` の修飾子は対象の外
 
-/// 文字。前半は OS の文字の型と太さの組、後半は固定の大きさの役割
+/// 文字。前半は OS の文字の型と太さの組、後半は固定の大きさの役割。
+/// `Regular` は太さを足さない（OS の型の既定の太さのまま。`headline` は既定で太い）
 extension Font {
 	static let headlineRegular = Font.headline
 	static let captionRegular = Font.caption
@@ -27,7 +29,7 @@ extension Font {
 	static let cellLabel = Font.system(size: 9)
 }
 
-/// 積み重ねの間（`spacing:`）の段
+/// 積み重ねの間（`spacing:`）の段。名前は値そのもの（手本の novel-work-matching-system と同じ）
 enum Space {
 	static let s1: CGFloat = 1
 	static let s2: CGFloat = 2
