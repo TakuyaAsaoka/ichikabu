@@ -100,10 +100,6 @@ struct CalendarView: View {
 		}
 	}
 
-	/// 押してほしいボタンの塗り。既定の青 #007AFF と白の文字の明るさの差は 4.02、
-	/// 暗い表示の #0A84FF では 3.65 で、文字の目安 4.5 を割る。#0062CC は 5.8
-	private static let prominentTint = Color(red: 0, green: 0x62 / 255, blue: 0xCC / 255)
-
 	/// 持ち株を選ぶ画面を出す
 	private func showHoldings() {
 		sheetHeight = .large
@@ -123,13 +119,11 @@ struct CalendarView: View {
 	/// 右上の「持ち株」より強く見せる（#194）
 	private var holdingsPrompt: some View {
 		HStack {
-			Text("持ち株が未選択です").font(.caption)
+			Text("持ち株が未選択です").font(.captionRegular)
 			Spacer()
 			// 文字は本文の大きさのままにする。小さくすると押せる高さがさらに縮む
 			Button("持ち株を選ぶ") { showHoldings() }
-				.buttonStyle(.borderedProminent)
-				.tint(Self.prominentTint)
-				.fontWeight(.semibold)
+				.buttonStyle(.prominent)
 		}
 		.padding(.horizontal, 12)
 		.padding(.vertical, 6)
@@ -152,9 +146,7 @@ struct CalendarView: View {
 				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
 				// これが無いと復旧はアプリの再起動だけになる
 				Button("再試行") { Task { await load() } }
-					.buttonStyle(.borderedProminent)
-					.tint(Self.prominentTint)
-					.fontWeight(.semibold)
+					.buttonStyle(.prominent)
 			}
 		}
 	}
@@ -233,21 +225,21 @@ private struct MonthPage: View {
 	var body: some View {
 		let summary = EventLayout.summary(forMonthOf: monthStart, from: events)
 
-		VStack(spacing: 4) {
+		VStack(spacing: Space.s4) {
 			Text(EventLayout.title(for: monthStart))
-				.font(.headline)
+				.font(.headlineRegular)
 
 			// グリッドを読む前に「今月は荒れるか」に答える
 			if showsSummary {
 				Text("\(summary.total)件 ・ ★3が\(summary.importantCount)件")
-					.font(.caption)
+					.font(.captionRegular)
 					.foregroundStyle(.secondary)
 			}
 
 			HStack(spacing: 0) {
 				ForEach(EventLayout.weekdayNames, id: \.self) { name in
 					Text(name)
-						.font(.caption2)
+						.font(.caption2Regular)
 						.foregroundStyle(.secondary)
 						.frame(maxWidth: .infinity)
 				}
@@ -271,7 +263,7 @@ private struct MonthPage: View {
 						// VoiceOver に伝わるようにするため
 						if isInMonth {
 							Button { onSelect(day) } label: { cell }
-								.buttonStyle(.plain)
+								.buttonStyle(.bare)
 						} else {
 							cell
 						}
@@ -309,23 +301,23 @@ private struct DaySheet: View {
 	}
 
 	private func row(for event: Event) -> some View {
-		VStack(alignment: .leading, spacing: 4) {
-			HStack(spacing: 6) {
+		VStack(alignment: .leading, spacing: Space.s4) {
+			HStack(spacing: Space.s6) {
 				// セル上は「★3か否か」の2値だが、シートでは実数を出す。
 				// 1〜3 に収めるのは、String(repeating:count:) が負の数で落ちるため。
 				// openapi.yaml は 1〜3 と書いているが、生成コードは範囲を検査しない
 				Text(String(repeating: "★", count: min(max(event.importance, 0), 3)))
-					.font(.caption)
+					.font(.captionRegular)
 					.foregroundStyle(.orange)
 				// 短縮ラベルは出さない。すぐ下の名称と同じことを示すため（#194）。
 				// セルとの結び付きは、開いた日付の見出しが担う
 				if let time = event.time {
-					Text(time).font(.caption).foregroundStyle(.secondary)
+					Text(time).font(.captionRegular).foregroundStyle(.secondary)
 				}
 			}
 			Text(event.title)
 			if let note = event.note {
-				Text(note).font(.caption).foregroundStyle(.secondary)
+				Text(note).font(.captionRegular).foregroundStyle(.secondary)
 			}
 			// 出典の記載を条件とする出典を使うために、利用者に見える形で出す。
 			// source が無い行には何も出さない
@@ -334,11 +326,11 @@ private struct DaySheet: View {
 				// 出典を出していないのと同じ状態が静かにできてしまう
 				if let url = URL(string: source.url) {
 					Link(destination: url) {
-						Text("出典: \(source.name)").font(.caption)
+						Text("出典: \(source.name)").font(.captionRegular)
 					}
 				} else {
 					Text("出典: \(source.name)")
-						.font(.caption)
+						.font(.captionRegular)
 						.foregroundStyle(.secondary)
 				}
 			}
@@ -360,7 +352,7 @@ private struct DayCell: View {
 	private static let visibleCount = 2
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 1) {
+		VStack(alignment: .leading, spacing: Space.s1) {
 			dayNumber
 			if isInMonth {
 				ForEach(events.prefix(Self.visibleCount), id: \.id) { event in
@@ -368,7 +360,7 @@ private struct DayCell: View {
 				}
 				if events.count > Self.visibleCount {
 					Text("+\(events.count - Self.visibleCount)")
-						.font(.system(size: 9))
+						.font(.cellLabel)
 						.foregroundStyle(.secondary)
 				}
 			}
@@ -383,7 +375,7 @@ private struct DayCell: View {
 
 	private var dayNumber: some View {
 		Text("\(EventLayout.calendar.component(.day, from: day))")
-			.font(.caption2)
+			.font(.caption2Regular)
 			.foregroundStyle(isInMonth ? Color.primary : Color.secondary)
 			.frame(width: 16, height: 16)
 			.background {
@@ -396,12 +388,12 @@ private struct DayCell: View {
 	/// ★3のラベルだけ左端に赤の細線と太字。★1・★2に差はつけない。
 	/// セルの幅に★を3つは描けないため、セルでは「★3か否か」の2値にし、★の実数はシートに出す
 	private func label(for event: Event) -> some View {
-		HStack(spacing: 1) {
+		HStack(spacing: Space.s1) {
 			if event.importance == 3 {
 				Rectangle().fill(Color.red).frame(width: 2)
 			}
 			Text(event.shortLabel)
-				.font(.system(size: 9))
+				.font(.cellLabel)
 				.fontWeight(event.importance == 3 ? .bold : .regular)
 				.foregroundStyle(EventLayout.color(for: event.kind))
 				.lineLimit(1)
