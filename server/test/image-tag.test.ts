@@ -11,8 +11,8 @@ const composeImage = readFileSync(
   "utf8",
 ).match(/^\s*image:\s*(\S+)$/m)?.[1];
 
-/** 開発用DBのコンテナ名。compose のプロジェクト名がどのWorktreeでも server になる（CLAUDE.md） */
-const CONTAINER = "server-db-1";
+/** 開発用DBのコンテナ名。compose のプロジェクト名は compose.yaml の name: ichikabu-dev で決め打ち */
+const CONTAINER = "ichikabu-dev-db-1";
 
 describe("開発用DBのイメージ", () => {
   it("compose.yaml に版とダイジェストまで書かれている", () => {
