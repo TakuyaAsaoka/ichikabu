@@ -10,8 +10,8 @@ struct CalendarView: View {
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
 
-	/// 持ち株を選ぶ画面を出しているか
-	@State private var isPickingHoldings = false
+	/// 銘柄を選ぶ画面を出しているか
+	@State private var isPickingStocks = false
 
 	/// ページの基準になる日。`@State` にすることで初期化が1回だけになり、
 	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
@@ -20,7 +20,7 @@ struct CalendarView: View {
 	/// タップされた日。nil の間はシートを出さない
 	@State private var selectedDay: Date?
 
-	/// シートの高さ。日付は 0.45、持ち株を選ぶ画面は狭いので `.large` で開く。
+	/// シートの高さ。日付は 0.45、銘柄を選ぶ画面は狭いので `.large` で開く。
 	/// 高さの候補（`presentationDetents` に渡す集合）は変えずに、選ぶほうだけを変える。
 	/// 集合を出し分けると、閉じている最中に候補が入れ替わることになる
 	@State private var sheetHeight: PresentationDetent = .fraction(0.45)
@@ -30,14 +30,11 @@ struct CalendarView: View {
 
 	var body: some View {
 		let shown = data.visibleEvents
-		// シートの持ち株を選ぶ画面へ渡す Binding。書き込むと AppData が端末へ保存する
-		@Bindable var data = data
-
 		NavigationStack {
 			VStack(spacing: 0) {
 				// 案内は TabView の外に置く。中に入れると前後12ヶ月の25ページに複製される
-				if data.holdings.isEmpty {
-					holdingsPrompt
+				if data.registered.isEmpty {
+					registrationPrompt
 				}
 				// 失敗したらカレンダーを出さない。空のマスを残すと「予定が無い月」に見える（#202）。
 				// 前に取れた値が AppData に残っていても、失敗中は出さない
@@ -52,25 +49,27 @@ struct CalendarView: View {
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
 		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう。
 		//
-		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
+		// 日付と銘柄を選ぶ画面でシートを2枚に分けない。シートは1枚しか出せないのに、
 		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
-		// 日付のシートを開いたまま、裏の帯の「持ち株を選ぶ」を押せてしまう。
+		// 日付のシートを開いたまま、裏の帯の「銘柄を選ぶ」を押せてしまう。
 		// 1枚の中身を入れ替える形にすれば、2枚目を出す要求そのものが起きない。
 		//
 		// カレンダーではなくここに付けるのは、取得に失敗してカレンダーが無い間も
-		// 持ち株を選ぶ画面を開けるようにするため
+		// 銘柄を選ぶ画面を開けるようにするため
 		.sheet(isPresented: sheetIsShown) {
 			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
 			// nil になった時点で消えていくシートから指定が外れる
 			Group {
-				if isPickingHoldings {
-					HoldingsPicker(stocks: data.stocks, holdings: $data.holdings)
+				if isPickingStocks {
+					StockPicker(stocks: data.stocks)
 				} else if let selectedDay {
 					DaySheet(
 						date: selectedDay,
 						events: EventLayout.events(
 							on: EventLayout.key(for: selectedDay), from: shown),
 						holdings: data.holdings,
+						watching: data.watching,
+						registered: data.registered,
 						stocks: data.stocks,
 						themes: data.themes
 					)
@@ -83,28 +82,28 @@ struct CalendarView: View {
 		}
 	}
 
-	/// 持ち株を選ぶ画面を出す
-	private func showHoldings() {
+	/// 銘柄を選ぶ画面を出す
+	private func showStockPicker() {
 		sheetHeight = .large
-		isPickingHoldings = true
+		isPickingStocks = true
 	}
 
 	/// その日のイベントのシートを出す。
-	/// 高さを 0.45 に戻すのは、持ち株を選ぶ画面で `.large` にしたまま日付を開くと
+	/// 高さを 0.45 に戻すのは、銘柄を選ぶ画面で `.large` にしたまま日付を開くと
 	/// カレンダーが隠れ、続けて別の日付をタップできなくなるため
 	private func showDay(_ day: Date) {
 		sheetHeight = .fraction(0.45)
 		selectedDay = day
 	}
 
-	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない。
-	/// この状態でいちばんしてほしいのは持ち株を選ぶことなので、塗ったボタンにする（#194）
-	private var holdingsPrompt: some View {
+	/// 銘柄を1つも登録していないときの案内。登録するまで消えない。
+	/// この状態でいちばんしてほしいのは銘柄を登録することなので、塗ったボタンにする（#194）
+	private var registrationPrompt: some View {
 		HStack {
-			Text("持ち株が未選択です").font(.captionRegular)
+			Text("銘柄が未登録です").font(.captionRegular)
 			Spacer()
 			// 文字は本文の大きさのままにする。小さくすると押せる高さがさらに縮む
-			Button("持ち株を選ぶ") { showHoldings() }
+			Button("銘柄を選ぶ") { showStockPicker() }
 				.buttonStyle(.prominent)
 		}
 		.padding(.horizontal, 12)
@@ -130,13 +129,13 @@ struct CalendarView: View {
 		.tabViewStyle(.page(indexDisplayMode: .never))
 	}
 
-	/// 日が選ばれているか、持ち株を選んでいる間はシートを出す。閉じられたら両方消す
+	/// 日が選ばれているか、銘柄を選んでいる間はシートを出す。閉じられたら両方消す
 	private var sheetIsShown: Binding<Bool> {
 		Binding(
-			get: { isPickingHoldings || selectedDay != nil },
+			get: { isPickingStocks || selectedDay != nil },
 			set: {
 				if !$0 {
-					isPickingHoldings = false
+					isPickingStocks = false
 					selectedDay = nil
 				}
 			})
@@ -209,11 +208,13 @@ private struct MonthPage: View {
 
 /// 日付タップで開くシート。その日の全件を出す。
 /// セルで `+N` に省略された分も、セルには出さない正式名称と★の実数もここに出る。
-/// 行を押すと、なぜ持ち株に関係するかを文で読める詳細へ進む
+/// 行を押すと、なぜ登録した銘柄に関係するかを文で読める詳細へ進む
 private struct DaySheet: View {
 	let date: Date
 	let events: [Event]
 	let holdings: [Int]
+	let watching: [Int]
+	let registered: [Int]
 	let stocks: [Stock]
 	let themes: [Theme]
 
@@ -245,7 +246,7 @@ private struct DaySheet: View {
 			EventDetailView(
 				event: event,
 				relation: EventLayout.relationDetail(
-					of: event, holdings: holdings, stocks: stocks, themes: themes))
+					of: event, holdings: holdings, watching: watching, stocks: stocks, themes: themes))
 		} label: {
 			summary(of: event)
 		}
@@ -263,7 +264,7 @@ private struct DaySheet: View {
 				}
 			}
 			Text(event.title)
-			if let hint = EventLayout.relationHint(of: event, holdings: holdings, stocks: stocks) {
+			if let hint = EventLayout.relationHint(of: event, registered: registered, stocks: stocks) {
 				Text(hint).font(.captionRegular).foregroundStyle(.secondary)
 					// 市場の手がかりはそのまま読める。ほかは、何の名前かが分かるように添える
 					.accessibilityLabel(spokenHint(hint, for: event))
@@ -279,7 +280,7 @@ private struct DaySheet: View {
 
 	private func spokenHint(_ hint: String, for event: Event) -> String {
 		if case .market = event.target { return hint }
-		return "関係する持ち株、\(hint)"
+		return "関係する銘柄、\(hint)"
 	}
 }
 

@@ -7,7 +7,7 @@ struct RootTabs: View {
 	var body: some View {
 		TabView {
 			Tab("カレンダー", systemImage: "calendar") { CalendarView() }
-			Tab("持ち株", systemImage: "list.bullet") { HoldingsTab() }
+			Tab("銘柄", systemImage: "list.bullet") { StocksTab() }
 			Tab("テーマ", systemImage: "tag") { ThemesTab() }
 		}
 		.task { await data.load() }

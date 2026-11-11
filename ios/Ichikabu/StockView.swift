@@ -23,7 +23,7 @@ struct StockView: View {
 					Text("\(stock.market.rawValue) \(stock.ticker)")
 						.font(.captionRegular)
 						.foregroundStyle(.secondary)
-					holdingControl
+					registrationControl
 				}
 			}
 			Section("これから来るイベント") {
@@ -50,18 +50,13 @@ struct StockView: View {
 		.navigationBarTitleDisplayMode(.inline)
 	}
 
-	/// 持っていない銘柄にだけ「持ち株に追加」を出す。持っているときは文字で知らせるだけで、外すボタンは置かない
-	/// （外すのは持ち株のタブの「選び直す」）。押すと `data.holdings` に足し、保存は `AppData` が行う
+	/// 登録を選ぶ。足す・切り替える・外すが、この部品1つでできる。保存は `AppData` が行う
 	@ViewBuilder
-	private var holdingControl: some View {
-		if data.holdings.contains(stock.id) {
-			Text("持ち株です").font(.captionRegular).foregroundStyle(.secondary)
-		} else {
-			Button("持ち株に追加") { data.addHolding(stock.id) }
-				.buttonStyle(.prominent)
-			Text("追加すると、この銘柄に関係するイベントがカレンダーに出ます")
-				.font(.captionRegular)
-				.foregroundStyle(.secondary)
-		}
+	private var registrationControl: some View {
+		RegistrationPicker(stock: stock, title: "登録")
+			.pickerStyle(.segmented)
+		Text("登録すると、この銘柄に関係するイベントがカレンダーに出ます")
+			.font(.captionRegular)
+			.foregroundStyle(.secondary)
 	}
 }

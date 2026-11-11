@@ -41,7 +41,7 @@ struct ThemesTab: View {
 					} label: {
 						VStack(alignment: .leading, spacing: Space.s4) {
 							Text(theme.name)
-							Text(EventLayout.themeSummary(for: theme, stocks: data.stocks, holdings: data.holdings))
+							Text(EventLayout.themeSummary(for: theme, stocks: data.stocks, registered: data.registered))
 								.font(.captionRegular)
 								.foregroundStyle(.secondary)
 						}

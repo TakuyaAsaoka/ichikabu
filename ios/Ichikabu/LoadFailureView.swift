@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 取得に失敗したときに、カレンダーと持ち株のタブが画面の代わりに出す知らせ
+/// 取得に失敗したときに、カレンダーと銘柄のタブが画面の代わりに出す知らせ
 struct LoadFailureView: View {
 	@Environment(AppData.self) private var data
 

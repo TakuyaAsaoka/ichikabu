@@ -57,6 +57,6 @@ extension PrimitiveButtonStyle where Self == ProminentButtonStyle {
 }
 
 extension PrimitiveButtonStyle where Self == PlainButtonStyle {
-	/// 中身の見た目のまま押せるボタン（カレンダーのマス・持ち株の行）
+	/// 中身の見た目のまま押せるボタン（カレンダーのマス・銘柄の行）
 	static var bare: PlainButtonStyle { .plain }
 }

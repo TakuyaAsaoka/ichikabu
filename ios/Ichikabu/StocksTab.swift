@@ -1,73 +1,84 @@
 import IchikabuAPI
 import SwiftUI
 
-/// 持ち株のタブ。持っている銘柄だけを並べ、押すと銘柄の画面へ進む。
+/// 銘柄のタブ。登録した銘柄を「持ち株」と「気になる銘柄」に分けて並べ、押すと銘柄の画面へ進む。
 /// 選び直しは右上の「選び直す」から開く
-struct HoldingsTab: View {
+struct StocksTab: View {
 	@Environment(AppData.self) private var data
 	@State private var isPicking = false
 	/// 「これから」の基準の日。`StockView` と同じく、作ったときに1回だけ取る
 	@State private var today = Date()
 
 	var body: some View {
-		// 持ち株のIDが、もう無い銘柄だけを指していても、並べるものは0件として扱う
+		// 登録のIDが、もう無い銘柄だけを指していても、並べるものは0件として扱う
 		let held = data.stocks.filter { data.holdings.contains($0.id) }
-		@Bindable var data = data
+		let watching = data.stocks.filter { data.watching.contains($0.id) }
 
 		NavigationStack {
-			content(held: held)
-				.navigationTitle("持ち株")
+			content(held: held, watching: watching)
+				.navigationTitle("銘柄")
 				.toolbar {
-					// 持っている銘柄が0件の間は出さない。中央の「持ち株を選ぶ」と同じ画面を開くボタンが2つ並ぶため。
+					// 登録した銘柄が0件の間は出さない。中央の「銘柄を選ぶ」と同じ画面を開くボタンが2つ並ぶため。
 					// 「編集」にしないのは、iOS では一覧の削除・並べ替えを指す言葉だから
-					if !held.isEmpty {
+					if !held.isEmpty || !watching.isEmpty {
 						ToolbarItem(placement: .topBarTrailing) {
 							Button("選び直す") { isPicking = true }
-								.accessibilityLabel("持ち株を選び直す")
+								.accessibilityLabel("銘柄を選び直す")
 						}
 					}
 				}
 		}
 		.sheet(isPresented: $isPicking) {
-			HoldingsPicker(stocks: data.stocks, holdings: $data.holdings)
+			StockPicker(stocks: data.stocks)
 		}
 	}
 
 	@ViewBuilder
-	private func content(held: [Stock]) -> some View {
+	private func content(held: [Stock], watching: [Stock]) -> some View {
 		if data.failed {
 			LoadFailureView()
 		} else if !data.loaded {
-			// 受け取る前は件数が分からないので、未選択とも未登録とも言い切らない
+			// 受け取る前は件数が分からないので、未登録とも言い切らない
 			ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
 		} else if data.stocks.isEmpty {
 			// 選ぶ画面を開いても並べるものが無いので、ボタンは置かない
 			ContentUnavailableView {
 				Label("銘柄がまだ登録されていません", systemImage: "list.bullet")
 			}
-		} else if held.isEmpty {
+		} else if held.isEmpty && watching.isEmpty {
 			ContentUnavailableView {
-				Label("持ち株が未選択です", systemImage: "list.bullet")
+				Label("銘柄が未登録です", systemImage: "list.bullet")
 			} description: {
-				Text("持ち株を選ぶと、関係するイベントがカレンダーに出ます。")
+				Text("銘柄を登録すると、関係するイベントがカレンダーに出ます。")
 			} actions: {
-				Button("持ち株を選ぶ") { isPicking = true }
+				Button("銘柄を選ぶ") { isPicking = true }
 					.buttonStyle(.prominent)
 			}
 		} else {
 			List {
-				ForEach(held, id: \.id) { stock in
+				// 中身が0件の見出しは出さない
+				section("持ち株", stocks: held)
+				section("気になる銘柄", stocks: watching)
+				Text("市場全体のイベントはカレンダーに出ます")
+					.font(.captionRegular)
+					.foregroundStyle(.secondary)
+			}
+			.listStyle(.plain)
+		}
+	}
+
+	@ViewBuilder
+	private func section(_ title: String, stocks: [Stock]) -> some View {
+		if !stocks.isEmpty {
+			Section(title) {
+				ForEach(stocks, id: \.id) { stock in
 					NavigationLink {
 						StockView(stock: stock)
 					} label: {
 						row(for: stock)
 					}
 				}
-				Text("市場全体のイベントはカレンダーに出ます")
-					.font(.captionRegular)
-					.foregroundStyle(.secondary)
 			}
-			.listStyle(.plain)
 		}
 	}
 
