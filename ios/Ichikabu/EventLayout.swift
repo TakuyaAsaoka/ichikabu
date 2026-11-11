@@ -195,6 +195,26 @@ enum EventLayout {
 		}
 	}
 
+	/// その銘柄に関係する、これから来るイベント。日付の早い順。
+	///
+	/// 入れるのは、その銘柄のイベントと、その銘柄が入っているテーマのイベント。
+	/// 市場のイベントは入れない。どの銘柄にも同じものが並び、その銘柄のイベントが埋もれるため。
+	/// 市場のイベントはカレンダーで見られる。
+	/// 「これから」は、終わる日（期間でなければ始まる日）が今日以降。今日のイベントも入る。
+	/// 並べ替えはしない。サーバーが日付・時刻・IDの順で返す（openapi.yaml の `/api/events`）ので、
+	/// 渡された並びを保つ
+	static func upcoming(for stock: Stock, events: [Event], today: Date) -> [Event] {
+		let todayKey = key(for: today)
+		return events.filter { event in
+			guard (event.endDate ?? event.startDate) >= todayKey else { return false }
+			switch event.target {
+			case .stock(let target): return target.stockId == stock.id
+			case .theme(let target): return stock.themeIds.contains(target.themeId)
+			case .market: return false
+			}
+		}
+	}
+
 	/// シートの見出し（`8月4日 (火)`）
 	static func dayTitle(for date: Date) -> String {
 		let components = calendar.dateComponents([.month, .day, .weekday], from: date)

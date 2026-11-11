@@ -54,13 +54,17 @@ struct EventDetailView: View {
 				Section("あなたの持ち株との関係") {
 					Text(relation.sentence)
 					ForEach(relation.stocks, id: \.id) { stock in
-						VStack(alignment: .leading, spacing: Space.s2) {
-							Text(stock.name)
-							Text("\(stock.market.rawValue) \(stock.ticker)")
-								.font(.captionRegular)
-								.foregroundStyle(.secondary)
+						NavigationLink {
+							StockView(stock: stock)
+						} label: {
+							VStack(alignment: .leading, spacing: Space.s2) {
+								Text(stock.name)
+								Text("\(stock.market.rawValue) \(stock.ticker)")
+									.font(.captionRegular)
+									.foregroundStyle(.secondary)
+							}
+							.accessibilityElement(children: .combine)
 						}
-						.accessibilityElement(children: .combine)
 					}
 				}
 			}
