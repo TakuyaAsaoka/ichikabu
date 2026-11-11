@@ -1,7 +1,7 @@
 import IchikabuAPI
 import SwiftUI
 
-/// 銘柄を選ぶ画面。登録されている銘柄を全件並べ、行ごとに「なし・持ち株・気になる」を選ぶ。
+/// 銘柄を選ぶ画面。サーバーにある銘柄を全件並べ、行ごとに「なし・持ち株・気になる」を選ぶ。
 /// 検索は付けない。銘柄は手入力で増える範囲にとどまるため
 struct StockPicker: View {
 	let stocks: [Stock]
@@ -25,7 +25,7 @@ struct StockPicker: View {
 			.listStyle(.plain)
 			.overlay {
 				if stocks.isEmpty {
-					// 空になるのは「1件も登録が無い」ときと「取得に失敗した」ときの両方。
+					// 空になるのは「サーバーに銘柄が1件も無い」ときと「取得に失敗した」ときの両方。
 					// 前者だと言い切らない文言にする
 					Text("銘柄を取得できていません").foregroundStyle(.secondary)
 				}

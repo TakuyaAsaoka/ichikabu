@@ -8,11 +8,19 @@ enum Registration: String, CaseIterable {
 	/// 持っていないが、イベントを追うために登録した銘柄
 	case watching
 
-	/// 画面に出す言葉
+	/// 銘柄ごとの印と選択肢に出す言葉
 	var label: String {
 		switch self {
 		case .held: "持ち株"
 		case .watching: "気になる"
+		}
+	}
+
+	/// 銘柄のタブの見出しに出す言葉
+	var sectionTitle: String {
+		switch self {
+		case .held: "持ち株"
+		case .watching: "気になる銘柄"
 		}
 	}
 }
@@ -60,16 +68,20 @@ final class AppData {
 	}
 
 	@ObservationIgnored private let fetch: Fetch
-	@ObservationIgnored private let store: HoldingStore
+	@ObservationIgnored private let store: RegistrationStore
 
 	/// 登録は端末に保存したものを起動時に読む
-	init(fetch: Fetch = .live, store: HoldingStore = HoldingStore()) {
+	init(fetch: Fetch = .live, store: RegistrationStore = RegistrationStore()) {
 		self.fetch = fetch
 		self.store = store
 		let holdings = store.load(.held)
 		self.holdings = holdings
-		// 同じ銘柄が両方に入っていたら持ち株として扱う（register を通せば起きないが、保存の中身は信じ切らない）
-		self.watching = store.load(.watching).filter { !holdings.contains($0) }
+		// 同じ銘柄が両方に入っていたら持ち株として扱う（register を通せば起きないが、保存の中身は信じ切らない）。
+		// 直した値は保存もする。直さないと、あとで持ち株から外したときに、残った保存が気になる銘柄として戻ってくる
+		let saved = store.load(.watching)
+		let watching = saved.filter { !holdings.contains($0) }
+		self.watching = watching
+		if watching != saved { store.save(watching, as: .watching) }
 	}
 
 	/// 登録した銘柄すべて（持ち株が先）。カレンダーの絞り込みと、一覧の手がかりに使う

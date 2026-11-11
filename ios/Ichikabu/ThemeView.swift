@@ -53,9 +53,7 @@ struct ThemeView: View {
 		VStack(alignment: .leading, spacing: Space.s2) {
 			StockLabel(stock: stock)
 			// 色だけで示さず、文字で出す
-			if let registration = data.registration(of: stock.id) {
-				Text(registration.label).font(.captionRegular).foregroundStyle(.secondary)
-			}
+			RegistrationMark(registration: data.registration(of: stock.id))
 		}
 		.accessibilityElement(children: .combine)
 	}

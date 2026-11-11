@@ -4,7 +4,7 @@ import Testing
 @testable import Ichikabu
 
 @Suite("登録した銘柄による絞り込み")
-struct HoldingFilterTests {
+struct EventFilterTests {
 	/// JP の銘柄。テーマ10に属する
 	private let toyota = Stock(
 		id: 1, market: .JP, ticker: "7203", name: "トヨタ自動車", themeIds: [10])
@@ -71,8 +71,8 @@ struct HoldingFilterTests {
 		#expect(visible.map(\.id) == ["global"])
 	}
 
-	@Test("持ち株の市場の市場イベントが出る。別の市場のものは出ない")
-	func marketOfHeldStock() {
+	@Test("登録した銘柄の市場の市場イベントが出る。別の市場のものは出ない")
+	func marketOfRegisteredStock() {
 		let events = [marketEvent(id: "jp", market: .JP), marketEvent(id: "us", market: .US)]
 
 		let visible = EventLayout.visible(events, registered: [1], stocks: [toyota, nvidia])
@@ -80,8 +80,8 @@ struct HoldingFilterTests {
 		#expect(visible.map(\.id) == ["jp"])
 	}
 
-	@Test("持ち株が属するテーマのイベントが出る。属さないテーマのものは出ない")
-	func themeOfHeldStock() {
+	@Test("登録した銘柄が属するテーマのイベントが出る。属さないテーマのものは出ない")
+	func themeOfRegisteredStock() {
 		let events = [themeEvent(id: "belongs", themeId: 10), themeEvent(id: "other", themeId: 11)]
 
 		let visible = EventLayout.visible(events, registered: [1], stocks: [toyota, nvidia])
@@ -98,7 +98,7 @@ struct HoldingFilterTests {
 		]
 
 		// 取得に失敗するとイベント自体も空になるが、絞り込みだけを見ると
-		// 持ち株の市場とテーマは引けない。GLOBAL は誰にでも出る
+		// 登録した銘柄の市場とテーマは引けない。GLOBAL は誰にでも出る
 		let visible = EventLayout.visible(events, registered: [1], stocks: [])
 
 		#expect(visible.map(\.id) == ["global"])

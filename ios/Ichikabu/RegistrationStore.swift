@@ -7,7 +7,7 @@ import Foundation
 /// 何も移し替えなくても持ち株として読める（気になる銘柄のキー `watching` は無ければ空になる）。
 /// Apple Developer Program に加入したら `NSUbiquitousKeyValueStore` に差し替えて
 /// 機種変更で引き継げるようにする。**差し替えるのはこの型の中だけ**。
-struct HoldingStore {
+struct RegistrationStore {
 	/// 入れ物。テストは `UserDefaults(suiteName:)` を渡す。
 	/// シミュレータの標準の入れ物はアプリを消すまで残り、前の実行の値を拾うため
 	private let defaults: UserDefaults

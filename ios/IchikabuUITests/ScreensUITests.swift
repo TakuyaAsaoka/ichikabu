@@ -50,7 +50,7 @@ final class ScreensUITests: XCTestCase {
 		for index in 0..<(count - 1) {
 			XCTAssertTrue(rows.element(boundBy: index).label.hasSuffix("、持ち株"), "\(index + 1)行目が「持ち株」になっていない")
 		}
-		XCTAssertTrue(rows.element(boundBy: count - 1).label.hasSuffix("、なし"), "最後の行まで登録されている")
+		XCTAssertTrue(rows.element(boundBy: count - 1).label.hasSuffix("、なし"), "最後の行まで登録している")
 		snap(app, "銘柄を登録済み｜銘柄を選ぶ画面")
 		closeSheet(app)
 		snap(app, "銘柄を登録済み｜カレンダー")
@@ -145,7 +145,9 @@ final class ScreensUITests: XCTestCase {
 		let watching = app.segmentedControls.buttons["気になる"]
 		XCTAssertTrue(watching.waitForExistence(timeout: 10), "銘柄の画面に戻れない")
 		watching.tap()
-		XCTAssertTrue(watching.isSelected, "「気になる」を押しても選ばれない")
+		// 押した直後は選びが反映されていないことがあるので、選ばれるのを待ってから確かめる
+		expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: watching)
+		waitForExpectations(timeout: 10)
 		XCTAssertFalse(app.segmentedControls.buttons["持ち株"].isSelected, "「気になる」を選んだのに「持ち株」も選ばれている")
 		snap(app, "銘柄を登録済み｜銘柄（気になる）")
 		openStocksTab(app)

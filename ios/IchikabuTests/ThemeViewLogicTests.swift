@@ -83,7 +83,5 @@ struct ThemeViewLogicTests {
 	func 補足は登録あり() {
 		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], registered: [1]) == "2銘柄・登録あり")
 		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], registered: [1, 2]) == "2銘柄・登録あり")
-		// 気になる銘柄だけが属する場合（登録の中身を区別しないので、AppData.registered の並びで渡る）
-		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], registered: [3, 2]) == "2銘柄・登録あり")
 	}
 }

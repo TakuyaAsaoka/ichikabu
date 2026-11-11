@@ -24,3 +24,15 @@ struct RegistrationPicker: View {
 		}
 	}
 }
+
+/// 銘柄の登録の印（「持ち株」「気になる」）。登録していなければ何も出さない。色だけで示さず、文字で出す。
+/// テーマの画面とイベントの詳細の銘柄の行が使う
+struct RegistrationMark: View {
+	let registration: Registration?
+
+	var body: some View {
+		if let registration {
+			Text(registration.label).font(.captionRegular).foregroundStyle(.secondary)
+		}
+	}
+}

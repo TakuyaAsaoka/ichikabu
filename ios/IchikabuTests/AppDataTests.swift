@@ -88,7 +88,7 @@ struct AppDataTests {
 		let theme = Theme(id: 20, name: "自動車")
 		let data = AppData(
 			fetch: fetch(Probe(), events: [event(id: 1, stockId: 1)], stocks: [stock], themes: [theme]),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 
 		await data.load()
 
@@ -129,7 +129,7 @@ struct AppDataTests {
 					let id = await probe.round
 					return [Theme(id: id, name: "テーマ\(id)")]
 				}),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 		await data.load()
 
 		await probe.nextRound()
@@ -151,7 +151,7 @@ struct AppDataTests {
 		await probe.set(events: true)
 		let data = AppData(
 			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 		await data.load()
 		#expect(data.failed)
 
@@ -175,7 +175,7 @@ struct AppDataTests {
 			fetch: fetch(
 				probe, events: [event(id: 1, stockId: 1)], stocks: [stock],
 				themes: [Theme(id: 20, name: "自動車")]),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 
 		await data.load()
 
@@ -205,7 +205,7 @@ struct AppDataTests {
 				},
 				stocks: { [] },
 				themes: { [] }),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 
 		let first = Task { await data.load() }
 		for await _ in started { break }
@@ -223,7 +223,7 @@ struct AppDataTests {
 
 	private func makeData(_ suiteName: String, events: [Event] = [], stocks: [Stock] = []) throws -> (AppData, UserDefaults) {
 		let defaults = try defaults(suiteName)
-		let data = AppData(fetch: fetch(Probe(), events: events, stocks: stocks), store: HoldingStore(defaults: defaults))
+		let data = AppData(fetch: fetch(Probe(), events: events, stocks: stocks), store: RegistrationStore(defaults: defaults))
 		return (data, defaults)
 	}
 
@@ -304,22 +304,9 @@ struct AppDataTests {
 		data.register(1, as: .held)
 		data.register(2, as: .watching)
 
-		let reopened = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
+		let reopened = AppData(fetch: fetch(Probe()), store: RegistrationStore(defaults: defaults))
 		#expect(reopened.holdings == [1])
 		#expect(reopened.watching == [2])
-	}
-
-	@Test("前の版の形（キー holdings だけがある入れ物）から作ると、全部持ち株になる")
-	func inheritsOldHoldings() throws {
-		let defaults = try defaults("app-data-old-format")
-		defer { defaults.removePersistentDomain(forName: "app-data-old-format") }
-		defaults.set([1, 2], forKey: "holdings")
-
-		let data = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
-
-		#expect(data.holdings == [1, 2])
-		#expect(data.watching.isEmpty)
-		#expect(data.registration(of: 1) == .held)
 	}
 
 	@Test("保存の中身で同じ銘柄が両方に入っていたら、持ち株として扱う")
@@ -329,10 +316,18 @@ struct AppDataTests {
 		defaults.set([1], forKey: "holdings")
 		defaults.set([1, 2], forKey: "watching")
 
-		let data = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
+		let data = AppData(fetch: fetch(Probe()), store: RegistrationStore(defaults: defaults))
 
 		#expect(data.registration(of: 1) == .held)
 		#expect(data.watching == [2])
+		// 直した値が保存にも書かれている（作っただけで、登録は1度も替えていない）
+		#expect(RegistrationStore(defaults: defaults).load(.watching) == [2])
+
+		// 持ち株から外して作り直しても、食い違っていた保存が気になる銘柄として戻ってこない
+		data.register(1, as: nil)
+		let reopened = AppData(fetch: fetch(Probe()), store: RegistrationStore(defaults: defaults))
+		#expect(reopened.registration(of: 1) == nil)
+		#expect(reopened.watching == [2])
 	}
 
 	@Test("registered は持ち株と気になる銘柄を合わせたもの。持ち株が先")

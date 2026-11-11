@@ -3,8 +3,8 @@ import Testing
 
 @testable import Ichikabu
 
-@Suite("持ち株の保管")
-struct HoldingStoreTests {
+@Suite("登録した銘柄の保管")
+struct RegistrationStoreTests {
 	/// テスト用の入れ物を作る。`UserDefaults.standard` は使わない。
 	/// シミュレータの標準の入れ物はアプリを消すまで残り、前の実行の値を拾うため
 	private func defaults(_ suiteName: String) throws -> UserDefaults {
@@ -19,10 +19,10 @@ struct HoldingStoreTests {
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
-		HoldingStore(defaults: defaults).save([7203, 6758], as: .held)
+		RegistrationStore(defaults: defaults).save([7203, 6758], as: .held)
 
-		// 開き直した状態は、値を持たない新しい HoldingStore から読むことで作る
-		#expect(HoldingStore(defaults: defaults).load(.held) == [7203, 6758])
+		// 開き直した状態は、値を持たない新しい RegistrationStore から読むことで作る
+		#expect(RegistrationStore(defaults: defaults).load(.held) == [7203, 6758])
 	}
 
 	@Test("選び直すと前の内容は残らない")
@@ -31,7 +31,7 @@ struct HoldingStoreTests {
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
-		let store = HoldingStore(defaults: defaults)
+		let store = RegistrationStore(defaults: defaults)
 		store.save([7203], as: .held)
 		store.save([6758], as: .held)
 
@@ -44,7 +44,7 @@ struct HoldingStoreTests {
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
-		let store = HoldingStore(defaults: defaults)
+		let store = RegistrationStore(defaults: defaults)
 		store.save([1], as: .held)
 		store.save([2], as: .watching)
 
@@ -59,7 +59,7 @@ struct HoldingStoreTests {
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 		defaults.set([7203, 6758], forKey: "holdings")
 
-		let store = HoldingStore(defaults: defaults)
+		let store = RegistrationStore(defaults: defaults)
 
 		#expect(store.load(.held) == [7203, 6758])
 		#expect(store.load(.watching).isEmpty)
@@ -71,7 +71,7 @@ struct HoldingStoreTests {
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 
-		#expect(HoldingStore(defaults: defaults).load(.held).isEmpty)
-		#expect(HoldingStore(defaults: defaults).load(.watching).isEmpty)
+		#expect(RegistrationStore(defaults: defaults).load(.held).isEmpty)
+		#expect(RegistrationStore(defaults: defaults).load(.watching).isEmpty)
 	}
 }

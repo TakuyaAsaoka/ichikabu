@@ -43,7 +43,7 @@ struct StocksTab: View {
 		} else if data.stocks.isEmpty {
 			// 選ぶ画面を開いても並べるものが無いので、ボタンは置かない
 			ContentUnavailableView {
-				Label("銘柄がまだ登録されていません", systemImage: "list.bullet")
+				Label("銘柄がまだありません", systemImage: "list.bullet")
 			}
 		} else if held.isEmpty && watching.isEmpty {
 			ContentUnavailableView {
@@ -57,8 +57,8 @@ struct StocksTab: View {
 		} else {
 			List {
 				// 中身が0件の見出しは出さない
-				section("持ち株", stocks: held)
-				section("気になる銘柄", stocks: watching)
+				section(.held, stocks: held)
+				section(.watching, stocks: watching)
 				Text("市場全体のイベントはカレンダーに出ます")
 					.font(.captionRegular)
 					.foregroundStyle(.secondary)
@@ -68,9 +68,9 @@ struct StocksTab: View {
 	}
 
 	@ViewBuilder
-	private func section(_ title: String, stocks: [Stock]) -> some View {
+	private func section(_ registration: Registration, stocks: [Stock]) -> some View {
 		if !stocks.isEmpty {
-			Section(title) {
+			Section(registration.sectionTitle) {
 				ForEach(stocks, id: \.id) { stock in
 					NavigationLink {
 						StockView(stock: stock)

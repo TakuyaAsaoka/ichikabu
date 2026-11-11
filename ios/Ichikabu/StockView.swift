@@ -55,8 +55,11 @@ struct StockView: View {
 	private var registrationControl: some View {
 		RegistrationPicker(stock: stock, title: "登録")
 			.pickerStyle(.segmented)
-		Text("登録すると、この銘柄に関係するイベントがカレンダーに出ます")
-			.font(.captionRegular)
-			.foregroundStyle(.secondary)
+		// 登録しているときは、もう説明の要る状態ではない
+		if data.registration(of: stock.id) == nil {
+			Text("登録すると、この銘柄に関係するイベントがカレンダーに出ます")
+				.font(.captionRegular)
+				.foregroundStyle(.secondary)
+		}
 	}
 }

@@ -69,7 +69,6 @@ struct CalendarView: View {
 							on: EventLayout.key(for: selectedDay), from: shown),
 						holdings: data.holdings,
 						watching: data.watching,
-						registered: data.registered,
 						stocks: data.stocks,
 						themes: data.themes
 					)
@@ -214,9 +213,11 @@ private struct DaySheet: View {
 	let events: [Event]
 	let holdings: [Int]
 	let watching: [Int]
-	let registered: [Int]
 	let stocks: [Stock]
 	let themes: [Theme]
+
+	/// 手がかりに渡す、登録した銘柄すべて。`AppData.registered` と同じ並び（持ち株が先）
+	private var registered: [Int] { holdings + watching }
 
 	var body: some View {
 		NavigationStack {
