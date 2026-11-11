@@ -50,7 +50,7 @@ final class AppData {
 	private(set) var stocks: [Stock] = []
 	/// 詳細の文に出すテーマの名前を引くための一覧
 	private(set) var themes: [Theme] = []
-	/// 直近の取得に失敗したか
+	/// まだ一度も受け取れていない状態で、取得に失敗したか。受け取れたあとの取り直しの失敗では立たない
 	private(set) var failed = false
 	/// 取得している最中か。起動時の1回目も含むが、画面に出るのは失敗中の取り直しだけ
 	private(set) var isLoading = false
@@ -145,10 +145,10 @@ final class AppData {
 		refreshToday()
 		// まだ一度も受け取れていないときは何もしない。最初の読み込みは `RootTabs` の `.task` が、
 		// 失敗したあとは「再試行」が担う。ここでも走らせると、起動直後の取得と重なる
-		guard loaded, let lastReceivedAt, now().timeIntervalSince(lastReceivedAt) >= Self.refetchInterval else {
-			return
-		}
-		await load()
+		guard loaded, let lastReceivedAt else { return }
+		let elapsed = now().timeIntervalSince(lastReceivedAt)
+		// 時計が戻って差が負になったときも取り直す。そうしないと、時計が追いつくまで取り直さない
+		if elapsed >= Self.refetchInterval || elapsed < 0 { await load() }
 	}
 
 	func load() async {
@@ -176,8 +176,10 @@ final class AppData {
 		} catch {
 			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
 			// 見出しはイベントに限定しない。
-			// 一度受け取れているなら失敗にしない。利用者が始めていない取り直しの失敗で、
-			// 出ていたカレンダーを失敗の画面に替えないため。前の中身と状態をそのまま保つ
+			// 一度受け取れているなら失敗にしない。前に戻したときの取り直しなど、利用者が始めていない
+			// 取り直しの失敗で、出ていたカレンダーを失敗の画面に替えないため。前の中身と状態をそのまま保つ。
+			// テーマのタブの「再試行」（利用者が押す）も同じ道を通る。その失敗は `failed` でなく、
+			// テーマのタブが空の案内と「再試行」に戻ることで知らせる
 			if !loaded { failed = true }
 		}
 	}

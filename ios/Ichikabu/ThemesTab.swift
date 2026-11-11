@@ -21,7 +21,10 @@ struct ThemesTab: View {
 			ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
 		} else if data.themes.isEmpty {
 			// テーマの取得だけが落ちても空になる（`AppData.load`）ので、「テーマが無い」とは言い切らない。
-			// 取得は起動時の1回しか走らないため、押して取り直せるようにする
+			// 前に戻したときの取り直しは、5分たつまで走らない。待たずに押して取り直せるようにする。
+			// この再試行が失敗しても、一度受け取れているので `failed` は立たず、失敗の画面には替えない
+			// （カレンダーと銘柄は前の中身を出せているため）。取り直している間は読み込み中の表示を出し、
+			// 終わってまだ空なら、この案内と「再試行」に戻る。それが失敗の知らせになる
 			if data.isLoading {
 				ProgressView("取得しています")
 					.frame(maxWidth: .infinity, maxHeight: .infinity)

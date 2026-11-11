@@ -296,7 +296,8 @@ struct AppDataTests {
 
 	@Test("日本時間で日付が変わると、today が進む。UTC では同じ日でも進む")
 	func refreshTodayAdvancesAtJSTMidnight() throws {
-		// 23:59 JST = 14:59 UTC、0:01 JST = 15:01 UTC。UTC では同じ日の中
+		// 23:59 JST = 14:59 UTC、0:01 JST = 15:01 UTC。UTC では同じ日の中。
+		// 限界: 走らせる端末の時間帯が日本だと、暦を端末の設定に替える壊し方は見つけられない（UTC に替える壊し方は見つける）
 		let clock = TestClock("2026-11-10T23:59:00+09:00")
 		let (data, _, defaults) = try makeTimed("app-data-today-advances", clock: clock)
 		defer { defaults.removePersistentDomain(forName: "app-data-today-advances") }
@@ -361,6 +362,59 @@ struct AppDataTests {
 		await data.activated()
 
 		#expect(await probe.eventCalls == 2)
+	}
+
+	@Test("時計が最後に受け取った時刻より戻っていたら、取り直す")
+	func activatedRefetchesWhenClockWentBack() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-clock-back", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-clock-back") }
+		await data.load()
+
+		clock.advance(by: -60 * 60)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 2)
+	}
+
+	@Test("取り直しが失敗したあと、次に前に戻したときにまた取り直す")
+	func activatedRetriesAfterRefetchFailure() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-retry", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-retry") }
+		await data.load()
+
+		await probe.set(events: true)
+		clock.advance(by: 6 * 60)
+		await data.activated()
+		#expect(await probe.eventCalls == 2)
+
+		// 失敗は受け取った時刻を進めないので、1分後でも前の受け取りから5分以上たっている
+		clock.advance(by: 60)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 3)
+	}
+
+	@Test("一度受け取ったあと、取り直しが全部落ちても、失敗にせず、テーマは空のまま残る（テーマを一度も受け取れていない場合）")
+	func refetchAllFailKeepsEmptyThemes() async throws {
+		let suiteName = "app-data-refetch-all-fail"
+		let defaults = try defaults(suiteName)
+		defer { defaults.removePersistentDomain(forName: suiteName) }
+		let probe = Probe()
+		await probe.set(themes: true)
+		let data = AppData(
+			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
+			store: RegistrationStore(defaults: defaults))
+		await data.load()
+
+		await probe.set(events: true, stocks: true, themes: true)
+		await data.load()
+
+		#expect(!data.failed)
+		#expect(data.loaded)
+		#expect(data.themes.isEmpty)
+		#expect(data.events.map(\.id) == ["1"])
 	}
 
 	@Test("まだ一度も受け取れていないときは、前に戻しても取り直さない（最初の読み込みと再試行が担う）")

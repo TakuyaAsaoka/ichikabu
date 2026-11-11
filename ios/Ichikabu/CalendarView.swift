@@ -40,7 +40,8 @@ struct CalendarView: View {
 					registrationPrompt
 				}
 				// 失敗したらカレンダーを出さない。空のマスを残すと「予定が無い月」に見える（#202）。
-				// 前に取れた値が AppData に残っていても、失敗中は出さない
+				// 失敗の画面になるのは、まだ一度も受け取れていない間だけ（受け取れたあとの取り直しの失敗では出ない）。
+				// その間は、AppData に値が残っていても出さない
 				if data.failed {
 					LoadFailureView()
 				} else {
