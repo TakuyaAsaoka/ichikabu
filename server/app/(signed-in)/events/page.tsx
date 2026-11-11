@@ -193,8 +193,9 @@ function EventGrid({
                 {/* 非アクティブの行はアプリに出ない。それが分かる場所は他に無いので
                   ここに出す（#72）。
                   行の頭に角括弧つきの文字を置く形をやめ、バッジにした（#161）。
-                  名称と同じマスに入れ、付いた行だけ列が増えないようにした（#172） */}
-                {!row.active && <Badge variant="secondary">非アクティブ</Badge>}
+                  名称と同じマスに入れ、付いた行だけ列が増えないようにした（#172）。
+                  札の言葉は、何が起きているか（アプリに出ない）を言う「非表示」にした（#227） */}
+                {!row.active && <Badge variant="secondary">非表示</Badge>}
                 <span
                   className="text-muted-foreground lg:truncate"
                   title={row.title}

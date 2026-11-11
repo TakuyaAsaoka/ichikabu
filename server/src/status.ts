@@ -34,7 +34,9 @@ export type GapKind = (typeof GAP_KINDS)[number];
 export const GAP_TITLES: Record<GapKind, string> = {
   nextEarnings: "次の決算日が未登録",
   fiscalMonth: "決算月なし",
-  pastInactive: "過ぎた非アクティブ",
+  // アプリに出ない設定（`active` が false）のまま日付を過ぎた行。
+  // 列の状態の名前ではなく、何が起きたかの言葉で出す（#227）
+  pastInactive: "中止されたイベント",
   closedDays: "休場日リストの不足",
 };
 
@@ -115,7 +117,7 @@ export async function findGaps(today: string): Promise<Gap[]> {
   const year = Number(today.slice(0, 4));
 
   // この2つだけ関数に切り出してあるのは、並び順を `toSQL()` で見るため。
-  // 残りの過ぎた非アクティブは走らせた結果で守れるので切り出さない
+  // 残りの「中止されたイベント」は走らせた結果で守れるので切り出さない
   const noNextEarnings = await noNextEarningsQuery(today);
   const noFiscalMonth = await noFiscalMonthQuery();
 

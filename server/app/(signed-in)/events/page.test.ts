@@ -257,19 +257,23 @@ describe("イベントの画面", () => {
     ]);
   });
 
-  it("非アクティブの行にはバッジが付き、アクティブな行には付かない", async () => {
-    // 非アクティブの行はアプリに出ない。一覧でそれが分かる場所は他に無い
-    // （#72）。#161 で文字の前置きからバッジに変えた。
+  it("アプリに出ない行には「非表示」の札が付き、アプリに出る行には付かない", async () => {
+    // アプリに出ない行（`active` が false）は、一覧でそれが分かる場所が他に無い
+    // （#72）。#161 で文字の前置きから札に変えた。
+    // 札の言葉は「非アクティブ」から「非表示」にした。何が起きているかが、
+    // 言葉の意味を知らなくても読めるように（#227）。
     //
-    // **アクティブな行に出ないことまで見る。** 出しっぱなしだと、印が
-    // 非アクティブの行を1つも区別していないことになり、この検査が素通りする
+    // **アプリに出る行に付かないことまで見る。** 出しっぱなしだと、札が
+    // アプリに出ない行を1つも区別していないことになり、この検査が素通りする
     await addEvent("CPI");
     await signInAs(EDITOR);
 
-    expect(await render(Page)).not.toContain("非アクティブ");
+    const shown = await render(Page);
+    expect(shown).not.toContain("非表示");
+    expect(shown).not.toContain("非アクティブ");
 
     // `active` は `createEvent` の入力（`EventInput`）に無く、DBの既定で true になる。
-    // 非アクティブは `upsertMarketEvents` が裏返すものなので、ここは直に入れる
+    // false にするのは `upsertMarketEvents` なので、ここは直に入れる
     // （`src/status.test.ts` の `addEvent` と同じ形）。
     // `EventInput` を展開しないのは、あちらの `market` が `string` で、
     // 列の側の `"JP" | "US" | "GLOBAL"` に入らないため
@@ -284,7 +288,9 @@ describe("イベントの画面", () => {
       active: false,
     });
 
-    expect(await render(Page)).toContain("非アクティブ</span>");
+    const hidden = await render(Page);
+    expect(hidden).toContain("非表示</span>");
+    expect(hidden).not.toContain("非アクティブ");
   });
 
   it("入れた人が名前で出る", async () => {
