@@ -88,13 +88,8 @@ struct EventDetailView: View {
 						NavigationLink {
 							StockView(stock: stock)
 						} label: {
-							VStack(alignment: .leading, spacing: Space.s2) {
-								Text(stock.name)
-								Text("\(stock.market.rawValue) \(stock.ticker)")
-									.font(.captionRegular)
-									.foregroundStyle(.secondary)
-							}
-							.accessibilityElement(children: .combine)
+							StockLabel(stock: stock)
+								.accessibilityElement(children: .combine)
 						}
 					}
 					// テーマのイベントは、そのテーマの画面へ進める。名前を引けないときは行ごと出さない

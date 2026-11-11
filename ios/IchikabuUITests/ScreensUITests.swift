@@ -7,7 +7,7 @@ import XCTest
 /// `/` は書き出すと消えるため使えない。
 ///
 /// 撮影用の接続先 `ICHIKABU_CAPTURE_API_BASE_URL` が渡されなければ飛ばす。品質ゲートでは撮影用のサーバーが無いため。
-/// サーバーが要る `test_1` は、飛ばす判定で取り出した値を起動に使うので、判定だけを消すとコンパイルが通らない。
+/// サーバーが要る `test_1`・`test_2` は、飛ばす判定で取り出した値を起動に使うので、判定だけを消すとコンパイルが通らない。
 /// `test_3` は何も待ち受けていないポートにつなぐので、判定を消してもサーバーの有無で結果は変わらない。
 /// アプリが読む `ICHIKABU_API_BASE_URL` と名前を分けている。scheme の実行の設定にアプリ用の値を足しても、ここでは飛ばされたままにするため。
 /// XCTest はメソッドを名前の順に走らせるので、段の順は名前の頭の番号で決める
@@ -126,6 +126,8 @@ final class ScreensUITests: XCTestCase {
 		snap(app, "持ち株を選択済み｜銘柄（持っていない）")
 
 		// 4. 持っていない銘柄のイベント。見出しが「このイベントの対象」になる
+		// 当てにするのは「ソフトバンク 権利付最終日」。サーバーが決算月から計算して返すイベントで、
+		// 種データの `EVENTS` には無い（server/src/rights.ts）
 		let eventRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "重要度")).firstMatch
 		if !eventRow.waitForExistence(timeout: 5) {
 			XCTFail("ソフトバンクの「これから来るイベント」に行が無い。開発用DBに、ソフトバンクの今日以降のイベントがあるか確かめる")

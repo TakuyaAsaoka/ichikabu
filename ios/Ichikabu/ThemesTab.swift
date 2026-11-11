@@ -20,9 +20,18 @@ struct ThemesTab: View {
 		} else if !data.loaded {
 			ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
 		} else if data.themes.isEmpty {
-			// テーマの取得だけが落ちても空になる（`AppData.load`）ので、「登録が無い」とは言い切らない
-			ContentUnavailableView {
-				Label("テーマを取得できていません", systemImage: "tag")
+			// テーマの取得だけが落ちても空になる（`AppData.load`）ので、「登録が無い」とは言い切らない。
+			// 取得は起動時の1回しか走らないため、押して取り直せるようにする
+			if data.isLoading {
+				ProgressView("取得しています")
+					.frame(maxWidth: .infinity, maxHeight: .infinity)
+			} else {
+				ContentUnavailableView {
+					Label("テーマを取得できていません", systemImage: "tag")
+				} actions: {
+					Button("再試行") { Task { await data.load() } }
+						.buttonStyle(.prominent)
+				}
 			}
 		} else {
 			List {

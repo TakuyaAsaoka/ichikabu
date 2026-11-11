@@ -57,7 +57,7 @@ struct StockView: View {
 		if data.holdings.contains(stock.id) {
 			Text("持ち株です").font(.captionRegular).foregroundStyle(.secondary)
 		} else {
-			Button("持ち株に追加") { data.holdings.append(stock.id) }
+			Button("持ち株に追加") { data.addHolding(stock.id) }
 				.buttonStyle(.prominent)
 			Text("追加すると、この銘柄に関係するイベントがカレンダーに出ます")
 				.font(.captionRegular)

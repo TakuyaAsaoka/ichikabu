@@ -233,6 +233,19 @@ struct AppDataTests {
 		#expect(reopened.holdings == [1, 2])
 	}
 
+	@Test("同じ銘柄を2回足しても、持ち株には1つしか入らない")
+	func addHoldingTwice() throws {
+		let suiteName = "app-data-add-holding-twice"
+		let defaults = try defaults(suiteName)
+		defer { defaults.removePersistentDomain(forName: suiteName) }
+		let data = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
+
+		data.addHolding(1)
+		data.addHolding(1)
+
+		#expect(data.holdings == [1])
+	}
+
 	@Test("持ち株を変えると、見せるイベントが変わる")
 	func visibleEvents() async throws {
 		let suiteName = "app-data-visible-events"

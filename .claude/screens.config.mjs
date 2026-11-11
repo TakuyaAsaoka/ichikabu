@@ -94,7 +94,7 @@ export default {
             /\/stocks\/\d+$/,
           ),
         },
-        // テーマの2画面は、テーマとテーマ所属が1件ずつ登録されている前提。
+        // テーマの2画面は、テーマ（自動車・（見本）大型株）とテーマ所属が登録されている前提。
         // 開発用DBなら pnpm db:seed が入れる（src/db/seed-event.ts の seedSampleTheme。Issue #157）
         {
           title: "テーマの編集",

@@ -51,10 +51,7 @@ struct ThemeView: View {
 
 	private func row(for stock: Stock) -> some View {
 		VStack(alignment: .leading, spacing: Space.s2) {
-			Text(stock.name)
-			Text("\(stock.market.rawValue) \(stock.ticker)")
-				.font(.captionRegular)
-				.foregroundStyle(.secondary)
+			StockLabel(stock: stock)
 			// 色だけで示さず、文字で出す
 			if data.holdings.contains(stock.id) {
 				Text("持ち株").font(.captionRegular).foregroundStyle(.secondary)
