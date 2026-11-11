@@ -85,31 +85,30 @@ describe("イベントの編集画面", () => {
     expect(html).not.toContain('<option value="market:JP" selected="">');
   });
 
-  it("欄の名前は短い補足だけにし、決まりは下の注記1か所に書く", async () => {
-    // 欄の名前に説明を詰めると、スマホ（390px）で名前が2行に折れる。
-    // 同じ決まり（JST・表示名が要る）を名前と注記の両方に書くと、2回読むことになる
+  it("4つの決まりが、それぞれの欄の名前の横に出て、下にまとめの注記は無い", async () => {
+    // 決まりを欄から離して置くと、その欄に入れるときに目に入らない（#229）。
+    // 欄の `label` の中に補足があることで、読み上げでも名前に続けて読まれる
     const id = await addEvent();
     const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+    const labels = htmlOf(html, "label");
+    const labelOf = (name: string) => {
+      const found = labels.find((label) => label.includes(name));
+      expect(found, `${name} の欄`).toBeDefined();
+      return found as string;
+    };
 
-    for (const label of [
-      "短縮ラベル (全角5文字まで)",
-      "終了日 (任意)",
-      "時刻 (任意)",
-      "出典の表示名 (アプリに出る)",
-    ]) {
-      expect(html).toContain(label);
-    }
-    expect(html).not.toMatch(/出典URL\s*[（(]/);
-    // 「JST」は注記に1回だけ出る
-    expect(html.split("JST").length - 1).toBe(1);
-    // 注記は4つの決まりを落とさない
-    // 注記の段落だけを切り出す。ページの末尾まで見ると、後ろのフォームの文で緑になりうる
-    const start = html.indexOf("日本時間 (JST)");
-    expect(start).toBeGreaterThan(-1);
-    const note = html.slice(start, html.indexOf("</p>", start));
-    expect(note).toContain("日まで確定した日付だけ");
-    expect(note).toContain("市場イベントは出典URLと表示名");
-    expect(note).toContain("出典名の記載が利用の条件");
+    expect(labelOf("開始日")).toContain("日本時間 (JST)。");
+    expect(labelOf("開始日")).toContain("日まで確定した日付だけを登録する");
+    expect(labelOf("時刻 (任意)")).toContain("日本時間 (JST)");
+    expect(labelOf("出典URL")).toContain("市場イベントでは必須");
+    const sourceName = labelOf("出典の表示名 (アプリに出る)");
+    expect(sourceName).toContain("市場イベントと");
+    expect(sourceName).toContain(
+      "出典名の記載が利用の条件になっている出典では必須",
+    );
+    // 下のまとめの注記は無い。「日本時間 (JST)」は開始日と時刻の2か所だけに出る
+    expect(html.split("日本時間 (JST)").length - 1).toBe(2);
+    expect(html).not.toContain("日付と時刻は日本時間");
   });
 
   it("対象の選択肢は、テーマ名順・市場ティッカー順に並ぶ", async () => {

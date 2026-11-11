@@ -4,7 +4,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { EVENT_MARKETS } from "../src/db/schema";
 import type { EventInput } from "../src/db/write";
-import { ActionForm, fieldLabel, fieldSelect } from "./form";
+import { ActionForm, FieldName, fieldLabel, fieldSelect } from "./form";
 import type { Action } from "./notice";
 
 type Theme = { id: number; name: string };
@@ -109,7 +109,10 @@ export function EventForm({
         </NativeSelect>
       </Label>
       <Label className={fieldLabel}>
-        開始日
+        <FieldName
+          name="開始日"
+          hint="日本時間 (JST)。日まで確定した日付だけを登録する"
+        />
         <Input
           type="date"
           name="startDate"
@@ -126,7 +129,7 @@ export function EventForm({
         />
       </Label>
       <Label className={fieldLabel}>
-        時刻 (任意)
+        <FieldName name="時刻 (任意)" hint="日本時間 (JST)" />
         {/* time 列は "14:00:00" の形で返るが、時刻の入力欄は秒を扱わないため、
             先頭5文字（HH:MM）だけ渡す */}
         <Input
@@ -156,7 +159,7 @@ export function EventForm({
         <Textarea name="note" defaultValue={event?.note ?? undefined} />
       </Label>
       <Label className={fieldLabel}>
-        出典URL
+        <FieldName name="出典URL" hint="市場イベントでは必須" />
         <Input
           type="url"
           name="sourceUrl"
@@ -164,7 +167,10 @@ export function EventForm({
         />
       </Label>
       <Label className={fieldLabel}>
-        出典の表示名 (アプリに出る)
+        <FieldName
+          name="出典の表示名 (アプリに出る)"
+          hint="市場イベントと、出典名の記載が利用の条件になっている出典では必須"
+        />
         <Input
           type="text"
           name="sourceName"
@@ -172,12 +178,6 @@ export function EventForm({
           defaultValue={event?.sourceName ?? undefined}
         />
       </Label>
-      {/* 決まりはここ1か所に書く。欄の名前にも書くと、スマホで名前が2行に折れ、
-          同じことを2回読むことになる（#190）。欄の名前の括弧は短い補足だけにする */}
-      <p className="text-muted-foreground text-sm">
-        日付と時刻は日本時間 (JST) で、日まで確定した日付だけを登録する。
-        市場イベントは出典URLと表示名が要る。出典名の記載が利用の条件になっている出典も、表示名が要る。
-      </p>
     </ActionForm>
   );
 }

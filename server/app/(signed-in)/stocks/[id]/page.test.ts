@@ -52,6 +52,16 @@ describe("銘柄の編集画面", () => {
     expect(html).toContain('<option value="3" selected="">3</option>');
   });
 
+  it("決算月の欄の名前は「決算月」だけで、決まりは同じ label の中の補足に出る", async () => {
+    const id = await addStock();
+
+    const html = await render(() => Page({ params: Promise.resolve({ id }) }));
+
+    const label = htmlOf(html, "label").find((l) => l.includes("決算月"));
+    expect(label).toContain("JP銘柄のみ。US銘柄は空のまま");
+    expect(html).not.toContain("決算月 (JP銘柄のみ");
+  });
+
   it("決算月の無いUS銘柄では、決算月がどれも選ばれない", async () => {
     // fiscalMonth は null。`?? ""` を落とすと <select> の初期選択が先頭（なし）に
     // 落ちるだけで見た目が同じになるため、選ばれた月が1つも無いことで見る
