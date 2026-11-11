@@ -64,8 +64,8 @@ final class CalendarUITests: XCTestCase {
 		XCTAssertTrue(app.navigationBars["持ち株"].waitForExistence(timeout: 10), "持ち株のタブに移れない")
 		XCTAssertTrue(app.staticTexts["イベントと銘柄を取得できませんでした"].waitForExistence(timeout: 10), "持ち株のタブに失敗の知らせが出ない")
 		XCTAssertTrue(app.buttons["再試行"].exists, "持ち株のタブに「再試行」が出ない")
-		// 銘柄が無いので、選ぶ画面を開く「編集」は出さない
-		XCTAssertFalse(app.buttons["編集"].exists, "銘柄が無いのに「編集」が出ている")
+		// 持っている銘柄が無いので、「選び直す」は出さない
+		XCTAssertFalse(app.buttons["持ち株を選び直す"].exists, "持っている銘柄が無いのに「選び直す」が出ている")
 	}
 
 	/// 持ち株が未選択で、取得に失敗する状態で起動する。

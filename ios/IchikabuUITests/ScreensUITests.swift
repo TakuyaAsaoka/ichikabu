@@ -25,12 +25,17 @@ final class ScreensUITests: XCTestCase {
 		let app = launch(baseURL: try captureBaseURL())
 
 		openHoldings(app)
-		snap(app, "持ち株が未選択｜持ち株の一覧")
+		snap(app, "持ち株が未選択｜持ち株を選ぶ画面")
 		closeSheet(app)
 		snap(app, "持ち株が未選択｜カレンダー")
 		openHoldingsTab(app)
 		XCTAssertTrue(app.staticTexts["持ち株が未選択です"].waitForExistence(timeout: 10), "持ち株のタブに未選択の案内が出ない")
 		snap(app, "持ち株が未選択｜持ち株のタブ")
+		// タブ側の入口。帯の入口は、このあとの選ぶ手順で通す
+		app.buttons["持ち株を選ぶ"].tap()
+		XCTAssertTrue(pickerBar(app).waitForExistence(timeout: 10), "持ち株のタブの「持ち株を選ぶ」で選ぶ画面が開かない")
+		pickerBar(app).buttons["完了"].tap()
+		XCTAssertTrue(pickerBar(app).waitForNonExistence(timeout: 10), "「完了」で閉じない")
 		openCalendarTab(app)
 
 		// 最後の1行を残して選ぶ。チェックの有る行と無い行の両方を写す。
@@ -47,12 +52,16 @@ final class ScreensUITests: XCTestCase {
 		let selected = app.buttons.matching(NSPredicate(format: "selected == true AND NOT (label IN %@)", ["カレンダー", "持ち株"]))
 		XCTAssertEqual(selected.count, count - 1, "選んだ行の数が合わない")
 		XCTAssertFalse(rows.element(boundBy: count - 1).isSelected, "最後の行まで選ばれている")
-		snap(app, "持ち株を選択済み｜持ち株の一覧")
+		snap(app, "持ち株を選択済み｜持ち株を選ぶ画面")
 		closeSheet(app)
 		snap(app, "持ち株を選択済み｜カレンダー")
 		openHoldingsTab(app)
 		XCTAssertTrue(app.staticTexts["市場全体のイベントはカレンダーに出ます"].waitForExistence(timeout: 10), "持ち株のタブに銘柄の一覧が出ない")
 		snap(app, "持ち株を選択済み｜持ち株のタブ")
+		app.buttons["持ち株を選び直す"].tap()
+		XCTAssertTrue(pickerBar(app).waitForExistence(timeout: 10), "持ち株のタブの「選び直す」で選ぶ画面が開かない")
+		pickerBar(app).buttons["完了"].tap()
+		XCTAssertTrue(pickerBar(app).waitForNonExistence(timeout: 10), "「完了」で閉じない")
 		openCalendarTab(app)
 
 		// 日付のセルは読み上げ名が「日番号 イベント名…」になる（DayCell の accessibilityElement(children: .combine)）
@@ -90,7 +99,7 @@ final class ScreensUITests: XCTestCase {
 		app.buttons["持ち株を選ぶ"].tap()
 		XCTAssertTrue(pickerBar(app).waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
 		XCTAssertTrue(app.staticTexts["銘柄を取得できていません"].waitForExistence(timeout: 10), "銘柄が無いときの案内が出ない")
-		snap(app, "取得に失敗｜持ち株の一覧")
+		snap(app, "取得に失敗｜持ち株を選ぶ画面")
 		// 日付のシートと同じく、開いている間はタブの帯が覆われるので、タブを替える前に閉じる
 		closeSheet(app)
 
@@ -121,7 +130,7 @@ final class ScreensUITests: XCTestCase {
 		return app
 	}
 
-	/// 持ち株の一覧の行。行のボタンの読み上げ名は「銘柄名 市場 ティッカー」をつないだもの（HoldingsPicker の row）。
+	/// 持ち株を選ぶ画面の行。行のボタンの読み上げ名は「銘柄名 市場 ティッカー」をつないだもの（HoldingsPicker の row）。
 	/// `app.cells` で探さない。カレンダーの月送りのページも cells に数えられ、行が無くても見つかってしまう（実測）
 	@MainActor
 	private func stockRows(_ app: XCUIApplication) -> XCUIElementQuery {
@@ -166,7 +175,8 @@ final class ScreensUITests: XCTestCase {
 	@MainActor
 	private func openCalendarTab(_ app: XCUIApplication) {
 		app.tabBars.buttons["カレンダー"].tap()
-		XCTAssertTrue(app.tabBars.buttons["カレンダー"].isSelected, "カレンダーのタブに戻れない")
+		// 押した直後は切り替わっていない。カレンダーにしか無い曜日の見出しが出るのを待つ
+		XCTAssertTrue(app.staticTexts["日"].firstMatch.waitForExistence(timeout: 10), "カレンダーのタブに戻れない")
 	}
 
 	@MainActor

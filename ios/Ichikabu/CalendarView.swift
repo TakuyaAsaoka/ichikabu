@@ -20,7 +20,7 @@ struct CalendarView: View {
 	/// タップされた日。nil の間はシートを出さない
 	@State private var selectedDay: Date?
 
-	/// シートの高さ。日付は 0.45、持ち株の一覧は狭いので `.large` で開く。
+	/// シートの高さ。日付は 0.45、持ち株を選ぶ画面は狭いので `.large` で開く。
 	/// 高さの候補（`presentationDetents` に渡す集合）は変えずに、選ぶほうだけを変える。
 	/// 集合を出し分けると、閉じている最中に候補が入れ替わることになる
 	@State private var sheetHeight: PresentationDetent = .fraction(0.45)
@@ -30,7 +30,7 @@ struct CalendarView: View {
 
 	var body: some View {
 		let shown = data.visibleEvents
-		// シートの持ち株の一覧へ渡す Binding。書き込むと AppData が端末へ保存する
+		// シートの持ち株を選ぶ画面へ渡す Binding。書き込むと AppData が端末へ保存する
 		@Bindable var data = data
 
 		NavigationStack {
@@ -54,11 +54,11 @@ struct CalendarView: View {
 		//
 		// 日付と持ち株でシートを2枚に分けない。シートは1枚しか出せないのに、
 		// 0.45 の間は裏を操作できる（下の `presentationBackgroundInteraction`）ため、
-		// 日付のシートを開いたままツールバーの「持ち株」を押せてしまう。
+		// 日付のシートを開いたまま、裏の帯の「持ち株を選ぶ」を押せてしまう。
 		// 1枚の中身を入れ替える形にすれば、2枚目を出す要求そのものが起きない。
 		//
 		// カレンダーではなくここに付けるのは、取得に失敗してカレンダーが無い間も
-		// 持ち株の一覧を開けるようにするため
+		// 持ち株を選ぶ画面を開けるようにするため
 		.sheet(isPresented: sheetIsShown) {
 			// 高さの指定は if の外側に置く。内側だと、閉じるときに selectedDay が
 			// nil になった時点で消えていくシートから指定が外れる
@@ -90,7 +90,7 @@ struct CalendarView: View {
 	}
 
 	/// その日のイベントのシートを出す。
-	/// 高さを 0.45 に戻すのは、持ち株の一覧で `.large` にしたまま日付を開くと
+	/// 高さを 0.45 に戻すのは、持ち株を選ぶ画面で `.large` にしたまま日付を開くと
 	/// カレンダーが隠れ、続けて別の日付をタップできなくなるため
 	private func showDay(_ day: Date) {
 		sheetHeight = .fraction(0.45)

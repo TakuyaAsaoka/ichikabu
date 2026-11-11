@@ -18,10 +18,12 @@ struct HoldingsTab: View {
 			content(held: held)
 				.navigationTitle("持ち株")
 				.toolbar {
-					// 銘柄を受け取れていない間は、選ぶ画面も空になるので出さない
-					if !data.stocks.isEmpty {
+					// 持っている銘柄が0件の間は出さない。中央の「持ち株を選ぶ」と同じ画面を開くボタンが2つ並ぶため。
+					// 「編集」にしないのは、iOS では一覧の削除・並べ替えを指す言葉だから
+					if !held.isEmpty {
 						ToolbarItem(placement: .topBarTrailing) {
-							Button("編集") { isPicking = true }
+							Button("選び直す") { isPicking = true }
+								.accessibilityLabel("持ち株を選び直す")
 						}
 					}
 				}
@@ -35,19 +37,22 @@ struct HoldingsTab: View {
 	private func content(held: [Stock]) -> some View {
 		if data.failed {
 			LoadFailureView()
+		} else if !data.loaded {
+			// 受け取る前は件数が分からないので、未選択とも未登録とも言い切らない
+			ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+		} else if data.stocks.isEmpty {
+			// 選ぶ画面を開いても並べるものが無いので、ボタンは置かない
+			ContentUnavailableView {
+				Label("銘柄がまだ登録されていません", systemImage: "list.bullet")
+			}
 		} else if held.isEmpty {
-			if data.loaded {
-				ContentUnavailableView {
-					Label("持ち株が未選択です", systemImage: "list.bullet")
-				} description: {
-					Text("持ち株を選ぶと、関係するイベントがカレンダーに出ます。")
-				} actions: {
-					Button("持ち株を選ぶ") { isPicking = true }
-						.buttonStyle(.prominent)
-				}
-			} else {
-				// 受け取る前は件数が分からないので、未選択と言い切らない
-				ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+			ContentUnavailableView {
+				Label("持ち株が未選択です", systemImage: "list.bullet")
+			} description: {
+				Text("持ち株を選ぶと、関係するイベントがカレンダーに出ます。")
+			} actions: {
+				Button("持ち株を選ぶ") { isPicking = true }
+					.buttonStyle(.prominent)
 			}
 		} else {
 			List {
@@ -73,7 +78,7 @@ struct HoldingsTab: View {
 				.font(.captionRegular)
 				.foregroundStyle(.secondary)
 			if let next = EventLayout.nextEventText(for: stock, events: data.events, today: today) {
-				Text(next)
+				Text(next).accessibilityLabel("次の予定、\(next)")
 			} else {
 				Text("予定はありません").foregroundStyle(.secondary)
 			}
