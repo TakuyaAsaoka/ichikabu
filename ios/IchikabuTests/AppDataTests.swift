@@ -17,8 +17,10 @@ private actor Probe {
 		failsThemes = themes
 	}
 
-	func countEventCall() {
+	/// 呼ばれた回数を1つ増やし、増やしたあとの回数を返す
+	func countEventCall() -> Int {
 		eventCalls += 1
+		return eventCalls
 	}
 }
 
@@ -58,7 +60,7 @@ struct AppDataTests {
 	{
 		AppData.Fetch(
 			events: {
-				await probe.countEventCall()
+				_ = await probe.countEventCall()
 				if await probe.failsEvents { throw Failure() }
 				return events
 			},
@@ -163,7 +165,8 @@ struct AppDataTests {
 		let data = AppData(
 			fetch: AppData.Fetch(
 				events: {
-					await probe.countEventCall()
+					// 待たせるのは1回目だけ。2本目が走っても止まらず、回数の違いで落ちるようにする
+					guard await probe.countEventCall() == 1 else { return [] }
 					startedSignal.yield()
 					for await _ in release { break }
 					return []
