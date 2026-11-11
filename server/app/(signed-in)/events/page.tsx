@@ -170,7 +170,9 @@ function EventGrid({
               // 変えると見出しと行の列が見た目でずれる（テストでは赤くならない）
               // スマホ幅だけ、編集のアイコンを CSS の `order` で日付の次に回し、
               // 1行目の右端に置く（DOM の順は日付 … 編集のまま）。幅いっぱいで
-              // 高さ0の `after` が、アイコンのあとで行を折る（#225）
+              // 高さ0の `after` が、アイコンのあとで行を折る（#225）。
+              // **この並べ替えは、日付が要素で包まれていない文字であることを前提にする。**
+              // 日付を `<span>` などで包むと、`order-2` を受けて日付がアイコンの後ろへ回る
               className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 max-lg:[&>*:not(a)]:order-2 max-lg:after:order-1 max-lg:after:-mb-1 max-lg:after:h-0 max-lg:after:basis-full max-lg:after:content-[''] lg:col-span-full lg:grid lg:grid-cols-subgrid"
             >
               {/* **日付を行の先頭から動かさない。** `page.test.ts` が
