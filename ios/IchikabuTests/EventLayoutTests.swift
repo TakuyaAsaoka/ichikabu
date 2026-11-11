@@ -203,25 +203,42 @@ struct EventLayoutTests {
 		#expect(EventLayout.key(for: date) == "2026-08-05")
 	}
 
+	/// 2026-09-16 の昼（JST）。年の基準
+	private var whenToday: Date { jstNoon("2026-09-16") }
+
 	@Test("単日は日付と時刻をつなぐ。時刻が無ければ日付だけ")
 	func whenSingleDay() {
 		#expect(
-			EventLayout.whenText(startDate: "2026-09-16", endDate: nil, time: "22:30:00")
+			EventLayout.whenText(startDate: "2026-09-16", endDate: nil, time: "22:30:00", today: whenToday)
 				== "9月16日 (水) 22:30:00")
 		#expect(
-			EventLayout.whenText(startDate: "2026-09-16", endDate: "2026-09-16", time: nil)
+			EventLayout.whenText(startDate: "2026-09-16", endDate: "2026-09-16", time: nil, today: whenToday)
 				== "9月16日 (水)")
 	}
 
 	@Test("期間は終わりの日までを出す")
 	func whenPeriod() {
 		#expect(
-			EventLayout.whenText(startDate: "2026-09-16", endDate: "2026-09-18", time: nil)
+			EventLayout.whenText(startDate: "2026-09-16", endDate: "2026-09-18", time: nil, today: whenToday)
 				== "9月16日 (水) 〜 9月18日 (金)")
+	}
+
+	@Test("今日と違う年の日付には年を付ける")
+	func whenOtherYear() {
+		#expect(
+			EventLayout.whenText(startDate: "2027-03-29", endDate: nil, time: nil, today: whenToday)
+				== "2027年3月29日 (月)")
+	}
+
+	@Test("期間が年をまたぐときは、年の違う側にだけ年を付ける")
+	func whenPeriodAcrossYears() {
+		#expect(
+			EventLayout.whenText(startDate: "2026-12-30", endDate: "2027-01-02", time: nil, today: whenToday)
+				== "12月30日 (水) 〜 2027年1月2日 (土)")
 	}
 
 	@Test("日付が読めないときは、その文字列をそのまま出す")
 	func whenUnreadable() {
-		#expect(EventLayout.whenText(startDate: "未定", endDate: nil, time: nil) == "未定")
+		#expect(EventLayout.whenText(startDate: "未定", endDate: nil, time: nil, today: whenToday) == "未定")
 	}
 }

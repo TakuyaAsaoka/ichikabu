@@ -110,7 +110,7 @@ struct EventRelationTests {
 	@Test("全体の市場イベントは、全員に関係すると言い、持ち株の一覧は無い")
 	func detailGlobal() {
 		let result = detail(marketEvent(.GLOBAL), holdings: [1])
-		#expect(result == .init(sentence: "持ち株にかかわらず、全員に関係します", stocks: []))
+		#expect(result == .init(sentence: "持ち株にかかわらず、全員に関係します", stocks: [], isHeld: true))
 	}
 
 	@Test("日本・米国の市場イベントは、その市場の持ち株だけを並べる")
@@ -158,7 +158,7 @@ struct EventRelationTests {
 	func detailThemeWithoutHoldings() {
 		#expect(
 			detail(themeEvent(10), holdings: [3])
-				== .init(sentence: "「半導体」のテーマのイベントです", stocks: []))
+				== .init(sentence: "「半導体」のテーマのイベントです", stocks: [], isHeld: false))
 		#expect(detail(themeEvent(10), holdings: [3], themes: []) == nil)
 	}
 
@@ -167,6 +167,23 @@ struct EventRelationTests {
 		let result = detail(stockEvent(1), holdings: [1])
 		#expect(result?.sentence == "持ち株のレーザーテックのイベントです")
 		#expect(names(result) == ["レーザーテック"])
+		#expect(result?.isHeld == true)
 		#expect(detail(stockEvent(99), holdings: [99]) == nil)
+	}
+
+	@Test("持っていない銘柄のイベントは、「持ち株の」と言わず、持ち株との関係でもないとする")
+	func detailStockNotHeld() {
+		let result = detail(stockEvent(1), holdings: [2])
+		#expect(result?.sentence == "レーザーテックのイベントです")
+		#expect(names(result) == ["レーザーテック"])
+		#expect(result?.isHeld == false)
+	}
+
+	@Test("持ち株に関係するときは isHeld が true。テーマに持ち株が無いときは false")
+	func detailIsHeld() {
+		#expect(detail(marketEvent(.GLOBAL), holdings: [])?.isHeld == true)
+		#expect(detail(marketEvent(.JP), holdings: [])?.isHeld == true)
+		#expect(detail(themeEvent(10), holdings: [1])?.isHeld == true)
+		#expect(detail(themeEvent(10), holdings: [3])?.isHeld == false)
 	}
 }
