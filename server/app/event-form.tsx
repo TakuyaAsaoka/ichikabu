@@ -121,7 +121,7 @@ export function EventForm({
         />
       </Label>
       <Label className={fieldLabel}>
-        終了日 (任意)
+        <FieldName name="終了日 (任意)" hint="日本時間 (JST)" />
         <Input
           type="date"
           name="endDate"
@@ -159,7 +159,11 @@ export function EventForm({
         <Textarea name="note" defaultValue={event?.note ?? undefined} />
       </Label>
       <Label className={fieldLabel}>
-        <FieldName name="出典URL" hint="市場イベントでは必須" />
+        {/* 表示名を入れたときも URL が要る（DB の `event_source_name_check`） */}
+        <FieldName
+          name="出典URL"
+          hint="市場イベントと、表示名を入れるときは必須"
+        />
         <Input
           type="url"
           name="sourceUrl"

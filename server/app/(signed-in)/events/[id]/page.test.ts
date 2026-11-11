@@ -99,15 +99,20 @@ describe("イベントの編集画面", () => {
 
     expect(labelOf("開始日")).toContain("日本時間 (JST)。");
     expect(labelOf("開始日")).toContain("日まで確定した日付だけを登録する");
+    // 前の注記は「日付と時刻は日本時間」で、終了日も含んでいた
+    expect(labelOf("終了日 (任意)")).toContain("日本時間 (JST)");
     expect(labelOf("時刻 (任意)")).toContain("日本時間 (JST)");
-    expect(labelOf("出典URL")).toContain("市場イベントでは必須");
+    // 表示名を入れたときも URL が要る（DB の `event_source_name_check`）
+    expect(labelOf("出典URL")).toContain(
+      "市場イベントと、表示名を入れるときは必須",
+    );
     const sourceName = labelOf("出典の表示名 (アプリに出る)");
     expect(sourceName).toContain("市場イベントと");
     expect(sourceName).toContain(
       "出典名の記載が利用の条件になっている出典では必須",
     );
-    // 下のまとめの注記は無い。「日本時間 (JST)」は開始日と時刻の2か所だけに出る
-    expect(html.split("日本時間 (JST)").length - 1).toBe(2);
+    // 下のまとめの注記は無い。「日本時間 (JST)」は開始日・終了日・時刻の3か所だけに出る
+    expect(html.split("日本時間 (JST)").length - 1).toBe(3);
     expect(html).not.toContain("日付と時刻は日本時間");
   });
 
