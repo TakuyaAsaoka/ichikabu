@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "../../src/db";
 import { stock, theme, themeStock } from "../../src/db/schema";
 import { addStock, addTheme } from "../actions";
+import { EditLink } from "../edit-link";
 import { requireSession } from "../guard";
 import { RegisterDetails } from "../register-details";
 import { StockForm } from "../stock-form";
@@ -78,9 +79,7 @@ export default async function Page() {
                   {row.fiscalMonth}月決算
                 </span>
               )}
-              <Link href={`/stocks/${row.id}`} className="underline">
-                編集
-              </Link>
+              <EditLink href={`/stocks/${row.id}`} />
             </li>
           ))}
         </ul>
@@ -99,13 +98,11 @@ export default async function Page() {
             const belongings = themeStocks.filter((s) => s.themeId === row.id);
             return (
               <li key={row.id} className="border-b border-border py-1">
-                {/* 所属の一覧をぶら下げるため、テーマ名と編集リンクだけを1段の並びにする。
+                {/* 所属の一覧をぶら下げるため、テーマ名と編集のアイコンだけを1段の並びにする。
                     `<li>` ごと並びにすると、内側の `<ul>` が横に回り込む */}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   {row.name}
-                  <Link href={`/themes/${row.id}`} className="underline">
-                    編集
-                  </Link>
+                  <EditLink href={`/themes/${row.id}`} />
                 </div>
                 {/* **この内側の `<ul>` の行は触らない。** `app/page.test.ts` が
                     行のHTMLを1文字ずつ比べ、テーマ所属の並び順を見ている */}

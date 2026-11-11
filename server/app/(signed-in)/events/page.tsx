@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { db } from "../../../src/db";
 import { creatorNamesByEventId } from "../../../src/db/audit";
@@ -7,6 +6,7 @@ import { event, stock, theme } from "../../../src/db/schema";
 import { jstToday } from "../../../src/status";
 import { addEvent } from "../../actions";
 import { BulkEventForm } from "../../bulk-event-form";
+import { EditLink } from "../../edit-link";
 import { EventForm } from "../../event-form";
 import { requireSession } from "../../guard";
 import { RegisterDetails } from "../../register-details";
@@ -168,7 +168,10 @@ function EventGrid({
               // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない。
               // `gap-x-2` は PC でも効き、包みの `lg:gap-x-2` と同じ値にしてある。
               // 変えると見出しと行の列が見た目でずれる（テストでは赤くならない）
-              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+              // スマホ幅だけ、編集のアイコンを CSS の `order` で日付の次に回し、
+              // 1行目の右端に置く（DOM の順は日付 … 編集のまま）。幅いっぱいで
+              // 高さ0の `after` が、アイコンのあとで行を折る（#225）
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 max-lg:[&>*:not(a)]:order-2 max-lg:after:order-1 max-lg:after:-mb-1 max-lg:after:h-0 max-lg:after:basis-full max-lg:after:content-[''] lg:col-span-full lg:grid lg:grid-cols-subgrid"
             >
               {/* **日付を行の先頭から動かさない。** `page.test.ts` が
                 行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。
@@ -210,9 +213,7 @@ function EventGrid({
                   ? (creators.get(id) ?? "取り込み")
                   : "記録なし"}
               </span>
-              <Link href={`/events/${row.id}`} className="underline">
-                編集
-              </Link>
+              <EditLink href={`/events/${row.id}`} className="max-lg:order-1" />
             </li>
           );
         })}
