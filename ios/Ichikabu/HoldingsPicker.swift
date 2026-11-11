@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 持ち株を選ぶ画面。登録されている銘柄を全件並べ、タップで選ぶ・外す。
 /// 検索は付けない。銘柄は手入力で増える範囲にとどまるため
-struct HoldingsView: View {
+struct HoldingsPicker: View {
 	let stocks: [Stock]
 	/// 選んだ銘柄ID。書き込みは呼び出し側で端末に保存される
 	@Binding var holdings: [Int]
@@ -28,7 +28,7 @@ struct HoldingsView: View {
 					Text("銘柄を取得できていません").foregroundStyle(.secondary)
 				}
 			}
-			.navigationTitle("持ち株")
+			.navigationTitle("持ち株を選ぶ")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				// 選ぶと選んだ時点で保存されるので、閉じるだけの「完了」でよい。

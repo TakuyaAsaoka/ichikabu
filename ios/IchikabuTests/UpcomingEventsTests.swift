@@ -103,4 +103,29 @@ struct UpcomingEventsTests {
 		]
 		#expect(ids(EventLayout.upcoming(for: stock, events: events, today: early)) == ["today"])
 	}
+
+	@Test("次に来るイベントがあれば、日付と名称の文字列になる")
+	func 次のイベントの文字列() {
+		let text = EventLayout.nextEventText(
+			for: stock, events: [event("a", stockTarget(1), start: "2026-09-20")], today: today)
+		#expect(text == "9月20日 (日) イベントa")
+	}
+
+	@Test("次に来るイベントが無ければ nil")
+	func 次のイベントが無ければnil() {
+		let text = EventLayout.nextEventText(
+			for: stock, events: [event("a", stockTarget(1), start: "2026-09-15")], today: today)
+		#expect(text == nil)
+	}
+
+	@Test("2件あるときは早いほう（先頭）を選ぶ")
+	func 先頭を選ぶ() {
+		let events = [
+			event("early", stockTarget(1), start: "2026-09-18"),
+			event("late", themeTarget(20), start: "2026-09-25"),
+		]
+		#expect(
+			EventLayout.nextEventText(for: stock, events: events, today: today)
+				== "9月18日 (金) イベントearly")
+	}
 }

@@ -225,6 +225,14 @@ enum EventLayout {
 		}
 	}
 
+	/// 持ち株のタブの行に出す、次に来るイベント（`9月20日 (日) 決算`）。無ければ nil。
+	/// 時刻は行に出さない。日付と名称で足りる
+	static func nextEventText(for stock: Stock, events: [Event], today: Date) -> String? {
+		guard let next = upcoming(for: stock, events: events, today: today).first else { return nil }
+		let when = whenText(startDate: next.startDate, endDate: next.endDate, time: nil, today: today)
+		return "\(when) \(next.title)"
+	}
+
 	/// シートの見出し（`8月4日 (火)`）
 	static func dayTitle(for date: Date) -> String {
 		let components = calendar.dateComponents([.month, .day, .weekday], from: date)

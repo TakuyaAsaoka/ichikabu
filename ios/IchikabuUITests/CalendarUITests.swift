@@ -35,20 +35,37 @@ final class CalendarUITests: XCTestCase {
 		let choose = app.buttons["持ち株を選ぶ"]
 		XCTAssertTrue(choose.waitForExistence(timeout: 10), "「持ち株を選ぶ」が出ない")
 		choose.tap()
-		XCTAssertTrue(app.navigationBars["持ち株"].waitForExistence(timeout: 10), "持ち株の一覧が開かない")
+		// 題は「持ち株を選ぶ」。下のタブの名前「持ち株」と別にして、取り違えて通らないようにする
+		XCTAssertTrue(app.navigationBars["持ち株を選ぶ"].waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
 	}
 
 	@MainActor
-	func test_持ち株の一覧は完了で閉じる() {
+	func test_持ち株を選ぶ画面は完了で閉じる() {
 		let app = launch()
 
-		let holdings = app.buttons["持ち株"]
-		XCTAssertTrue(holdings.waitForExistence(timeout: 10), "「持ち株」が出ない")
-		holdings.tap()
-		let sheet = app.navigationBars["持ち株"]
-		XCTAssertTrue(sheet.waitForExistence(timeout: 10), "持ち株の一覧が開かない")
+		let choose = app.buttons["持ち株を選ぶ"]
+		XCTAssertTrue(choose.waitForExistence(timeout: 10), "「持ち株を選ぶ」が出ない")
+		choose.tap()
+		let sheet = app.navigationBars["持ち株を選ぶ"]
+		XCTAssertTrue(sheet.waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
 		sheet.buttons["完了"].tap()
 		XCTAssertTrue(sheet.waitForNonExistence(timeout: 10), "「完了」で閉じない")
+	}
+
+	@MainActor
+	func test_下のタブで持ち株へ移れて取得に失敗していれば知らせと再試行が出る() {
+		let app = launch()
+
+		// カレンダーの失敗の知らせが出てから移る。移った先にも同じ知らせがあることを見るため
+		XCTAssertTrue(app.buttons["再試行"].waitForExistence(timeout: 30), "カレンダーに「再試行」が出ない")
+		let tab = app.tabBars.buttons["持ち株"]
+		XCTAssertTrue(tab.exists, "下のタブに「持ち株」が無い")
+		tab.tap()
+		XCTAssertTrue(app.navigationBars["持ち株"].waitForExistence(timeout: 10), "持ち株のタブに移れない")
+		XCTAssertTrue(app.staticTexts["イベントと銘柄を取得できませんでした"].waitForExistence(timeout: 10), "持ち株のタブに失敗の知らせが出ない")
+		XCTAssertTrue(app.buttons["再試行"].exists, "持ち株のタブに「再試行」が出ない")
+		// 持っている銘柄が無いので、「選び直す」は出さない
+		XCTAssertFalse(app.buttons["持ち株を選び直す"].exists, "持っている銘柄が無いのに「選び直す」が出ている")
 	}
 
 	/// 持ち株が未選択で、取得に失敗する状態で起動する。
