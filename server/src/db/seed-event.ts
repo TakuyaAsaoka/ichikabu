@@ -8,7 +8,7 @@ import { event, stock, theme, themeStock } from "./schema";
  * 入れられるのは、使うと決めた出典で日付を
  * 確認できるものだけになる。今は各社のIRページ（銘柄イベント）と、FRB・BLS・
  * 総務省統計局（市場イベント）の4つ。テーマイベントは、テーマ固有の出来事の
- * 出典がまだ無いため入れられない。
+ * 出典がまだ無いため入れられない。開発用の見本だけは `seedSampleTheme` が入れる。
  */
 const STOCKS = [
   { market: "JP", ticker: "7203", name: "トヨタ自動車", fiscalMonth: 3 },
@@ -397,5 +397,25 @@ export async function seedSampleTheme(): Promise<
   }
 
   await db.insert(themeStock).values(target).onConflictDoNothing();
+
+  // テーマを対象にしたイベントを1件入れる。画面を撮る UI テストは、当月の最初の
+  // イベントのある日（米雇用統計の 2026-11-06）を開く。同じ日に置けば、
+  // 市場の行とテーマの行が1枚に写る。
+  // 本番に入れないのは、出典のある事実ではない見本だから（上と同じ理由）。
+  // イベントには一意の制約が無いので、`seedEvents` と同じく見出しで既にあるかを見る
+  const title = "（見本）自動車のテーマのイベント";
+  const [existing] = await db
+    .select({ id: event.id })
+    .from(event)
+    .where(eq(event.title, title));
+  if (!existing) {
+    await db.insert(event).values({
+      title,
+      shortLabel: "自動車",
+      startDate: "2026-11-06",
+      importance: 2,
+      themeId: target.themeId,
+    });
+  }
   return { skipped: false };
 }
