@@ -204,14 +204,16 @@ struct CalendarView: View {
 		isLoading = true
 		defer { isLoading = false }
 		do {
-			// 3本を1回で受け取る。1本でも失敗すると代入に届かないので、
+			// 3本を同時に取る。イベントと銘柄は1本でも失敗すると代入に届かないので、
 			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない。
-			// テーマだけ落ちても失敗にするのは、失敗の経路を1つに保つため。
-			// 「再試行」で3本とも取り直せる
+			// テーマは `try?` で受けて、落ちたら空の配列にする。テーマの名前は添え書きで、
+			// 無くても `relation` が名前を省いて出せる。アプリを先に配ってサーバーが古い
+			// （`/api/themes` が無い）間も、カレンダーが出るようにするため
 			async let events = APIClient().events()
 			async let stocks = APIClient().stocks()
-			async let themes = APIClient().themes()
-			(self.events, self.stocks, self.themes) = try await (events, stocks, themes)
+			async let themes = try? APIClient().themes()
+			(self.events, self.stocks) = try await (events, stocks)
+			self.themes = await themes ?? []
 			loaded = true
 			failed = false
 		} catch {
@@ -329,6 +331,8 @@ private struct DaySheet: View {
 			Text(event.title)
 			if let relation = relation(event) {
 				Text(relation).font(.captionRegular).foregroundStyle(.secondary)
+					// 区切りの「 ／ 」は読み上げると記号の名前になるので、「、」に替えて読ませる
+					.accessibilityLabel(relation.replacingOccurrences(of: " ／ ", with: "、"))
 			}
 			if let note = event.note {
 				Text(note).font(.captionRegular).foregroundStyle(.secondary)

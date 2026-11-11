@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../../test/helpers";
 import { db } from ".";
-import { stock, theme, themeStock } from "./schema";
+import { event, stock, theme, themeStock } from "./schema";
 import { seedEvents, seedSampleTheme } from "./seed-event";
 
 // テストの接続先（vitest.config.ts が TEST_DATABASE_URL を入れる。localhost の開発用DB）
@@ -38,6 +38,41 @@ describe("seedSampleTheme", () => {
       themes: [{ name: "自動車" }],
       belongings: [{ name: "自動車", ticker: "7203" }],
     });
+  });
+
+  it("開発用DBには、テーマ「自動車」を対象にした見本のイベントが1件入り、2回流しても増えない", async () => {
+    await seedEvents();
+
+    await seedSampleTheme();
+    await seedSampleTheme();
+
+    const rows = await db
+      .select({
+        title: event.title,
+        shortLabel: event.shortLabel,
+        startDate: event.startDate,
+        importance: event.importance,
+        themeName: theme.name,
+        time: event.time,
+        note: event.note,
+        sourceUrl: event.sourceUrl,
+        sourceName: event.sourceName,
+      })
+      .from(event)
+      .innerJoin(theme, eq(event.themeId, theme.id));
+    expect(rows).toEqual([
+      {
+        title: "（見本）自動車のテーマのイベント",
+        shortLabel: "自動車",
+        startDate: "2026-11-06",
+        importance: 2,
+        themeName: "自動車",
+        time: null,
+        note: null,
+        sourceUrl: null,
+        sourceName: null,
+      },
+    ]);
   });
 
   it("接続先が 127.0.0.1 でも開発用DBとして入れる", async () => {

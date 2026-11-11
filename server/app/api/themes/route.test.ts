@@ -28,9 +28,10 @@ describe("GET /api/themes", () => {
     expectPublicApiCacheHeaders(await GET());
   });
 
-  it("認証なしでテーマ一覧が返り、id の昇順に id と name だけが並ぶ", async () => {
+  it("認証なしでテーマ一覧が返り、欄は id と name だけになる", async () => {
     // 認証は要らない。トークンを渡さずに呼べる。
-    // 名前順ではなく id 順になることを見るため、id が大きいほうの名前を先にする
+    // 並び順（id の昇順）はここでは確かめない。入れた順と id の順が同じで、
+    // orderBy を消しても緑のままになる（消して確かめた）ため、守れないものは書かない
     const [semiconductor] = await db
       .insert(theme)
       .values({ name: "半導体" })
