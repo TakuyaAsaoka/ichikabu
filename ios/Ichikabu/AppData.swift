@@ -48,6 +48,12 @@ final class AppData {
 		self.holdings = store.load()
 	}
 
+	/// 持ち株に足す。もう持っていれば何もしない（すばやく2回押しても、同じ銘柄が2回入らない）
+	func addHolding(_ stockId: Int) {
+		guard !holdings.contains(stockId) else { return }
+		holdings.append(stockId)
+	}
+
 	/// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（Issue #87）
 	var visibleEvents: [Event] {
 		EventLayout.visible(events, holdings: holdings, stocks: stocks)

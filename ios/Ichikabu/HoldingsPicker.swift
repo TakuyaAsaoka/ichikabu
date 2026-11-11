@@ -42,12 +42,7 @@ struct HoldingsPicker: View {
 
 	private func row(for stock: Stock) -> some View {
 		HStack {
-			VStack(alignment: .leading, spacing: Space.s2) {
-				Text(stock.name)
-				Text("\(stock.market.rawValue) \(stock.ticker)")
-					.font(.captionRegular)
-					.foregroundStyle(.secondary)
-			}
+			StockLabel(stock: stock)
 			Spacer()
 			if holdings.contains(stock.id) {
 				Image(systemName: "checkmark").foregroundStyle(Color.accentColor)

@@ -14,7 +14,7 @@ struct StockView: View {
 	var body: some View {
 		let upcoming = EventLayout.upcoming(for: stock, events: data.events, today: today)
 		// 名前を引けないテーマ（まだ届いていないテーマ一覧）は出さない
-		let themeNames = stock.themeIds.compactMap { id in data.themes.first { $0.id == id }?.name }
+		let themes = stock.themeIds.compactMap { id in data.themes.first { $0.id == id } }
 
 		List {
 			Section {
@@ -23,6 +23,7 @@ struct StockView: View {
 					Text("\(stock.market.rawValue) \(stock.ticker)")
 						.font(.captionRegular)
 						.foregroundStyle(.secondary)
+					holdingControl
 				}
 			}
 			Section("これから来るイベント") {
@@ -30,24 +31,18 @@ struct StockView: View {
 					Text("これから来るイベントはありません").foregroundStyle(.secondary)
 				} else {
 					ForEach(upcoming, id: \.id) { event in
-						NavigationLink {
-							EventDetailView(
-								event: event,
-								relation: EventLayout.relationDetail(
-									of: event, holdings: data.holdings, stocks: data.stocks,
-									themes: data.themes))
-						} label: {
-							row(for: event)
-						}
+						UpcomingEventLink(event: event, today: today)
 					}
 				}
 				Text("市場全体のイベントはカレンダーに出ます")
 					.font(.captionRegular)
 					.foregroundStyle(.secondary)
 			}
-			if !themeNames.isEmpty {
+			if !themes.isEmpty {
 				Section("入っているテーマ") {
-					ForEach(themeNames, id: \.self) { Text($0) }
+					ForEach(themes, id: \.id) { theme in
+						NavigationLink(theme.name) { ThemeView(theme: theme) }
+					}
 				}
 			}
 		}
@@ -55,15 +50,18 @@ struct StockView: View {
 		.navigationBarTitleDisplayMode(.inline)
 	}
 
-	private func row(for event: Event) -> some View {
-		VStack(alignment: .leading, spacing: Space.s4) {
-			HStack(spacing: Space.s6) {
-				EventStars(importance: event.importance)
-				Text(EventLayout.whenText(startDate: event.startDate, endDate: event.endDate, time: event.time, today: today))
-					.font(.captionRegular)
-					.foregroundStyle(.secondary)
-			}
-			Text(event.title)
+	/// 持っていない銘柄にだけ「持ち株に追加」を出す。持っているときは文字で知らせるだけで、外すボタンは置かない
+	/// （外すのは持ち株のタブの「選び直す」）。押すと `data.holdings` に足し、保存は `AppData` が行う
+	@ViewBuilder
+	private var holdingControl: some View {
+		if data.holdings.contains(stock.id) {
+			Text("持ち株です").font(.captionRegular).foregroundStyle(.secondary)
+		} else {
+			Button("持ち株に追加") { data.addHolding(stock.id) }
+				.buttonStyle(.prominent)
+			Text("追加すると、この銘柄に関係するイベントがカレンダーに出ます")
+				.font(.captionRegular)
+				.foregroundStyle(.secondary)
 		}
 	}
 }

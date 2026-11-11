@@ -7,8 +7,8 @@ import XCTest
 /// `/` は書き出すと消えるため使えない。
 ///
 /// 撮影用の接続先 `ICHIKABU_CAPTURE_API_BASE_URL` が渡されなければ飛ばす。品質ゲートでは撮影用のサーバーが無いため。
-/// サーバーが要る `test_1` は、飛ばす判定で取り出した値を起動に使うので、判定だけを消すとコンパイルが通らない。
-/// `test_2` は何も待ち受けていないポートにつなぐので、判定を消してもサーバーの有無で結果は変わらない。
+/// サーバーが要る `test_1`・`test_2` は、飛ばす判定で取り出した値を起動に使うので、判定だけを消すとコンパイルが通らない。
+/// `test_3` は何も待ち受けていないポートにつなぐので、判定を消してもサーバーの有無で結果は変わらない。
 /// アプリが読む `ICHIKABU_API_BASE_URL` と名前を分けている。scheme の実行の設定にアプリ用の値を足しても、ここでは飛ばされたままにするため。
 /// XCTest はメソッドを名前の順に走らせるので、段の順は名前の頭の番号で決める
 final class ScreensUITests: XCTestCase {
@@ -86,8 +86,69 @@ final class ScreensUITests: XCTestCase {
 		snap(app, "持ち株を選択済み｜日のシート（イベントなし）")
 	}
 
+	/// 持ち株を選んだあとの、テーマから銘柄、イベント、持ち株への追加までの流れ。
+	/// 開発用DBの見本のテーマ「（見本）大型株」には、持っている銘柄（トヨタ自動車）と、
+	/// 最後の1銘柄として選ばずに残す銘柄（ソフトバンク）が並ぶ（server/src/db/seed-event.ts）
 	@MainActor
-	func test_2_取得に失敗した流れ() throws {
+	func test_2_テーマから銘柄を持ち株に足す流れ() throws {
+		let app = launch(baseURL: try captureBaseURL())
+
+		openHoldings(app)
+		let rows = stockRows(app)
+		let count = rows.count
+		XCTAssertGreaterThanOrEqual(count, 2, "銘柄が2件以上ないと、持っている銘柄と持っていない銘柄を並べられない")
+		for index in (0..<(count - 1)).reversed() {
+			rows.element(boundBy: index).tap()
+		}
+		closeSheet(app)
+
+		// 1. テーマのタブ
+		app.tabBars.buttons["テーマ"].tap()
+		XCTAssertTrue(app.navigationBars["テーマ"].waitForExistence(timeout: 10), "テーマのタブが開かない")
+		let themeRow = app.staticTexts["（見本）大型株"]
+		XCTAssertTrue(themeRow.waitForExistence(timeout: 10), "テーマのタブに「（見本）大型株」の行が無い。開発用DBに見本のテーマを入れる（pnpm db:seed）")
+		snap(app, "持ち株を選択済み｜テーマのタブ")
+
+		// 2. テーマの画面。持っている銘柄にだけ「持ち株」が付く
+		themeRow.tap()
+		XCTAssertTrue(app.staticTexts["このテーマの銘柄"].waitForExistence(timeout: 10), "テーマの画面が開かない")
+		snap(app, "持ち株を選択済み｜テーマ")
+		let toyota = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "トヨタ自動車")).firstMatch
+		let softbank = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "ソフトバンク")).firstMatch
+		XCTAssertTrue(toyota.waitForExistence(timeout: 10), "テーマの画面にトヨタ自動車の行が無い")
+		XCTAssertTrue(softbank.waitForExistence(timeout: 10), "テーマの画面にソフトバンクの行が無い")
+		XCTAssertTrue(toyota.label.contains("持ち株"), "持っている銘柄に「持ち株」が出ていない: \(toyota.label)")
+		XCTAssertFalse(softbank.label.contains("持ち株"), "持っていない銘柄に「持ち株」が出ている: \(softbank.label)")
+
+		// 3. 持っていない銘柄の画面
+		softbank.tap()
+		XCTAssertTrue(app.buttons["持ち株に追加"].waitForExistence(timeout: 10), "持っていない銘柄の画面に「持ち株に追加」が出ない")
+		snap(app, "持ち株を選択済み｜銘柄（持っていない）")
+
+		// 4. 持っていない銘柄のイベント。見出しが「このイベントの対象」になる
+		// 当てにするのは「ソフトバンク 権利付最終日」。サーバーが決算月から計算して返すイベントで、
+		// 種データの `EVENTS` には無い（server/src/rights.ts）
+		let eventRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "重要度")).firstMatch
+		if !eventRow.waitForExistence(timeout: 5) {
+			XCTFail("ソフトバンクの「これから来るイベント」に行が無い。当てにしているのは計算で作る権利付最終日で、休場日の表（server/src/rights.ts の CLOSED_DAYS）に載っている年の分しか作られない。翌年分が足されているか確かめる")
+		}
+		eventRow.tap()
+		XCTAssertTrue(app.staticTexts["このイベントの対象"].waitForExistence(timeout: 10), "持っていない銘柄のイベントの見出しが「このイベントの対象」にならない")
+		XCTAssertFalse(app.staticTexts["あなたの持ち株との関係"].exists, "持っていない銘柄のイベントに「あなたの持ち株との関係」が出ている")
+
+		// 5. 戻って持ち株に足す。足した直後にボタンが「持ち株です」に替わり、持ち株のタブに増える
+		app.navigationBars.buttons.firstMatch.tap()
+		XCTAssertTrue(app.buttons["持ち株に追加"].waitForExistence(timeout: 10), "銘柄の画面に戻れない")
+		app.buttons["持ち株に追加"].tap()
+		XCTAssertTrue(app.staticTexts["持ち株です"].waitForExistence(timeout: 10), "追加しても「持ち株です」に替わらない")
+		XCTAssertFalse(app.buttons["持ち株に追加"].exists, "追加したのに「持ち株に追加」が残っている")
+		openHoldingsTab(app)
+		let added = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "ソフトバンク")).firstMatch
+		XCTAssertTrue(added.waitForExistence(timeout: 10), "追加した銘柄が持ち株のタブに出ない")
+	}
+
+	@MainActor
+	func test_3_取得に失敗した流れ() throws {
 		_ = try captureBaseURL()
 		let app = launch(baseURL: Self.unreachable)
 

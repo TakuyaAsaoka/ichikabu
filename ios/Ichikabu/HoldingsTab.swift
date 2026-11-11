@@ -73,10 +73,7 @@ struct HoldingsTab: View {
 
 	private func row(for stock: Stock) -> some View {
 		VStack(alignment: .leading, spacing: Space.s4) {
-			Text(stock.name)
-			Text("\(stock.market.rawValue) \(stock.ticker)")
-				.font(.captionRegular)
-				.foregroundStyle(.secondary)
+			StockLabel(stock: stock)
 			if let next = EventLayout.nextEventText(for: stock, events: data.events, today: today) {
 				Text(next).accessibilityLabel("次の予定、\(next)")
 			} else {
