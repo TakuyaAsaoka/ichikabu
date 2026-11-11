@@ -2,7 +2,7 @@ import IchikabuAPI
 import SwiftUI
 
 /// 持ち株のタブ。持っている銘柄だけを並べ、押すと銘柄の画面へ進む。
-/// 選び直しは右上の「編集」から開く
+/// 選び直しは右上の「選び直す」から開く
 struct HoldingsTab: View {
 	@Environment(AppData.self) private var data
 	@State private var isPicking = false
