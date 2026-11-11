@@ -6,26 +6,12 @@ import SwiftUI
 /// それを承知のうえで月グリッドを選んだ。
 /// セル幅の狭さと1日3件以上の日は、短縮ラベル・2件までの表示・日付のシートで補う
 struct CalendarView: View {
-	@State private var events: [Event] = []
-	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
-	@State private var stocks: [Stock] = []
-	/// 詳細の文に出すテーマの名前を引くための一覧
-	@State private var themes: [Theme] = []
-	/// 直近の取得に失敗したか
-	@State private var failed = false
-	/// 取得している最中か。起動時の1回目も含むが、画面に出るのは失敗中の取り直しだけ
-	@State private var isLoading = false
-	/// イベントと銘柄を1度でも受け取れたか。受け取る前は件数が分からない
-	@State private var loaded = false
+	@Environment(AppData.self) private var data
 	/// 起動月を0として、何ヶ月ずれた月を見ているか
 	@State private var monthOffset = 0
 
-	/// 選んだ持ち株。端末に保存したものを起動時に読む
-	@State private var holdings: [Int] = HoldingStore().load()
 	/// 持ち株を選ぶ画面を出しているか
 	@State private var isPickingHoldings = false
-
-	private let store = HoldingStore()
 
 	/// ページの基準になる日。`@State` にすることで初期化が1回だけになり、
 	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
@@ -43,18 +29,19 @@ struct CalendarView: View {
 	private static let monthRange = -12...12
 
 	var body: some View {
-		// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（Issue #87）
-		let shown = EventLayout.visible(events, holdings: holdings, stocks: stocks)
+		let shown = data.visibleEvents
+		// シートの持ち株の一覧へ渡す Binding。書き込むと AppData が端末へ保存する
+		@Bindable var data = data
 
 		NavigationStack {
 			VStack(spacing: 0) {
 				// 案内は TabView の外に置く。中に入れると前後12ヶ月の25ページに複製される
-				if holdings.isEmpty {
+				if data.holdings.isEmpty {
 					holdingsPrompt
 				}
-				// 失敗したらカレンダーを出さない。前に取ったデータを持たないので、
-				// 空のマスを残すと「予定が無い月」に見える（#202）
-				if failed {
+				// 失敗したらカレンダーを出さない。空のマスを残すと「予定が無い月」に見える（#202）。
+				// 前に取れた値が AppData に残っていても、失敗中は出さない
+				if data.failed {
 					failure
 				} else {
 					grid(shown: shown)
@@ -83,15 +70,15 @@ struct CalendarView: View {
 			// nil になった時点で消えていくシートから指定が外れる
 			Group {
 				if isPickingHoldings {
-					HoldingsView(stocks: stocks, holdings: savedHoldings)
+					HoldingsView(stocks: data.stocks, holdings: $data.holdings)
 				} else if let selectedDay {
 					DaySheet(
 						date: selectedDay,
 						events: EventLayout.events(
 							on: EventLayout.key(for: selectedDay), from: shown),
-						holdings: holdings,
-						stocks: stocks,
-						themes: themes
+						holdings: data.holdings,
+						stocks: data.stocks,
+						themes: data.themes
 					)
 				}
 			}
@@ -101,7 +88,7 @@ struct CalendarView: View {
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
 		}
 		.task {
-			await load()
+			await data.load()
 		}
 	}
 
@@ -139,7 +126,7 @@ struct CalendarView: View {
 	/// 取得に失敗したときに、カレンダーの代わりに出す画面
 	@ViewBuilder
 	private var failure: some View {
-		if isLoading {
+		if data.isLoading {
 			ProgressView("取得しています")
 				.frame(maxWidth: .infinity, maxHeight: .infinity)
 		} else {
@@ -150,7 +137,7 @@ struct CalendarView: View {
 			} actions: {
 				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
 				// これが無いと復旧はアプリの再起動だけになる
-				Button("再試行") { Task { await load() } }
+				Button("再試行") { Task { await data.load() } }
 					.buttonStyle(.prominent)
 			}
 		}
@@ -164,7 +151,7 @@ struct CalendarView: View {
 					today: today,
 					events: shown,
 					// 受け取る前は件数を出さない。0件かどうかは分かっていない（#194）
-					showsSummary: loaded,
+					showsSummary: data.loaded,
 					onSelect: { showDay($0) }
 				)
 				.tag(offset)
@@ -183,43 +170,6 @@ struct CalendarView: View {
 					selectedDay = nil
 				}
 			})
-	}
-
-	/// 選んだ持ち株。書き込むと同時に端末へ保存する。
-	/// 保存を通らずに持ち株が変わる経路を作らないため、書き込み口はこれ1つにする
-	private var savedHoldings: Binding<[Int]> {
-		Binding(
-			get: { holdings },
-			set: {
-				holdings = $0
-				store.save($0)
-			})
-	}
-
-	private func load() async {
-		// 「再試行」を続けて押したときに2本目を走らせない。走らせると、
-		// 先に終わった方が isLoading を戻し、取得の途中で「再試行」がまた出る
-		guard !isLoading else { return }
-		isLoading = true
-		defer { isLoading = false }
-		do {
-			// 3本を同時に取る。イベントと銘柄は1本でも失敗すると代入に届かないので、
-			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない。
-			// テーマは `try?` で受けて、落ちたら空の配列にする。テーマの名前は添え書きで、
-			// 無くても `relationDetail` が名前を省いて出せる。アプリを先に配ってサーバーが古い
-			// （`/api/themes` が無い）間も、カレンダーが出るようにするため
-			async let events = APIClient().events()
-			async let stocks = APIClient().stocks()
-			async let themes = try? APIClient().themes()
-			(self.events, self.stocks) = try await (events, stocks)
-			self.themes = await themes ?? []
-			loaded = true
-			failed = false
-		} catch {
-			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
-			// 見出しはイベントに限定しない
-			failed = true
-		}
 	}
 }
 
