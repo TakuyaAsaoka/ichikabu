@@ -130,7 +130,7 @@ final class ScreensUITests: XCTestCase {
 		// 種データの `EVENTS` には無い（server/src/rights.ts）
 		let eventRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "重要度")).firstMatch
 		if !eventRow.waitForExistence(timeout: 5) {
-			XCTFail("ソフトバンクの「これから来るイベント」に行が無い。開発用DBに、ソフトバンクの今日以降のイベントがあるか確かめる")
+			XCTFail("ソフトバンクの「これから来るイベント」に行が無い。当てにしているのは計算で作る権利付最終日で、休場日の表（server/src/rights.ts の CLOSED_DAYS）に載っている年の分しか作られない。翌年分が足されているか確かめる")
 		}
 		eventRow.tap()
 		XCTAssertTrue(app.staticTexts["このイベントの対象"].waitForExistence(timeout: 10), "持っていない銘柄のイベントの見出しが「このイベントの対象」にならない")
