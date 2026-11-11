@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { StockInput } from "../src/db/write";
-import { ActionForm, fieldLabel, fieldSelect } from "./form";
+import { ActionForm, FieldName, fieldLabel, fieldSelect } from "./form";
 import type { Action } from "./notice";
 
 /** 決算月の選択肢（1〜12） */
@@ -55,7 +55,7 @@ export function StockForm({
         <Input type="text" name="name" required defaultValue={stock?.name} />
       </Label>
       <Label className={fieldLabel}>
-        決算月 (JP銘柄のみ。US銘柄は空のまま)
+        <FieldName name="決算月" hint="JP銘柄のみ。US銘柄は空のまま" />
         <NativeSelect
           name="fiscalMonth"
           defaultValue={stock?.fiscalMonth ?? ""}

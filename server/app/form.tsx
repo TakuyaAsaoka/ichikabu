@@ -29,6 +29,32 @@ import { type Action, NOTICES } from "./notice";
 export const fieldLabel = "flex flex-col items-start gap-1";
 
 /**
+ * 欄の名前と、その欄の決まりの補足を1行に並べる。`Label` の中、入力欄の上に置く。
+ *
+ * 名前は途中で折らない（`whitespace-nowrap`）。幅が足りないときは補足が名前の下へ折れる。
+ * 決まりを欄から離して下に1か所にまとめると、その欄に入れるときに目に入らない。
+ * 2026-10-17 に絵を見比べて、欄のそばに置くと決めた（#190 の「下の注記1か所」を覆した。#201・#229）。
+ * 補足の無い欄は、この部品を使わず名前をそのまま `Label` に書く
+ */
+export function FieldName({ name, hint }: { name: string; hint: ReactNode }) {
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className="whitespace-nowrap">{name}</span>
+      <FieldHint>{hint}</FieldHint>
+    </span>
+  );
+}
+
+/** 欄の名前の横に添える補足の文字。名前より軽く、控えめな色にする（背景との明るさの差 5.68） */
+function FieldHint({ children }: { children: ReactNode }) {
+  return (
+    <span className="font-normal text-muted-foreground text-sm leading-snug">
+      {children}
+    </span>
+  );
+}
+
+/**
  * 選択欄の外枠を、他の入力欄と同じ幅にする。
  * 部品の `NativeSelect` は外枠が `w-fit` で、中身の長さだけの幅になる。
  * 渡さないと、選択肢の文字数しだいで欄の幅が行ごとにばらつく
