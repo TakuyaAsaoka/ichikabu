@@ -13,9 +13,12 @@ struct CalendarView: View {
 	/// 銘柄を選ぶ画面を出しているか
 	@State private var isPickingStocks = false
 
-	/// ページの基準になる日。`@State` にすることで初期化が1回だけになり、
-	/// 親の `body` が再評価されても（`let` と違って）値が変わらない
-	@State private var today = Date()
+	/// 月ページを並べる基準の日。`monthOffset` はこの日の月からのずれなので、動かさない。
+	/// 「今日」（`data.today`）を基準にすると、月が替わった瞬間に見ている月が1つずれる。
+	/// そのため月をまたいだあとは、起動月のページが先頭のままになる（1回横に送れば今月。
+	/// 起動し直せば今月から始まる）。この割り切りで、見ている月が勝手に動かないことを取る。
+	/// `@State` にすることで初期化が1回だけになり、親の `body` が再評価されても値が変わらない
+	@State private var baseDate = Date()
 
 	/// タップされた日。nil の間はシートを出さない
 	@State private var selectedDay: Date?
@@ -37,7 +40,8 @@ struct CalendarView: View {
 					registrationPrompt
 				}
 				// 失敗したらカレンダーを出さない。空のマスを残すと「予定が無い月」に見える（#202）。
-				// 前に取れた値が AppData に残っていても、失敗中は出さない
+				// 失敗の画面になるのは、まだ一度も受け取れていない間だけ（受け取れたあとの取り直しの失敗では出ない）。
+				// その間は、AppData に値が残っていても出さない
 				if data.failed {
 					LoadFailureView()
 				} else {
@@ -115,8 +119,8 @@ struct CalendarView: View {
 		TabView(selection: $monthOffset) {
 			ForEach(Self.monthRange, id: \.self) { offset in
 				MonthPage(
-					monthStart: EventLayout.month(offset: offset, from: today),
-					today: today,
+					monthStart: EventLayout.month(offset: offset, from: baseDate),
+					today: data.today,
 					events: shown,
 					// 受け取る前は件数を出さない。0件かどうかは分かっていない（#194）
 					showsSummary: data.loaded,

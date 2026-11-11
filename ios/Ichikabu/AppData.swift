@@ -1,3 +1,4 @@
+import Foundation
 import IchikabuAPI
 import Observation
 
@@ -49,7 +50,7 @@ final class AppData {
 	private(set) var stocks: [Stock] = []
 	/// 詳細の文に出すテーマの名前を引くための一覧
 	private(set) var themes: [Theme] = []
-	/// 直近の取得に失敗したか
+	/// まだ一度も受け取れていない状態で、取得に失敗したか。受け取れたあとの取り直しの失敗では立たない
 	private(set) var failed = false
 	/// 取得している最中か。起動時の1回目も含むが、画面に出るのは失敗中の取り直しだけ
 	private(set) var isLoading = false
@@ -67,13 +68,25 @@ final class AppData {
 		didSet { store.save(watching, as: .watching) }
 	}
 
+	/// 画面が「今日」とみなす時刻。画面ごとに持たず、ここ1か所から読む（#223）。
+	/// 日付が変わったときだけ `refreshToday` が替える
+	private(set) var today: Date
+
 	@ObservationIgnored private let fetch: Fetch
 	@ObservationIgnored private let store: RegistrationStore
+	@ObservationIgnored private let now: @Sendable () -> Date
+	/// 最後にイベント・銘柄を受け取れた時刻。まだ受け取れていなければ nil
+	@ObservationIgnored private var lastReceivedAt: Date?
 
-	/// 登録は端末に保存したものを起動時に読む
-	init(fetch: Fetch = .live, store: RegistrationStore = RegistrationStore()) {
+	/// 登録は端末に保存したものを起動時に読む。時計はテストが固定の時刻を渡せるよう差し替えられる
+	init(
+		fetch: Fetch = .live, store: RegistrationStore = RegistrationStore(),
+		now: @escaping @Sendable () -> Date = { Date() }
+	) {
 		self.fetch = fetch
 		self.store = store
+		self.now = now
+		self.today = now()
 		let holdings = store.load(.held)
 		self.holdings = holdings
 		// 同じ銘柄が両方に入っていたら持ち株として扱う（register を通せば起きないが、保存の中身は信じ切らない）。
@@ -116,6 +129,28 @@ final class AppData {
 		EventLayout.visible(events, registered: registered, stocks: stocks)
 	}
 
+	/// 今の時刻を読み、日本時間で日付が変わっているときだけ `today` を替える。
+	/// 同じ日のうちに替えると、`today` を読んでいる画面が意味もなく描き直されるため
+	func refreshToday() {
+		let current = now()
+		if !EventLayout.calendar.isDate(current, inSameDayAs: today) { today = current }
+	}
+
+	/// 取り直すまでに空ける間隔。配信のキャッシュが5分（`server/src/cache.ts` の `s-maxage=300`）で、
+	/// それより短く取り直しても同じ中身が返るだけなので、5分に合わせる
+	static let refetchInterval: TimeInterval = 5 * 60
+
+	/// アプリが前に戻ったときに呼ぶ。日付を進め、最後に受け取ってから間が空いていれば取り直す
+	func activated() async {
+		refreshToday()
+		// まだ一度も受け取れていないときは何もしない。最初の読み込みは `RootTabs` の `.task` が、
+		// 失敗したあとは「再試行」が担う。ここでも走らせると、起動直後の取得と重なる
+		guard loaded, let lastReceivedAt else { return }
+		let elapsed = now().timeIntervalSince(lastReceivedAt)
+		// 時計が戻って差が負になったときも取り直す。そうしないと、時計が追いつくまで取り直さない
+		if elapsed >= Self.refetchInterval || elapsed < 0 { await load() }
+	}
+
 	func load() async {
 		// 「再試行」を続けて押したときに2本目を走らせない。走らせると、
 		// 先に終わった方が isLoading を戻し、取得の途中で「再試行」がまた出る
@@ -132,13 +167,20 @@ final class AppData {
 			async let stocks = fetch.stocks()
 			async let themes = try? fetch.themes()
 			(self.events, self.stocks) = try await (events, stocks)
-			self.themes = await themes ?? []
+			// テーマだけ落ちたとき、前に受け取ったテーマは残す（消すと、取り直しのたびに名前が消えうる）。
+			// まだ受け取れていないときの `self.themes` は初めから空なので、空のままになる
+			if let themes = await themes { self.themes = themes }
 			loaded = true
+			lastReceivedAt = now()
 			failed = false
 		} catch {
 			// 銘柄一覧が落ちた場合もここに来る。片方だけ落ちても画面には何も出ないため、
-			// 見出しはイベントに限定しない
-			failed = true
+			// 見出しはイベントに限定しない。
+			// 一度受け取れているなら失敗にしない。前に戻したときの取り直しなど、利用者が始めていない
+			// 取り直しの失敗で、出ていたカレンダーを失敗の画面に替えないため。前の中身と状態をそのまま保つ。
+			// テーマのタブの「再試行」（利用者が押す）も同じ道を通る。その失敗は `failed` でなく、
+			// テーマのタブが空の案内と「再試行」に戻ることで知らせる
+			if !loaded { failed = true }
 		}
 	}
 }

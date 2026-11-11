@@ -6,8 +6,6 @@ import SwiftUI
 struct StocksTab: View {
 	@Environment(AppData.self) private var data
 	@State private var isPicking = false
-	/// 「これから」の基準の日。`StockView` と同じく、作ったときに1回だけ取る
-	@State private var today = Date()
 
 	var body: some View {
 		// 登録のIDが、もう無い銘柄だけを指していても、並べるものは0件として扱う
@@ -85,7 +83,7 @@ struct StocksTab: View {
 	private func row(for stock: Stock) -> some View {
 		VStack(alignment: .leading, spacing: Space.s4) {
 			StockLabel(stock: stock)
-			if let next = EventLayout.nextEventText(for: stock, events: data.events, today: today) {
+			if let next = EventLayout.nextEventText(for: stock, events: data.events, today: data.today) {
 				Text(next).accessibilityLabel("次の予定、\(next)")
 			} else {
 				Text("予定はありません").foregroundStyle(.secondary)

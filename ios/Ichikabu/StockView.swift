@@ -8,11 +8,8 @@ struct StockView: View {
 	let stock: Stock
 	@Environment(AppData.self) private var data
 
-	/// 「これから」の基準の日。`CalendarView` の `today` と同じく、作ったときに1回だけ取る
-	@State private var today = Date()
-
 	var body: some View {
-		let upcoming = EventLayout.upcoming(for: stock, events: data.events, today: today)
+		let upcoming = EventLayout.upcoming(for: stock, events: data.events, today: data.today)
 		// 名前を引けないテーマ（まだ届いていないテーマ一覧）は出さない
 		let themes = stock.themeIds.compactMap { id in data.themes.first { $0.id == id } }
 
@@ -31,7 +28,7 @@ struct StockView: View {
 					Text("これから来るイベントはありません").foregroundStyle(.secondary)
 				} else {
 					ForEach(upcoming, id: \.id) { event in
-						UpcomingEventLink(event: event, today: today)
+						UpcomingEventLink(event: event, today: data.today)
 					}
 				}
 				Text("市場全体のイベントはカレンダーに出ます")

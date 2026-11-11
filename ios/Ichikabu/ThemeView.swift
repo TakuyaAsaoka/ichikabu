@@ -11,11 +11,8 @@ struct ThemeView: View {
 	let theme: Theme
 	@Environment(AppData.self) private var data
 
-	/// 「これから」の基準の日。`StockView` と同じく、作ったときに1回だけ取る
-	@State private var today = Date()
-
 	var body: some View {
-		let upcoming = EventLayout.upcoming(forTheme: theme, events: data.events, today: today)
+		let upcoming = EventLayout.upcoming(forTheme: theme, events: data.events, today: data.today)
 		let members = EventLayout.stocks(in: theme, from: data.stocks)
 
 		List {
@@ -27,7 +24,7 @@ struct ThemeView: View {
 					Text("これから来るイベントはありません").foregroundStyle(.secondary)
 				} else {
 					ForEach(upcoming, id: \.id) { event in
-						UpcomingEventLink(event: event, today: today)
+						UpcomingEventLink(event: event, today: data.today)
 					}
 				}
 			}
