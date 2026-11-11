@@ -24,15 +24,7 @@ struct StockView: View {
 						.foregroundStyle(.secondary)
 				}
 			}
-			if !themeNames.isEmpty {
-				Section("入っているテーマ") {
-					ForEach(themeNames, id: \.self) { Text($0) }
-				}
-			}
 			Section("これから来るイベント") {
-				Text("市場全体のイベントはカレンダーに出ます")
-					.font(.captionRegular)
-					.foregroundStyle(.secondary)
 				if upcoming.isEmpty {
 					Text("これから来るイベントはありません").foregroundStyle(.secondary)
 				} else {
@@ -47,6 +39,14 @@ struct StockView: View {
 							row(for: event)
 						}
 					}
+				}
+				Text("市場全体のイベントはカレンダーに出ます")
+					.font(.captionRegular)
+					.foregroundStyle(.secondary)
+			}
+			if !themeNames.isEmpty {
+				Section("入っているテーマ") {
+					ForEach(themeNames, id: \.self) { Text($0) }
 				}
 			}
 		}

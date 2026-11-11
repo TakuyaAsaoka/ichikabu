@@ -398,24 +398,36 @@ export async function seedSampleTheme(): Promise<
 
   await db.insert(themeStock).values(target).onConflictDoNothing();
 
-  // テーマを対象にしたイベントを1件入れる。画面を撮る UI テストは、当月の最初の
-  // イベントのある日（米雇用統計の 2026-11-06）を開く。同じ日に置けば、
-  // 市場の行とテーマの行が1枚に写る。
+  // テーマを対象にしたイベントを2件入れる。
+  // 1件目: 画面を撮る UI テストは、当月の最初のイベントのある日（米雇用統計の
+  // 2026-11-06）を開く。同じ日に置けば、市場の行とテーマの行が1枚に写る。
+  // 2件目: 銘柄の画面の「これから来るイベント」に1件出すため、撮る日より後の当月の日にした。
   // 本番に入れないのは、出典のある事実ではない見本だから（上と同じ理由）。
   // イベントには一意の制約が無いので、`seedEvents` と同じく見出しで既にあるかを見る
-  const title = "（見本）自動車のテーマのイベント";
-  const [existing] = await db
-    .select({ id: event.id })
-    .from(event)
-    .where(eq(event.title, title));
-  if (!existing) {
-    await db.insert(event).values({
-      title,
-      shortLabel: "自動車",
+  const samples = [
+    {
+      title: "（見本）自動車のテーマのイベント",
       startDate: "2026-11-06",
       importance: 2,
-      themeId: target.themeId,
-    });
+    },
+    {
+      title: "（見本）自動車のテーマのイベント その2",
+      startDate: "2026-11-27",
+      importance: 3,
+    },
+  ];
+  for (const sample of samples) {
+    const [existing] = await db
+      .select({ id: event.id })
+      .from(event)
+      .where(eq(event.title, sample.title));
+    if (!existing) {
+      await db.insert(event).values({
+        ...sample,
+        shortLabel: "自動車",
+        themeId: target.themeId,
+      });
+    }
   }
   return { skipped: false };
 }

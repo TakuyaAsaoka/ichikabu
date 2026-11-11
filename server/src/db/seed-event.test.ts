@@ -40,7 +40,7 @@ describe("seedSampleTheme", () => {
     });
   });
 
-  it("開発用DBには、テーマ「自動車」を対象にした見本のイベントが1件入り、2回流しても増えない", async () => {
+  it("開発用DBには、テーマ「自動車」を対象にした見本のイベントが2件入り、2回流しても増えない", async () => {
     await seedEvents();
 
     await seedSampleTheme();
@@ -59,13 +59,25 @@ describe("seedSampleTheme", () => {
         sourceName: event.sourceName,
       })
       .from(event)
-      .innerJoin(theme, eq(event.themeId, theme.id));
+      .innerJoin(theme, eq(event.themeId, theme.id))
+      .orderBy(event.startDate);
     expect(rows).toEqual([
       {
         title: "（見本）自動車のテーマのイベント",
         shortLabel: "自動車",
         startDate: "2026-11-06",
         importance: 2,
+        themeName: "自動車",
+        time: null,
+        note: null,
+        sourceUrl: null,
+        sourceName: null,
+      },
+      {
+        title: "（見本）自動車のテーマのイベント その2",
+        shortLabel: "自動車",
+        startDate: "2026-11-27",
+        importance: 3,
         themeName: "自動車",
         time: null,
         note: null,
