@@ -61,6 +61,6 @@ describe("状態の画面", () => {
     // 種類ごとの件数まで見る。件数を見ないと、`app/status/page.tsx` の
     // 「その種類だけを取り出す」を外しても、どの区画にも同じ行が出て緑になる
     expect(html).toContain("決算月なし (1件)");
-    expect(html).toContain("過ぎた非アクティブ (0件)");
+    expect(html).toContain("中止されたイベント (0件)");
   });
 });
