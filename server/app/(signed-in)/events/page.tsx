@@ -168,12 +168,15 @@ function EventGrid({
               // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない。
               // `gap-x-2` は PC でも効き、包みの `lg:gap-x-2` と同じ値にしてある。
               // 変えると見出しと行の列が見た目でずれる（テストでは赤くならない）
-              // スマホ幅だけ、編集のアイコンを CSS の `order` で日付の次に回し、
-              // 1行目の右端に置く（DOM の順は日付 … 編集のまま）。幅いっぱいで
-              // 高さ0の `after` が、アイコンのあとで行を折る（#225）。
-              // **この並べ替えは、日付が要素で包まれていない文字であることを前提にする。**
-              // 日付を `<span>` などで包むと、`order-2` を受けて日付がアイコンの後ろへ回る
-              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 max-lg:[&>*:not(a)]:order-2 max-lg:after:order-1 max-lg:after:-mb-1 max-lg:after:h-0 max-lg:after:basis-full max-lg:after:content-[''] lg:col-span-full lg:grid lg:grid-cols-subgrid"
+              // スマホ幅（lg 未満）だけ、行を `relative` にして編集のアイコンを行の右上に
+              // 絶対位置で置く（#225）。行が何行に折れても1行目の右端にあり、
+              // 日付・★・ラベル・対象は1行目に並んだまま。アイコンの下に文字がもぐらないよう、
+              // 行の右に 44px（押せる範囲 36px ＋ 少しの間）の余白を取る。
+              // 行の最後の「入力」だけ `-mr-11` でこの余白に食い込ませる（しないと
+              // 「出典 … 入力 …」が1行に収まらず行が増える）。途中の項目に付けると、
+              // 次の項目が左へ引かれて重なる
+              // DOM の順は日付 … 編集のまま。PC は最後の列に入るので絶対位置にしない
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 max-lg:relative max-lg:pr-11 lg:col-span-full lg:grid lg:grid-cols-subgrid"
             >
               {/* **日付を行の先頭から動かさない。** `page.test.ts` が
                 行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。
@@ -208,14 +211,17 @@ function EventGrid({
                 <span className="lg:sr-only">出典: </span>
                 {row.sourceName ?? "表示名なし"}
               </span>
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground max-lg:-mr-11">
                 <span className="lg:sr-only">入力: </span>
                 {/* 記録が無いことと、取り込みが入れたことは別（→ `creatorNamesByEventId`） */}
                 {creators.has(id)
                   ? (creators.get(id) ?? "取り込み")
                   : "記録なし"}
               </span>
-              <EditLink href={`/events/${row.id}`} className="max-lg:order-1" />
+              <EditLink
+                href={`/events/${row.id}`}
+                className="max-lg:absolute max-lg:top-1 max-lg:right-0"
+              />
             </li>
           );
         })}
