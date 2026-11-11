@@ -21,6 +21,7 @@ import SwiftUI
 /// 文字。前半は OS の文字の型と太さの組、後半は固定の大きさの役割。
 /// `Regular` は太さを足さない（OS の型の既定の太さのまま。`headline` は既定で太い）
 extension Font {
+	static let title3Regular = Font.title3
 	static let headlineRegular = Font.headline
 	static let captionRegular = Font.caption
 	static let caption2Regular = Font.caption2

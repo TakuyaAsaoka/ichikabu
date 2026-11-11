@@ -50,6 +50,7 @@ final class ScreensUITests: XCTestCase {
 		try visibleDay(app, matching: "^[0-9]+[^0-9].*$", what: "イベントのある日").tap()
 		waitForSheet(app)
 		snap(app, "持ち株を選択済み｜日のシート（イベントあり）")
+		openSampleThemeDetail(app)
 		closeSheet(app)
 
 		try visibleDay(app, matching: "^[0-9]+$", what: "イベントの無い日").tap()
@@ -107,6 +108,22 @@ final class ScreensUITests: XCTestCase {
 		// シートの見出しが出たことを先に確かめる。確かめずに閉じると、見出しが最初から無い場合に「閉じた」と取り違える
 		waitForSheet(app)
 		XCTAssertTrue(stockRows(app).firstMatch.waitForExistence(timeout: 30), "銘柄の行が出ない。接続先のサーバーと開発用DBの銘柄を確かめる")
+	}
+
+	/// 開いている日のシートで、開発用DBの見本のテーマのイベントの行を押して詳細を撮り、一覧に戻る。
+	/// 行は読み上げ名に名称を含む押せる要素で探す（`app.cells` は使わない。stockRows の注記と同じ理由）。
+	/// 見本が無い月は行が無い。そのときは詳細の写真だけを飛ばし、ほかの写真は撮れるようにする
+	@MainActor
+	private func openSampleThemeDetail(_ app: XCUIApplication) {
+		let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "（見本）自動車のテーマのイベント")).firstMatch
+		guard row.waitForExistence(timeout: 3) else { return }
+		row.tap()
+		// 詳細が開いたことを、関係の見出しで確かめてから撮る
+		XCTAssertTrue(app.staticTexts["あなたの持ち株との関係"].waitForExistence(timeout: 10), "イベントの詳細が開かない")
+		snap(app, "持ち株を選択済み｜イベントの詳細")
+		// 戻るボタンは見出しの左端の1つだけ
+		sheetBar(app).buttons.firstMatch.tap()
+		XCTAssertTrue(row.waitForExistence(timeout: 10), "一覧に戻らない")
 	}
 
 	@MainActor

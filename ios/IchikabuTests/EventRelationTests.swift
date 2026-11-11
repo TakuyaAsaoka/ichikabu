@@ -3,19 +3,22 @@ import Testing
 
 @testable import Ichikabu
 
-@Suite("シートの行に出す、イベントと持ち株の関係")
+@Suite("イベントと持ち株の関係")
 struct EventRelationTests {
 	private let lasertec = Stock(
 		id: 1, market: .JP, ticker: "6920", name: "レーザーテック", themeIds: [10])
 	private let tokyoElectron = Stock(
 		id: 2, market: .JP, ticker: "8035", name: "東京エレクトロン", themeIds: [10])
-	private let toyota = Stock(
-		id: 3, market: .JP, ticker: "7203", name: "トヨタ自動車", themeIds: [])
+	private let usStock = Stock(
+		id: 4, market: .US, ticker: "NVDA", name: "エヌビディア", themeIds: [])
 	private let stocks: [Stock]
-	private let themes = [Theme(id: 10, name: "半導体")]
+	private let themes = [Theme(id: 10, name: "半導体"), Theme(id: 20, name: "自動車")]
 
 	init() {
-		stocks = [lasertec, tokyoElectron, toyota]
+		stocks = [
+			lasertec, tokyoElectron,
+			Stock(id: 3, market: .JP, ticker: "7203", name: "トヨタ自動車", themeIds: [20]), usStock,
+		]
 	}
 
 	private func event(target: Components.Schemas.EventTarget) -> Event {
@@ -52,50 +55,118 @@ struct EventRelationTests {
 		event(target: .stock(.init(_type: .stock, stockId: stockId)))
 	}
 
-	private func relation(_ event: Event, holdings: [Int], themes: [Theme]? = nil) -> String? {
-		EventLayout.relation(
+	private func hint(_ event: Event, holdings: [Int]) -> String? {
+		EventLayout.relationHint(of: event, holdings: holdings, stocks: stocks)
+	}
+
+	private func detail(_ event: Event, holdings: [Int], themes: [Theme]? = nil)
+		-> EventLayout.RelationDetail?
+	{
+		EventLayout.relationDetail(
 			of: event, holdings: holdings, stocks: stocks, themes: themes ?? self.themes)
 	}
 
-	@Test("市場イベントは対象の市場を出す")
-	func market() {
-		#expect(relation(marketEvent(.JP), holdings: []) == "市場: 日本")
-		#expect(relation(marketEvent(.US), holdings: []) == "市場: 米国")
-		#expect(relation(marketEvent(.GLOBAL), holdings: []) == "市場: すべて")
+	private func names(_ detail: EventLayout.RelationDetail?) -> [String] {
+		detail?.stocks.map(\.name) ?? []
 	}
 
-	@Test("テーマイベントはテーマ名と、そのテーマの持ち株を stocks の並びで出す")
-	func themeWithHoldings() {
+	// MARK: - 一覧の行の手がかり
+
+	@Test("市場イベントの手がかりは、市場ごとの持ち株の言い方になる")
+	func hintMarket() {
+		#expect(hint(marketEvent(.GLOBAL), holdings: []) == "すべての持ち株")
+		#expect(hint(marketEvent(.JP), holdings: []) == "日本株の持ち株")
+		#expect(hint(marketEvent(.US), holdings: []) == "米国株の持ち株")
+	}
+
+	@Test("持ち株が1つのテーマの手がかりは、その銘柄名")
+	func hintThemeSingle() {
+		#expect(hint(themeEvent(20), holdings: [3]) == "トヨタ自動車")
+	}
+
+	@Test("持ち株が複数のテーマの手がかりは、stocks の先頭の銘柄名と残りの数")
+	func hintThemeMany() {
+		#expect(hint(themeEvent(10), holdings: [2, 1]) == "レーザーテック ほか1銘柄")
+	}
+
+	@Test("持っていない銘柄は手がかりに出ない")
+	func hintNotHeld() {
+		#expect(hint(themeEvent(10), holdings: [2]) == "東京エレクトロン")
+	}
+
+	@Test("テーマに属する持ち株が無ければ手がかりは出さない")
+	func hintThemeWithoutHoldings() {
+		#expect(hint(themeEvent(10), holdings: [3]) == nil)
+	}
+
+	@Test("銘柄イベントの手がかりは銘柄名。銘柄が無ければ出さない")
+	func hintStock() {
+		#expect(hint(stockEvent(1), holdings: [1]) == "レーザーテック")
+		#expect(hint(stockEvent(99), holdings: [99]) == nil)
+	}
+
+	// MARK: - 詳細の文と持ち株
+
+	@Test("全体の市場イベントは、全員に関係すると言い、持ち株の一覧は無い")
+	func detailGlobal() {
+		let result = detail(marketEvent(.GLOBAL), holdings: [1])
+		#expect(result == .init(sentence: "持ち株にかかわらず、全員に関係します", stocks: []))
+	}
+
+	@Test("日本・米国の市場イベントは、その市場の持ち株だけを並べる")
+	func detailMarket() {
+		let jp = detail(marketEvent(.JP), holdings: [4, 2, 1])
+		#expect(jp?.sentence == "日本株を持つ人全員に関係します")
+		#expect(names(jp) == ["レーザーテック", "東京エレクトロン"])
+		let us = detail(marketEvent(.US), holdings: [4, 1])
+		#expect(us?.sentence == "米国株を持つ人全員に関係します")
+		#expect(names(us) == ["エヌビディア"])
+	}
+
+	@Test("持ち株が1つのテーマは、銘柄名とテーマ名を文に入れる")
+	func detailThemeSingle() {
+		let result = detail(themeEvent(20), holdings: [3])
+		#expect(result?.sentence == "持ち株のトヨタ自動車が「自動車」のテーマに入っています")
+		#expect(names(result) == ["トヨタ自動車"])
+	}
+
+	@Test("持ち株が複数のテーマは、銘柄の数を文に入れ、stocks の並びで並べる")
+	func detailThemeMany() {
+		let result = detail(themeEvent(10), holdings: [2, 1])
+		#expect(result?.sentence == "持ち株のうち2銘柄が「半導体」のテーマに入っています")
+		#expect(names(result) == ["レーザーテック", "東京エレクトロン"])
+	}
+
+	@Test("持っていない銘柄は詳細に出ない")
+	func detailNotHeld() {
+		let result = detail(themeEvent(10), holdings: [2])
+		#expect(result?.sentence == "持ち株の東京エレクトロンが「半導体」のテーマに入っています")
+		#expect(names(result) == ["東京エレクトロン"])
+	}
+
+	@Test("テーマの名前が分からないときは、名前を省いた文にして持ち株を出す")
+	func detailThemeWithoutName() {
+		let single = detail(themeEvent(20), holdings: [3], themes: [])
+		#expect(single?.sentence == "持ち株のトヨタ自動車が、このイベントのテーマに入っています")
+		#expect(names(single) == ["トヨタ自動車"])
+		let many = detail(themeEvent(10), holdings: [1, 2], themes: [])
+		#expect(many?.sentence == "持ち株のうち2銘柄が、このイベントのテーマに入っています")
+		#expect(names(many) == ["レーザーテック", "東京エレクトロン"])
+	}
+
+	@Test("テーマに属する持ち株が無ければ、名前があるときだけテーマのイベントだと言う")
+	func detailThemeWithoutHoldings() {
 		#expect(
-			relation(themeEvent(10), holdings: [2, 1])
-				== "テーマ: 半導体 ／ 持ち株: レーザーテック・東京エレクトロン")
+			detail(themeEvent(10), holdings: [3])
+				== .init(sentence: "「半導体」のテーマのイベントです", stocks: []))
+		#expect(detail(themeEvent(10), holdings: [3], themes: []) == nil)
 	}
 
-	@Test("持っていない銘柄は出ない")
-	func notHeldIsHidden() {
-		#expect(relation(themeEvent(10), holdings: [2]) == "テーマ: 半導体 ／ 持ち株: 東京エレクトロン")
-	}
-
-	@Test("テーマの名前が分からないときは持ち株だけを出す")
-	func themeWithoutName() {
-		#expect(
-			relation(themeEvent(10), holdings: [1, 2], themes: [])
-				== "持ち株: レーザーテック・東京エレクトロン")
-	}
-
-	@Test("テーマに属する持ち株が無ければテーマ名だけを出す")
-	func themeWithoutHoldings() {
-		#expect(relation(themeEvent(10), holdings: [3]) == "テーマ: 半導体")
-	}
-
-	@Test("テーマの名前も持ち株も分からなければ何も出さない")
-	func themeWithNothing() {
-		#expect(relation(themeEvent(10), holdings: [3], themes: []) == nil)
-	}
-
-	@Test("銘柄イベントは銘柄名を持ち株として出す。銘柄が無ければ何も出さない")
-	func stock() {
-		#expect(relation(stockEvent(1), holdings: [1]) == "持ち株: レーザーテック")
-		#expect(relation(stockEvent(99), holdings: [99]) == nil)
+	@Test("銘柄イベントは、その銘柄を持ち株として言う。銘柄が無ければ何も出さない")
+	func detailStock() {
+		let result = detail(stockEvent(1), holdings: [1])
+		#expect(result?.sentence == "持ち株のレーザーテックのイベントです")
+		#expect(names(result) == ["レーザーテック"])
+		#expect(detail(stockEvent(99), holdings: [99]) == nil)
 	}
 }
