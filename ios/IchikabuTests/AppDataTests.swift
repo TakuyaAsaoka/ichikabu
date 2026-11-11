@@ -10,6 +10,12 @@ private actor Probe {
 	var failsStocks = false
 	var failsThemes = false
 	private(set) var eventCalls = 0
+	/// 何回目の取得か。成功した側が返す値を回ごとに変えて、上書きを見つけられるようにする
+	private(set) var round = 1
+
+	func nextRound() {
+		round += 1
+	}
 
 	func set(events: Bool = false, stocks: Bool = false, themes: Bool = false) {
 		failsEvents = events
@@ -33,7 +39,7 @@ struct AppDataTests {
 	private let otherStock = Stock(id: 2, market: .JP, ticker: "6758", name: "ソニーグループ", themeIds: [])
 
 	/// 銘柄のイベントを1件作る。日付以外は表示に影響しないので固定値でよい
-	private func event(id: Int, stockId: Int) -> Event {
+	private nonisolated func event(id: Int, stockId: Int) -> Event {
 		Event(
 			id: String(id),
 			kind: .stock,
@@ -94,7 +100,7 @@ struct AppDataTests {
 		#expect(!data.isLoading)
 	}
 
-	/// 落とす取得の名前。失敗の文にどちらが落ちたかを出すために使う
+	/// 落とす取得。`#expect` の文と、テスト用の入れ物の名前に使う
 	enum Target: String, CaseIterable, Sendable {
 		case events = "イベント"
 		case stocks = "銘柄"
@@ -106,17 +112,34 @@ struct AppDataTests {
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 		let probe = Probe()
+		// 2回目は、落ちない側が別の値（id 2）を返す。上書きされれば id 2 に変わって見つかる
 		let data = AppData(
-			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
+			fetch: AppData.Fetch(
+				events: {
+					if await probe.failsEvents { throw Failure() }
+					let id = await probe.round
+					return [event(id: id, stockId: id)]
+				},
+				stocks: {
+					if await probe.failsStocks { throw Failure() }
+					let id = await probe.round
+					return [Stock(id: id, market: .JP, ticker: "000\(id)", name: "銘柄\(id)", themeIds: [])]
+				},
+				themes: {
+					let id = await probe.round
+					return [Theme(id: id, name: "テーマ\(id)")]
+				}),
 			store: HoldingStore(defaults: defaults))
 		await data.load()
 
+		await probe.nextRound()
 		await probe.set(events: target == .events, stocks: target == .stocks)
 		await data.load()
 
 		#expect(data.failed, "\(target.rawValue)の取得が落ちたのに失敗になっていない")
 		#expect(data.events.map(\.id) == ["1"], "\(target.rawValue)が落ちたとき、イベントを上書きした")
 		#expect(data.stocks.map(\.id) == [1], "\(target.rawValue)が落ちたとき、銘柄を上書きした")
+		#expect(data.themes.map(\.id) == [1], "\(target.rawValue)が落ちたとき、テーマを上書きした")
 	}
 
 	@Test("失敗したあとにもう一度読んで成功すると、失敗の状態が消えて値が入る")
