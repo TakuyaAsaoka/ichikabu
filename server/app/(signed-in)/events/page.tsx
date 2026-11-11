@@ -172,9 +172,9 @@ function EventGrid({
               // 絶対位置で置く（#225）。行が何行に折れても1行目の右端にあり、
               // 日付・★・ラベル・対象は1行目に並んだまま。アイコンの下に文字がもぐらないよう、
               // 行の右に 44px（押せる範囲 36px ＋ 少しの間）の余白を取る。
-              // 行の最後の「入力」だけ `-mr-11` でこの余白に食い込ませる（しないと
-              // 「出典 … 入力 …」が1行に収まらず行が増える）。途中の項目に付けると、
-              // 次の項目が左へ引かれて重なる
+              // この余白のぶん、出典と入力が長い行は1行多く折れる。項目に負の余白を付けて
+              // 余白へ食い込ませる形は採らない。行が短い幅（768〜1023px）では、
+              // 食い込んだ文字が1行目に来て、アイコンの下にもぐる
               // DOM の順は日付 … 編集のまま。PC は最後の列に入るので絶対位置にしない
               className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 max-lg:relative max-lg:pr-11 lg:col-span-full lg:grid lg:grid-cols-subgrid"
             >
@@ -211,7 +211,7 @@ function EventGrid({
                 <span className="lg:sr-only">出典: </span>
                 {row.sourceName ?? "表示名なし"}
               </span>
-              <span className="text-muted-foreground max-lg:-mr-11">
+              <span className="text-muted-foreground">
                 <span className="lg:sr-only">入力: </span>
                 {/* 記録が無いことと、取り込みが入れたことは別（→ `creatorNamesByEventId`） */}
                 {creators.has(id)
