@@ -1,6 +1,7 @@
 import Foundation
 import IchikabuAPI
 import Testing
+import os
 
 @testable import Ichikabu
 
@@ -31,6 +32,30 @@ private actor Probe {
 }
 
 private struct Failure: Error {}
+
+/// テストから進められる時計。決まった時間は待たず、時刻を直接書き換える
+private final class TestClock: Sendable {
+	private let time: OSAllocatedUnfairLock<Date>
+
+	init(_ iso: String) {
+		time = OSAllocatedUnfairLock(initialState: Self.date(iso))
+	}
+
+	/// 日本時間の時刻を書く（例: "2026-11-10T23:59:00+09:00"）
+	static func date(_ iso: String) -> Date {
+		ISO8601DateFormatter().date(from: iso)!
+	}
+
+	var now: Date { time.withLock { $0 } }
+
+	func set(_ iso: String) {
+		time.withLock { $0 = Self.date(iso) }
+	}
+
+	func advance(by seconds: TimeInterval) {
+		time.withLock { $0 = $0.addingTimeInterval(seconds) }
+	}
+}
 
 @MainActor
 @Suite("アプリのデータ（取得と保存）")
@@ -106,9 +131,9 @@ struct AppDataTests {
 		case stocks = "銘柄"
 	}
 
-	@Test("イベントか銘柄の取得が落ちると失敗になり、前の値を上書きしない", arguments: Target.allCases)
-	func requiredFailure(target: Target) async throws {
-		let suiteName = "app-data-required-failure-\(target)"
+	@Test("一度受け取ったあと、イベントか銘柄の取り直しが落ちても、失敗にせず前の値を残す", arguments: Target.allCases)
+	func refetchFailureKeepsValues(target: Target) async throws {
+		let suiteName = "app-data-refetch-failure-\(target)"
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 		let probe = Probe()
@@ -136,10 +161,49 @@ struct AppDataTests {
 		await probe.set(events: target == .events, stocks: target == .stocks)
 		await data.load()
 
-		#expect(data.failed, "\(target.rawValue)の取得が落ちたのに失敗になっていない")
+		#expect(!data.failed, "\(target.rawValue)の取り直しが落ちたのに失敗の画面になる")
+		#expect(data.loaded)
 		#expect(data.events.map(\.id) == ["1"], "\(target.rawValue)が落ちたとき、イベントを上書きした")
 		#expect(data.stocks.map(\.id) == [1], "\(target.rawValue)が落ちたとき、銘柄を上書きした")
 		#expect(data.themes.map(\.id) == [1], "\(target.rawValue)が落ちたとき、テーマを上書きした")
+	}
+
+	@Test("まだ受け取れていないときの取得の失敗は、失敗になり、受け取れた状態にならない", arguments: Target.allCases)
+	func firstFailure(target: Target) async throws {
+		let suiteName = "app-data-first-failure-\(target)"
+		let defaults = try defaults(suiteName)
+		defer { defaults.removePersistentDomain(forName: suiteName) }
+		let probe = Probe()
+		await probe.set(events: target == .events, stocks: target == .stocks)
+		let data = AppData(
+			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
+			store: RegistrationStore(defaults: defaults))
+
+		await data.load()
+
+		#expect(data.failed, "\(target.rawValue)の取得が落ちたのに失敗になっていない")
+		#expect(!data.loaded)
+		#expect(data.events.isEmpty)
+	}
+
+	@Test("一度受け取ったあと、テーマだけ取り直しが落ちても、前のテーマを残す")
+	func refetchThemesFailureKeepsThemes() async throws {
+		let suiteName = "app-data-refetch-themes-failure"
+		let defaults = try defaults(suiteName)
+		defer { defaults.removePersistentDomain(forName: suiteName) }
+		let probe = Probe()
+		let data = AppData(
+			fetch: fetch(
+				probe, events: [event(id: 1, stockId: 1)], stocks: [stock],
+				themes: [Theme(id: 20, name: "自動車")]),
+			store: RegistrationStore(defaults: defaults))
+		await data.load()
+
+		await probe.set(themes: true)
+		await data.load()
+
+		#expect(!data.failed)
+		#expect(data.themes.map(\.id) == [20], "取り直しでテーマだけ落ちたのに、テーマが消えた")
 	}
 
 	@Test("失敗したあとにもう一度読んで成功すると、失敗の状態が消えて値が入る")
@@ -217,6 +281,128 @@ struct AppDataTests {
 
 		#expect(await probe.eventCalls == 1)
 		#expect(!data.isLoading)
+	}
+
+	// MARK: - 今日と取り直し
+
+	private func makeTimed(_ suiteName: String, clock: TestClock, probe: Probe = Probe()) throws -> (AppData, Probe, UserDefaults) {
+		let defaults = try defaults(suiteName)
+		let data = AppData(
+			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
+			store: RegistrationStore(defaults: defaults),
+			now: { clock.now })
+		return (data, probe, defaults)
+	}
+
+	@Test("日本時間で日付が変わると、today が進む。UTC では同じ日でも進む")
+	func refreshTodayAdvancesAtJSTMidnight() throws {
+		// 23:59 JST = 14:59 UTC、0:01 JST = 15:01 UTC。UTC では同じ日の中
+		let clock = TestClock("2026-11-10T23:59:00+09:00")
+		let (data, _, defaults) = try makeTimed("app-data-today-advances", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-today-advances") }
+		#expect(data.today == TestClock.date("2026-11-10T23:59:00+09:00"))
+
+		clock.set("2026-11-11T00:01:00+09:00")
+		data.refreshToday()
+
+		#expect(data.today == TestClock.date("2026-11-11T00:01:00+09:00"))
+	}
+
+	@Test("同じ日のうちは、時刻が進んでも today を替えない")
+	func refreshTodayKeepsWithinSameDay() throws {
+		let clock = TestClock("2026-11-10T00:01:00+09:00")
+		let (data, _, defaults) = try makeTimed("app-data-today-same-day", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-today-same-day") }
+
+		clock.set("2026-11-10T23:59:00+09:00")
+		data.refreshToday()
+
+		#expect(data.today == TestClock.date("2026-11-10T00:01:00+09:00"))
+	}
+
+	@Test("受け取れていて5分以上たっていれば、前に戻したときに取り直す")
+	func activatedRefetchesAfterFiveMinutes() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-refetch", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-refetch") }
+		await data.load()
+		#expect(await probe.eventCalls == 1)
+
+		clock.advance(by: 5 * 60)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 2)
+	}
+
+	@Test("最後に受け取ってから5分たっていなければ、取り直さない")
+	func activatedSkipsWithinFiveMinutes() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-skip", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-skip") }
+		await data.load()
+
+		clock.advance(by: 5 * 60 - 1)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 1)
+	}
+
+	@Test("取り直して受け取れたら、5分の数え直しは新しい受け取りからになる")
+	func activatedCountsFromLastReceived() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-recount", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-recount") }
+		await data.load()
+		clock.advance(by: 6 * 60)
+		await data.activated()
+		#expect(await probe.eventCalls == 2)
+
+		clock.advance(by: 4 * 60)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 2)
+	}
+
+	@Test("まだ一度も受け取れていないときは、前に戻しても取り直さない（最初の読み込みと再試行が担う）")
+	func activatedSkipsBeforeFirstReceive() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-not-loaded", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-not-loaded") }
+
+		clock.advance(by: 60 * 60)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 0)
+	}
+
+	@Test("最初の取得に失敗したあとも、前に戻したときに取り直さない")
+	func activatedSkipsAfterFirstFailure() async throws {
+		let clock = TestClock("2026-11-10T12:00:00+09:00")
+		let probe = Probe()
+		await probe.set(events: true)
+		let (data, _, defaults) = try makeTimed("app-data-activated-first-failed", clock: clock, probe: probe)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-first-failed") }
+		await data.load()
+
+		clock.advance(by: 60 * 60)
+		await data.activated()
+
+		#expect(await probe.eventCalls == 1)
+		#expect(data.failed)
+	}
+
+	@Test("日付が変わっていれば、取り直さなくても today は進む")
+	func activatedAdvancesTodayWithoutRefetch() async throws {
+		let clock = TestClock("2026-11-10T23:59:00+09:00")
+		let (data, probe, defaults) = try makeTimed("app-data-activated-today", clock: clock)
+		defer { defaults.removePersistentDomain(forName: "app-data-activated-today") }
+		await data.load()
+
+		clock.set("2026-11-11T00:01:00+09:00")
+		await data.activated()
+
+		#expect(await probe.eventCalls == 1)
+		#expect(data.today == TestClock.date("2026-11-11T00:01:00+09:00"))
 	}
 
 	// MARK: - 登録
