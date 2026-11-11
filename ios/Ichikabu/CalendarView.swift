@@ -42,18 +42,12 @@ struct CalendarView: View {
 				// 失敗したらカレンダーを出さない。空のマスを残すと「予定が無い月」に見える（#202）。
 				// 前に取れた値が AppData に残っていても、失敗中は出さない
 				if data.failed {
-					failure
+					LoadFailureView()
 				} else {
 					grid(shown: shown)
 				}
 			}
 			.navigationBarTitleDisplayMode(.inline)
-			.toolbar {
-				// 常に見える入り口。持ち株を選んだあとも選び直せるようにする
-				ToolbarItem(placement: .topBarTrailing) {
-					Button("持ち株") { showHoldings() }
-				}
-			}
 		}
 		// `.sheet(item:)` ではなく `isPresented` で出す。item だと日付が変わるたびに
 		// シートを出し直すため、0.45 で開いていたシートが `.large` に広がってしまう。
@@ -70,7 +64,7 @@ struct CalendarView: View {
 			// nil になった時点で消えていくシートから指定が外れる
 			Group {
 				if isPickingHoldings {
-					HoldingsView(stocks: data.stocks, holdings: $data.holdings)
+					HoldingsPicker(stocks: data.stocks, holdings: $data.holdings)
 				} else if let selectedDay {
 					DaySheet(
 						date: selectedDay,
@@ -86,9 +80,6 @@ struct CalendarView: View {
 			// 0.45 まで下げている間は裏を操作できる。
 			// これでシートを開いたまま別の日付をタップできる
 			.presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
-		}
-		.task {
-			await data.load()
 		}
 	}
 
@@ -107,8 +98,7 @@ struct CalendarView: View {
 	}
 
 	/// 持ち株を1つも選んでいないときの案内。選ぶまで消えない。
-	/// この状態でいちばんしてほしいのは持ち株を選ぶことなので、塗ったボタンにして
-	/// 右上の「持ち株」より強く見せる（#194）
+	/// この状態でいちばんしてほしいのは持ち株を選ぶことなので、塗ったボタンにする（#194）
 	private var holdingsPrompt: some View {
 		HStack {
 			Text("持ち株が未選択です").font(.captionRegular)
@@ -121,26 +111,6 @@ struct CalendarView: View {
 		.padding(.vertical, 6)
 		.frame(maxWidth: .infinity)
 		.background(Color.yellow.opacity(0.25))
-	}
-
-	/// 取得に失敗したときに、カレンダーの代わりに出す画面
-	@ViewBuilder
-	private var failure: some View {
-		if data.isLoading {
-			ProgressView("取得しています")
-				.frame(maxWidth: .infinity, maxHeight: .infinity)
-		} else {
-			ContentUnavailableView {
-				Label("イベントと銘柄を取得できませんでした", systemImage: "wifi.slash")
-			} description: {
-				Text("通信できる状態か確かめて、もう一度お試しください。")
-			} actions: {
-				// `.task` は画面が出たときの1回しか走らないため、押して取り直せるようにする。
-				// これが無いと復旧はアプリの再起動だけになる
-				Button("再試行") { Task { await data.load() } }
-					.buttonStyle(.prominent)
-			}
-		}
 	}
 
 	private func grid(shown: [Event]) -> some View {

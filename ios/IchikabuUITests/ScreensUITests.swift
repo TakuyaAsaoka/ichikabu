@@ -28,6 +28,10 @@ final class ScreensUITests: XCTestCase {
 		snap(app, "持ち株が未選択｜持ち株の一覧")
 		closeSheet(app)
 		snap(app, "持ち株が未選択｜カレンダー")
+		openHoldingsTab(app)
+		XCTAssertTrue(app.staticTexts["持ち株が未選択です"].waitForExistence(timeout: 10), "持ち株のタブに未選択の案内が出ない")
+		snap(app, "持ち株が未選択｜持ち株のタブ")
+		openCalendarTab(app)
 
 		// 最後の1行を残して選ぶ。チェックの有る行と無い行の両方を写す。
 		// 後ろから押す。選んだ行はチェックの画像の読み上げ名が末尾に付いて行の検索から外れるので、前から押すと次の番号がずれる
@@ -38,13 +42,18 @@ final class ScreensUITests: XCTestCase {
 		for index in (0..<(count - 1)).reversed() {
 			rows.element(boundBy: index).tap()
 		}
-		// 押し損じたまま「選択済み」の名前で撮らない。選んだ行には isSelected が付く（HoldingsView の accessibilityAddTraits）
-		let selected = app.buttons.matching(NSPredicate(format: "selected == true"))
+		// 押し損じたまま「選択済み」の名前で撮らない。選んだ行には isSelected が付く（HoldingsPicker の accessibilityAddTraits）
+		// 下のタブの帯のボタンも selected になるので、数から外す
+		let selected = app.buttons.matching(NSPredicate(format: "selected == true AND NOT (label IN %@)", ["カレンダー", "持ち株"]))
 		XCTAssertEqual(selected.count, count - 1, "選んだ行の数が合わない")
 		XCTAssertFalse(rows.element(boundBy: count - 1).isSelected, "最後の行まで選ばれている")
 		snap(app, "持ち株を選択済み｜持ち株の一覧")
 		closeSheet(app)
 		snap(app, "持ち株を選択済み｜カレンダー")
+		openHoldingsTab(app)
+		XCTAssertTrue(app.staticTexts["市場全体のイベントはカレンダーに出ます"].waitForExistence(timeout: 10), "持ち株のタブに銘柄の一覧が出ない")
+		snap(app, "持ち株を選択済み｜持ち株のタブ")
+		openCalendarTab(app)
 
 		// 日付のセルは読み上げ名が「日番号 イベント名…」になる（DayCell の accessibilityElement(children: .combine)）
 		try visibleDay(app, matching: "^[0-9]+[^0-9].*$", what: "イベントのある日").tap()
@@ -77,9 +86,17 @@ final class ScreensUITests: XCTestCase {
 		XCTAssertTrue(retry.waitForExistence(timeout: 30), "「再試行」が出ない")
 		snap(app, "取得に失敗｜カレンダー")
 
-		app.buttons["持ち株"].tap()
+		// 失敗中も、カレンダーの帯から選ぶ画面は開ける
+		app.buttons["持ち株を選ぶ"].tap()
+		XCTAssertTrue(pickerBar(app).waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
 		XCTAssertTrue(app.staticTexts["銘柄を取得できていません"].waitForExistence(timeout: 10), "銘柄が無いときの案内が出ない")
 		snap(app, "取得に失敗｜持ち株の一覧")
+		// 日付のシートと同じく、開いている間はタブの帯が覆われるので、タブを替える前に閉じる
+		closeSheet(app)
+
+		openHoldingsTab(app)
+		XCTAssertTrue(app.staticTexts["イベントと銘柄を取得できませんでした"].waitForExistence(timeout: 10), "持ち株のタブに失敗の知らせが出ない")
+		snap(app, "取得に失敗｜持ち株のタブ")
 	}
 
 	// MARK: - 手順
@@ -104,19 +121,21 @@ final class ScreensUITests: XCTestCase {
 		return app
 	}
 
-	/// 持ち株の一覧の行。行のボタンの読み上げ名は「銘柄名 市場 ティッカー」をつないだもの（HoldingsView の row）。
+	/// 持ち株の一覧の行。行のボタンの読み上げ名は「銘柄名 市場 ティッカー」をつないだもの（HoldingsPicker の row）。
 	/// `app.cells` で探さない。カレンダーの月送りのページも cells に数えられ、行が無くても見つかってしまう（実測）
 	@MainActor
 	private func stockRows(_ app: XCUIApplication) -> XCUIElementQuery {
 		app.buttons.matching(NSPredicate(format: "label MATCHES %@", ".*(JP|US) [0-9A-Z.]+$"))
 	}
 
-	/// 持ち株の一覧を開き、行が出るまで待つ。イベントと銘柄は1回で受け取るので、行が出れば読み込みも終わっている
+	/// 持ち株を選ぶ画面を開き、行が出るまで待つ。イベントと銘柄は1回で受け取るので、行が出れば読み込みも終わっている。
+	/// 持ち株が未選択のあいだは、カレンダーの帯の「持ち株を選ぶ」から開く。
+	/// 帯のボタンは持ち株のタブの中身と別のタブにあり、いまのタブにあるほうだけが画面に出る
 	@MainActor
 	private func openHoldings(_ app: XCUIApplication) {
-		app.buttons["持ち株"].tap()
+		app.buttons["持ち株を選ぶ"].tap()
 		// シートの見出しが出たことを先に確かめる。確かめずに閉じると、見出しが最初から無い場合に「閉じた」と取り違える
-		waitForSheet(app)
+		XCTAssertTrue(pickerBar(app).waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
 		XCTAssertTrue(stockRows(app).firstMatch.waitForExistence(timeout: 30), "銘柄の行が出ない。接続先のサーバーと開発用DBの銘柄を確かめる")
 	}
 
@@ -137,15 +156,34 @@ final class ScreensUITests: XCTestCase {
 		snap(app, "持ち株を選択済み｜イベントの詳細")
 	}
 
+	/// 下のタブの「持ち株」へ移る。シートが開いている間はタブの帯が覆われるので、先に閉じておく
+	@MainActor
+	private func openHoldingsTab(_ app: XCUIApplication) {
+		app.tabBars.buttons["持ち株"].tap()
+		XCTAssertTrue(app.navigationBars["持ち株"].waitForExistence(timeout: 10), "持ち株のタブが開かない")
+	}
+
+	@MainActor
+	private func openCalendarTab(_ app: XCUIApplication) {
+		app.tabBars.buttons["カレンダー"].tap()
+		XCTAssertTrue(app.tabBars.buttons["カレンダー"].isSelected, "カレンダーのタブに戻れない")
+	}
+
 	@MainActor
 	private func waitForSheet(_ app: XCUIApplication) {
 		XCTAssertTrue(sheetBar(app).waitForExistence(timeout: 10), "シートが開かない")
 	}
 
-	/// シートの見出し。カレンダーの見出しの後ろに出る
+	/// 持ち株を選ぶ画面の見出し。下のタブができて見出しの数が増えたので、番号でなく名前で探す
+	@MainActor
+	private func pickerBar(_ app: XCUIApplication) -> XCUIElement {
+		app.navigationBars["持ち株を選ぶ"]
+	}
+
+	/// 日のシートの見出し（`8月4日 (火)`）。見出しの数は下のタブで変わるので、番号でなく名前の形で探す
 	@MainActor
 	private func sheetBar(_ app: XCUIApplication) -> XCUIElement {
-		app.navigationBars.element(boundBy: 1)
+		app.navigationBars.matching(NSPredicate(format: "identifier MATCHES %@", "^[0-9]+月[0-9]+日.*")).firstMatch
 	}
 
 	/// シートを閉じる。高さの候補が 0.45 と large なので、1回引き下ろしても 0.45 で止まることがある。
@@ -154,13 +192,13 @@ final class ScreensUITests: XCTestCase {
 	/// 12pt は iOS 26.5 のシートの形での実測。iOS を上げて閉じなくなったら（下の確認で落ちる）ここを見直す
 	@MainActor
 	private func closeSheet(_ app: XCUIApplication) {
-		for _ in 0..<3 where sheetBar(app).exists {
-			let grabber = sheetBar(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -12))
+		for _ in 0..<3 where pickerBar(app).exists {
+			let grabber = pickerBar(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -12))
 			let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.99))
 			grabber.press(forDuration: 0.1, thenDragTo: bottom)
-			_ = sheetBar(app).waitForNonExistence(timeout: 3)
+			_ = pickerBar(app).waitForNonExistence(timeout: 3)
 		}
-		XCTAssertFalse(sheetBar(app).exists, "シートが閉じない")
+		XCTAssertFalse(pickerBar(app).exists, "シートが閉じない")
 	}
 
 	/// 画面に見えている日付のボタンのうち、読み上げ名が形に合うもの。
