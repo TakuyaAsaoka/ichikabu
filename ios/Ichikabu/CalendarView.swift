@@ -29,7 +29,6 @@ struct CalendarView: View {
 	private static let monthRange = -12...12
 
 	var body: some View {
-		// 出すのは持ち株に対応するイベントだけ。絞り込みは端末で行う（Issue #87）
 		let shown = data.visibleEvents
 		// シートの持ち株の一覧へ渡す Binding。書き込むと AppData が端末へ保存する
 		@Bindable var data = data
@@ -40,8 +39,8 @@ struct CalendarView: View {
 				if data.holdings.isEmpty {
 					holdingsPrompt
 				}
-				// 失敗したらカレンダーを出さない。前に取ったデータを持たないので、
-				// 空のマスを残すと「予定が無い月」に見える（#202）
+				// 失敗したらカレンダーを出さない。空のマスを残すと「予定が無い月」に見える（#202）。
+				// 前に取れた値が AppData に残っていても、失敗中は出さない
 				if data.failed {
 					failure
 				} else {

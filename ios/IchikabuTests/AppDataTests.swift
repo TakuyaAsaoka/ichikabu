@@ -94,28 +94,15 @@ struct AppDataTests {
 		#expect(!data.isLoading)
 	}
 
-	@Test("イベントの取得が落ちると失敗になり、前の値を上書きしない")
-	func eventsFailure() async throws {
-		let suiteName = "app-data-events-failure"
-		let defaults = try defaults(suiteName)
-		defer { defaults.removePersistentDomain(forName: suiteName) }
-		let probe = Probe()
-		let data = AppData(
-			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
-			store: HoldingStore(defaults: defaults))
-		await data.load()
-
-		await probe.set(events: true)
-		await data.load()
-
-		#expect(data.failed)
-		#expect(data.events.map(\.id) == ["1"])
-		#expect(data.stocks.map(\.id) == [1])
+	/// 落とす取得の名前。失敗の文にどちらが落ちたかを出すために使う
+	enum Target: String, CaseIterable, Sendable {
+		case events = "イベント"
+		case stocks = "銘柄"
 	}
 
-	@Test("銘柄の取得が落ちても失敗になり、前の値を上書きしない")
-	func stocksFailure() async throws {
-		let suiteName = "app-data-stocks-failure"
+	@Test("イベントか銘柄の取得が落ちると失敗になり、前の値を上書きしない", arguments: Target.allCases)
+	func requiredFailure(target: Target) async throws {
+		let suiteName = "app-data-required-failure-\(target)"
 		let defaults = try defaults(suiteName)
 		defer { defaults.removePersistentDomain(forName: suiteName) }
 		let probe = Probe()
@@ -124,10 +111,32 @@ struct AppDataTests {
 			store: HoldingStore(defaults: defaults))
 		await data.load()
 
-		await probe.set(stocks: true)
+		await probe.set(events: target == .events, stocks: target == .stocks)
 		await data.load()
 
+		#expect(data.failed, "\(target.rawValue)の取得が落ちたのに失敗になっていない")
+		#expect(data.events.map(\.id) == ["1"], "\(target.rawValue)が落ちたとき、イベントを上書きした")
+		#expect(data.stocks.map(\.id) == [1], "\(target.rawValue)が落ちたとき、銘柄を上書きした")
+	}
+
+	@Test("失敗したあとにもう一度読んで成功すると、失敗の状態が消えて値が入る")
+	func recoversAfterFailure() async throws {
+		let suiteName = "app-data-recovers"
+		let defaults = try defaults(suiteName)
+		defer { defaults.removePersistentDomain(forName: suiteName) }
+		let probe = Probe()
+		await probe.set(events: true)
+		let data = AppData(
+			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
+			store: HoldingStore(defaults: defaults))
+		await data.load()
 		#expect(data.failed)
+
+		await probe.set()
+		await data.load()
+
+		#expect(!data.failed)
+		#expect(data.loaded)
 		#expect(data.events.map(\.id) == ["1"])
 		#expect(data.stocks.map(\.id) == [1])
 	}
@@ -153,7 +162,7 @@ struct AppDataTests {
 		#expect(data.events.map(\.id) == ["1"])
 	}
 
-	@Test("取得の途中にもう一度呼んでも、取得は1回しか走らない")
+	@Test("取得の途中にもう一度呼んでも、取得は1回しか走らない", .timeLimit(.minutes(1)))
 	func doesNotLoadTwice() async throws {
 		let suiteName = "app-data-no-double-load"
 		let defaults = try defaults(suiteName)
@@ -201,7 +210,7 @@ struct AppDataTests {
 		#expect(reopened.holdings == [1, 2])
 	}
 
-	@Test("見せるイベントは、持ち株に対応するものだけになる")
+	@Test("持ち株を変えると、見せるイベントが変わる")
 	func visibleEvents() async throws {
 		let suiteName = "app-data-visible-events"
 		let defaults = try defaults(suiteName)
@@ -214,7 +223,9 @@ struct AppDataTests {
 		await data.load()
 
 		data.holdings = [1]
-
 		#expect(data.visibleEvents.map(\.id) == ["1"])
+
+		data.holdings = [2]
+		#expect(data.visibleEvents.map(\.id) == ["2"])
 	}
 }
