@@ -71,17 +71,17 @@ struct ThemeViewLogicTests {
 	@Test("銘柄が無いテーマの補足は「銘柄なし」")
 	func 補足は銘柄なし() {
 		let empty = Theme(id: 99, name: "空")
-		#expect(EventLayout.themeSummary(for: empty, stocks: [toyota], holdings: [1]) == "銘柄なし")
+		#expect(EventLayout.themeSummary(for: empty, stocks: [toyota], registered: [1]) == "銘柄なし")
 	}
 
-	@Test("持ち株が属していなければ、銘柄の数だけを出す")
-	func 補足は持ち株なし() {
-		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], holdings: [3]) == "2銘柄")
+	@Test("登録した銘柄が属していなければ、銘柄の数だけを出す")
+	func 補足は登録なし() {
+		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], registered: [3]) == "2銘柄")
 	}
 
-	@Test("持ち株が1つでも属していれば「持ち株あり」を足し、持ち株の数は出さない")
-	func 補足は持ち株あり() {
-		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], holdings: [1]) == "2銘柄・持ち株あり")
-		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], holdings: [1, 2]) == "2銘柄・持ち株あり")
+	@Test("登録した銘柄が1つでも属していれば「登録あり」を足し、登録の数は出さない。持ち株でも気になる銘柄でも同じ")
+	func 補足は登録あり() {
+		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], registered: [1]) == "2銘柄・登録あり")
+		#expect(EventLayout.themeSummary(for: car, stocks: [toyota, softbank, daikin], registered: [1, 2]) == "2銘柄・登録あり")
 	}
 }

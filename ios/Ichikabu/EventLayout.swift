@@ -108,18 +108,18 @@ enum EventLayout {
 		return (inMonth.count, inMonth.filter { $0.importance == 3 }.count)
 	}
 
-	/// 持ち株に出すイベントだけに絞る。**絞るのはここだけ**で、サーバーは全件返す。判定は4条件
-	/// （`GLOBAL` は全員・持ち株の市場・持ち株そのもの・持ち株が属するテーマ）。
+	/// 登録した銘柄（持ち株と気になる銘柄）に出すイベントだけに絞る。**絞るのはここだけ**で、サーバーは全件返す。
+	/// 判定は4条件（`GLOBAL` は全員・登録した銘柄の市場・登録した銘柄そのもの・登録した銘柄が属するテーマ）。
 	///
-	/// `stocks` が要るのは、市場とテーマが持ち株のIDだけでは引けないため。
+	/// `stocks` が要るのは、市場とテーマが銘柄のIDだけでは引けないため。
 	/// 銘柄一覧が取れていなければ市場イベントもテーマイベントも判定できないので、
-	/// `GLOBAL` と持ち株のイベントだけが残る
-	static func visible(_ events: [Event], holdings: [Int], stocks: [Stock]) -> [Event] {
-		let held = stocks.filter { holdings.contains($0.id) }
+	/// `GLOBAL` と登録した銘柄のイベントだけが残る
+	static func visible(_ events: [Event], registered: [Int], stocks: [Stock]) -> [Event] {
+		let members = stocks.filter { registered.contains($0.id) }
 		// `Stock.market`（JP・US）と `EventMarket`（JP・US・GLOBAL）は値の集合が違うので
 		// 別の型になる。文字列に直して比べるのはここだけ
-		let markets = Set(held.map(\.market.rawValue))
-		let themeIds = Set(held.flatMap(\.themeIds))
+		let markets = Set(members.map(\.market.rawValue))
+		let themeIds = Set(members.flatMap(\.themeIds))
 		return events.filter { event in
 			switch event.target {
 			case .market(let target):
@@ -127,81 +127,96 @@ enum EventLayout {
 			case .theme(let target):
 				themeIds.contains(target.themeId)
 			case .stock(let target):
-				holdings.contains(target.stockId)
+				registered.contains(target.stockId)
 			}
 		}
 	}
 
-	/// 詳細に出す、関係の理由の文と、関係する持ち株
+	/// 詳細に出す、関係の理由の文と、関係する銘柄
 	struct RelationDetail: Equatable {
 		let sentence: String
 		let stocks: [Stock]
-		/// 持ち株に関係するか。画面の見出しを選ぶ。
-		/// 持っていない銘柄のイベントや、持ち株が1つも入っていないテーマのイベントでは false
-		let isHeld: Bool
+		/// 登録した銘柄（持ち株か気になる銘柄）に関係するか。画面の見出しを選ぶ。
+		/// 登録していない銘柄のイベントや、登録した銘柄が1つも入っていないテーマのイベントでは false
+		let isRegistered: Bool
 	}
 
-	/// 持ち株のうち、そのテーマに属する銘柄。`stocks` の並びのまま
-	private static func heldStocks(inTheme themeId: Int, holdings: [Int], stocks: [Stock]) -> [Stock] {
-		stocks.filter { holdings.contains($0.id) && $0.themeIds.contains(themeId) }
+	/// 登録した銘柄のうち、そのテーマに属する銘柄。`stocks` の並びのまま
+	private static func registeredStocks(inTheme themeId: Int, registered: [Int], stocks: [Stock]) -> [Stock] {
+		stocks.filter { registered.contains($0.id) && $0.themeIds.contains(themeId) }
 	}
 
-	/// シートの行に出す、どの持ち株に関係するかの短い手がかり。出すものが無ければ nil
-	static func relationHint(of event: Event, holdings: [Int], stocks: [Stock]) -> String? {
+	/// シートの行に出す、どの銘柄に関係するかの短い手がかり。出すものが無ければ nil。
+	/// 持ち株でも気になる銘柄でも同じ文にするので、まとめた登録を受け取る
+	static func relationHint(of event: Event, registered: [Int], stocks: [Stock]) -> String? {
 		switch event.target {
 		case .market(let target):
 			switch target.market {
-			case .JP: return "日本株の持ち株"
-			case .US: return "米国株の持ち株"
-			case .GLOBAL: return "すべての持ち株"
+			case .JP: return "登録した日本株"
+			case .US: return "登録した米国株"
+			case .GLOBAL: return "登録した銘柄すべて"
 			}
 		case .theme(let target):
-			let held = heldStocks(inTheme: target.themeId, holdings: holdings, stocks: stocks)
-			guard let first = held.first else { return nil }
-			return held.count == 1 ? first.name : "\(first.name) ほか\(held.count - 1)銘柄"
+			let members = registeredStocks(inTheme: target.themeId, registered: registered, stocks: stocks)
+			guard let first = members.first else { return nil }
+			return members.count == 1 ? first.name : "\(first.name) ほか\(members.count - 1)銘柄"
 		case .stock(let target):
 			return stocks.first(where: { $0.id == target.stockId })?.name
 		}
 	}
 
-	/// 詳細に出す、関係の理由の文と関係する持ち株。出すものが無ければ nil。
+	/// 登録の言い方。「持ち株」と言うのは、本当に持ち株のときだけ
+	private static func registrationWord(of stocks: [Stock], holdings: [Int]) -> String {
+		let heldCount = stocks.filter { holdings.contains($0.id) }.count
+		if heldCount == stocks.count { return "持ち株" }
+		if heldCount == 0 { return "気になる銘柄" }
+		return "登録した銘柄"
+	}
+
+	/// 詳細に出す、関係の理由の文と関係する銘柄。出すものが無ければ nil。
 	///
 	/// テーマの名前が `themes` に無いことがある。CDN は経路ごとに別々に古い写しを返すので、
 	/// `Stock.themeIds` の番号が、まだ届いていないテーマ一覧に無いことがあるため。
-	/// そのときは名前を省いた文にして、持ち株だけを出す
+	/// そのときは名前を省いた文にして、銘柄だけを出す
 	static func relationDetail(
-		of event: Event, holdings: [Int], stocks: [Stock], themes: [Theme]
+		of event: Event, holdings: [Int], watching: [Int], stocks: [Stock], themes: [Theme]
 	) -> RelationDetail? {
+		let registered = holdings + watching
 		switch event.target {
 		case .market(let target):
 			let market: String
 			switch target.market {
 			case .GLOBAL:
-				return RelationDetail(sentence: "持ち株にかかわらず、全員に関係します", stocks: [], isHeld: true)
+				return RelationDetail(
+					sentence: "登録した銘柄にかかわらず、全員に関係します", stocks: [], isRegistered: true)
 			case .JP:
 				market = "日本株"
 			case .US:
 				market = "米国株"
 			}
-			let held = stocks.filter {
-				holdings.contains($0.id) && $0.market.rawValue == target.market.rawValue
+			let members = stocks.filter {
+				registered.contains($0.id) && $0.market.rawValue == target.market.rawValue
 			}
-			return RelationDetail(sentence: "\(market)を持つ人全員に関係します", stocks: held, isHeld: true)
+			return RelationDetail(
+				sentence: "\(market)を登録している人全員に関係します", stocks: members, isRegistered: true)
 		case .theme(let target):
-			let held = heldStocks(inTheme: target.themeId, holdings: holdings, stocks: stocks)
+			let members = registeredStocks(inTheme: target.themeId, registered: registered, stocks: stocks)
 			let themeName = themes.first(where: { $0.id == target.themeId })?.name
-			guard let first = held.first else {
-				return themeName.map { RelationDetail(sentence: "「\($0)」のテーマのイベントです", stocks: [], isHeld: false) }
+			guard let first = members.first else {
+				return themeName.map { RelationDetail(sentence: "「\($0)」のテーマのイベントです", stocks: [], isRegistered: false) }
 			}
-			let subject = held.count == 1 ? "持ち株の\(first.name)が" : "持ち株のうち\(held.count)銘柄が"
+			let word = registrationWord(of: members, holdings: holdings)
+			let subject = members.count == 1 ? "\(word)の\(first.name)が" : "\(word)のうち\(members.count)銘柄が"
 			let theme = themeName.map { "「\($0)」のテーマに" } ?? "、このイベントのテーマに"
-			return RelationDetail(sentence: "\(subject)\(theme)入っています", stocks: held, isHeld: true)
+			return RelationDetail(sentence: "\(subject)\(theme)入っています", stocks: members, isRegistered: true)
 		case .stock(let target):
 			guard let stock = stocks.first(where: { $0.id == target.stockId }) else { return nil }
-			// 持っていない銘柄を「持ち株の」と言わない（銘柄の画面は持っていない銘柄でも開ける）
-			let isHeld = holdings.contains(stock.id)
-			let sentence = isHeld ? "持ち株の\(stock.name)のイベントです" : "\(stock.name)のイベントです"
-			return RelationDetail(sentence: sentence, stocks: [stock], isHeld: isHeld)
+			// 登録していない銘柄を「持ち株の」とも「気になる銘柄の」とも言わない（銘柄の画面は登録していない銘柄でも開ける）
+			guard registered.contains(stock.id) else {
+				return RelationDetail(sentence: "\(stock.name)のイベントです", stocks: [stock], isRegistered: false)
+			}
+			let word = registrationWord(of: [stock], holdings: holdings)
+			return RelationDetail(sentence: "\(word)の\(stock.name)のイベントです", stocks: [stock], isRegistered: true)
 		}
 	}
 
@@ -247,16 +262,17 @@ enum EventLayout {
 		stocks.filter { $0.themeIds.contains(theme.id) }
 	}
 
-	/// テーマのタブの行に出す補足（`3銘柄`・`3銘柄・持ち株あり`・`銘柄なし`）。
-	/// 持ち株の数は出さない。「◯件中△件を保有」の言い方は、人気や順位の印象を生むため
-	static func themeSummary(for theme: Theme, stocks: [Stock], holdings: [Int]) -> String {
+	/// テーマのタブの行に出す補足（`3銘柄`・`3銘柄・登録あり`・`銘柄なし`）。
+	/// 登録した銘柄の数は出さない。「◯件中△件を保有」の言い方は、人気や順位の印象を生むため。
+	/// 持ち株でも気になる銘柄でも、1つでも属していれば「登録あり」
+	static func themeSummary(for theme: Theme, stocks: [Stock], registered: [Int]) -> String {
 		let members = Self.stocks(in: theme, from: stocks)
 		guard !members.isEmpty else { return "銘柄なし" }
 		let count = "\(members.count)銘柄"
-		return members.contains { holdings.contains($0.id) } ? "\(count)・持ち株あり" : count
+		return members.contains { registered.contains($0.id) } ? "\(count)・登録あり" : count
 	}
 
-	/// 持ち株のタブの行に出す、次に来るイベント（`9月20日 (日) 決算`）。無ければ nil。
+	/// 銘柄のタブの行に出す、次に来るイベント（`9月20日 (日) 決算`）。無ければ nil。
 	/// 時刻は行に出さない。日付と名称で足りる
 	static func nextEventText(for stock: Stock, events: [Event], today: Date) -> String? {
 		guard let next = upcoming(for: stock, events: events, today: today).first else { return nil }

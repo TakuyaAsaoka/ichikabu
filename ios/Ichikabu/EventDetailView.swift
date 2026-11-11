@@ -35,7 +35,7 @@ struct EventSourceView: View {
 }
 
 /// 「これから来るイベント」の1行。押すと詳細へ進む。銘柄の画面とテーマの画面が同じ作りで使う。
-/// 詳細に渡す関係の文は、持ち株と銘柄とテーマの一覧から、ここで引く
+/// 詳細に渡す関係の文は、登録した銘柄とテーマの一覧から、ここで引く
 struct UpcomingEventLink: View {
 	let event: Event
 	let today: Date
@@ -46,7 +46,7 @@ struct UpcomingEventLink: View {
 			EventDetailView(
 				event: event,
 				relation: EventLayout.relationDetail(
-					of: event, holdings: data.holdings, stocks: data.stocks, themes: data.themes))
+					of: event, holdings: data.holdings, watching: data.watching, stocks: data.stocks, themes: data.themes))
 		} label: {
 			VStack(alignment: .leading, spacing: Space.s4) {
 				HStack(spacing: Space.s6) {
@@ -62,10 +62,10 @@ struct UpcomingEventLink: View {
 }
 
 /// イベントの詳細。日付のシートの行を押すと開く。
-/// 行には出さない、なぜ持ち株に関係するかの文とメモを出す
+/// 行には出さない、なぜ登録した銘柄に関係するかの文とメモを出す
 struct EventDetailView: View {
 	let event: Event
-	/// 関係の文と持ち株。nil なら見出しごと出さない
+	/// 関係の文と関係する銘柄。nil なら見出しごと出さない
 	let relation: EventLayout.RelationDetail?
 	@Environment(AppData.self) private var data
 
@@ -82,14 +82,18 @@ struct EventDetailView: View {
 				}
 			}
 			if let relation {
-				Section(relation.isHeld ? "あなたの持ち株との関係" : "このイベントの対象") {
+				Section(relation.isRegistered ? "あなたの銘柄との関係" : "このイベントの対象") {
 					Text(relation.sentence)
 					ForEach(relation.stocks, id: \.id) { stock in
 						NavigationLink {
 							StockView(stock: stock)
 						} label: {
-							StockLabel(stock: stock)
-								.accessibilityElement(children: .combine)
+							HStack {
+								StockLabel(stock: stock)
+								Spacer()
+								RegistrationMark(registration: data.registration(of: stock.id))
+							}
+							.accessibilityElement(children: .combine)
 						}
 					}
 					// テーマのイベントは、そのテーマの画面へ進める。名前を引けないときは行ごと出さない

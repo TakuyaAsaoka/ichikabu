@@ -88,7 +88,7 @@ struct AppDataTests {
 		let theme = Theme(id: 20, name: "自動車")
 		let data = AppData(
 			fetch: fetch(Probe(), events: [event(id: 1, stockId: 1)], stocks: [stock], themes: [theme]),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 
 		await data.load()
 
@@ -129,7 +129,7 @@ struct AppDataTests {
 					let id = await probe.round
 					return [Theme(id: id, name: "テーマ\(id)")]
 				}),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 		await data.load()
 
 		await probe.nextRound()
@@ -151,7 +151,7 @@ struct AppDataTests {
 		await probe.set(events: true)
 		let data = AppData(
 			fetch: fetch(probe, events: [event(id: 1, stockId: 1)], stocks: [stock]),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 		await data.load()
 		#expect(data.failed)
 
@@ -175,7 +175,7 @@ struct AppDataTests {
 			fetch: fetch(
 				probe, events: [event(id: 1, stockId: 1)], stocks: [stock],
 				themes: [Theme(id: 20, name: "自動車")]),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 
 		await data.load()
 
@@ -205,7 +205,7 @@ struct AppDataTests {
 				},
 				stocks: { [] },
 				themes: { [] }),
-			store: HoldingStore(defaults: defaults))
+			store: RegistrationStore(defaults: defaults))
 
 		let first = Task { await data.load() }
 		for await _ in started { break }
@@ -219,49 +219,145 @@ struct AppDataTests {
 		#expect(!data.isLoading)
 	}
 
-	@Test("持ち株を変えると端末に保存され、作り直しても読み直される")
-	func savesHoldings() throws {
-		let suiteName = "app-data-saves-holdings"
+	// MARK: - 登録
+
+	private func makeData(_ suiteName: String, events: [Event] = [], stocks: [Stock] = []) throws -> (AppData, UserDefaults) {
 		let defaults = try defaults(suiteName)
-		defer { defaults.removePersistentDomain(forName: suiteName) }
-		let data = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
-
-		data.holdings = [1, 2]
-
-		#expect(HoldingStore(defaults: defaults).load() == [1, 2])
-		let reopened = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
-		#expect(reopened.holdings == [1, 2])
+		let data = AppData(fetch: fetch(Probe(), events: events, stocks: stocks), store: RegistrationStore(defaults: defaults))
+		return (data, defaults)
 	}
 
-	@Test("同じ銘柄を2回足しても、持ち株には1つしか入らない")
-	func addHoldingTwice() throws {
-		let suiteName = "app-data-add-holding-twice"
-		let defaults = try defaults(suiteName)
-		defer { defaults.removePersistentDomain(forName: suiteName) }
-		let data = AppData(fetch: fetch(Probe()), store: HoldingStore(defaults: defaults))
+	@Test("持ち株にすると持ち株に入り、気になる銘柄には入らない")
+	func registerHeld() throws {
+		let (data, defaults) = try makeData("app-data-register-held")
+		defer { defaults.removePersistentDomain(forName: "app-data-register-held") }
 
-		data.addHolding(1)
-		data.addHolding(1)
+		data.register(1, as: .held)
 
 		#expect(data.holdings == [1])
+		#expect(data.watching.isEmpty)
+		#expect(data.registration(of: 1) == .held)
 	}
 
-	@Test("持ち株を変えると、見せるイベントが変わる")
+	@Test("気になる銘柄にすると気になる銘柄に入り、持ち株には入らない")
+	func registerWatching() throws {
+		let (data, defaults) = try makeData("app-data-register-watching")
+		defer { defaults.removePersistentDomain(forName: "app-data-register-watching") }
+
+		data.register(1, as: .watching)
+
+		#expect(data.watching == [1])
+		#expect(data.holdings.isEmpty)
+		#expect(data.registration(of: 1) == .watching)
+	}
+
+	@Test("nil を指定すると登録が外れる。登録していない銘柄の registration は nil")
+	func unregister() throws {
+		let (data, defaults) = try makeData("app-data-unregister")
+		defer { defaults.removePersistentDomain(forName: "app-data-unregister") }
+		data.register(1, as: .held)
+		data.register(2, as: .watching)
+
+		data.register(1, as: nil)
+		data.register(2, as: nil)
+
+		#expect(data.holdings.isEmpty)
+		#expect(data.watching.isEmpty)
+		#expect(data.registration(of: 1) == nil)
+		#expect(data.registration(of: 3) == nil)
+	}
+
+	@Test("持ち株から気になる銘柄に替えると、持ち株から消える。逆も同じ")
+	func switchRegistration() throws {
+		let (data, defaults) = try makeData("app-data-switch")
+		defer { defaults.removePersistentDomain(forName: "app-data-switch") }
+		data.register(1, as: .held)
+
+		data.register(1, as: .watching)
+		#expect(data.holdings.isEmpty)
+		#expect(data.watching == [1])
+
+		data.register(1, as: .held)
+		#expect(data.holdings == [1])
+		#expect(data.watching.isEmpty)
+	}
+
+	@Test("同じ指定を2回しても、増えない")
+	func registerTwice() throws {
+		let (data, defaults) = try makeData("app-data-register-twice")
+		defer { defaults.removePersistentDomain(forName: "app-data-register-twice") }
+
+		data.register(1, as: .held)
+		data.register(1, as: .held)
+		data.register(2, as: .watching)
+		data.register(2, as: .watching)
+
+		#expect(data.holdings == [1])
+		#expect(data.watching == [2])
+	}
+
+	@Test("登録すると端末に保存され、作り直しても読み直される")
+	func savesRegistrations() throws {
+		let (data, defaults) = try makeData("app-data-saves-registrations")
+		defer { defaults.removePersistentDomain(forName: "app-data-saves-registrations") }
+
+		data.register(1, as: .held)
+		data.register(2, as: .watching)
+
+		let reopened = AppData(fetch: fetch(Probe()), store: RegistrationStore(defaults: defaults))
+		#expect(reopened.holdings == [1])
+		#expect(reopened.watching == [2])
+	}
+
+	@Test("保存の中身で同じ銘柄が両方に入っていたら、持ち株として扱う")
+	func bothKeysPreferHeld() throws {
+		let defaults = try defaults("app-data-both-keys")
+		defer { defaults.removePersistentDomain(forName: "app-data-both-keys") }
+		defaults.set([1], forKey: "holdings")
+		defaults.set([1, 2], forKey: "watching")
+
+		let data = AppData(fetch: fetch(Probe()), store: RegistrationStore(defaults: defaults))
+
+		#expect(data.registration(of: 1) == .held)
+		#expect(data.watching == [2])
+		// 直した値が保存にも書かれている（作っただけで、登録は1度も替えていない）
+		#expect(RegistrationStore(defaults: defaults).load(.watching) == [2])
+
+		// 持ち株から外して作り直しても、食い違っていた保存が気になる銘柄として戻ってこない
+		data.register(1, as: nil)
+		let reopened = AppData(fetch: fetch(Probe()), store: RegistrationStore(defaults: defaults))
+		#expect(reopened.registration(of: 1) == nil)
+		#expect(reopened.watching == [2])
+	}
+
+	@Test("registered は持ち株と気になる銘柄を合わせたもの。持ち株が先")
+	func registeredCombines() throws {
+		let (data, defaults) = try makeData("app-data-registered")
+		defer { defaults.removePersistentDomain(forName: "app-data-registered") }
+
+		data.register(2, as: .watching)
+		data.register(1, as: .held)
+
+		#expect(data.registered == [1, 2])
+	}
+
+	@Test("登録を変えると、見せるイベントが変わる。気になる銘柄のイベントも出る")
 	func visibleEvents() async throws {
-		let suiteName = "app-data-visible-events"
-		let defaults = try defaults(suiteName)
-		defer { defaults.removePersistentDomain(forName: suiteName) }
-		let data = AppData(
-			fetch: fetch(
-				Probe(), events: [event(id: 1, stockId: 1), event(id: 2, stockId: 2)],
-				stocks: [stock, otherStock]),
-			store: HoldingStore(defaults: defaults))
+		let (data, defaults) = try makeData(
+			"app-data-visible-events",
+			events: [event(id: 1, stockId: 1), event(id: 2, stockId: 2)],
+			stocks: [stock, otherStock])
+		defer { defaults.removePersistentDomain(forName: "app-data-visible-events") }
 		await data.load()
 
-		data.holdings = [1]
+		data.register(1, as: .held)
 		#expect(data.visibleEvents.map(\.id) == ["1"])
 
-		data.holdings = [2]
+		data.register(1, as: nil)
+		data.register(2, as: .watching)
 		#expect(data.visibleEvents.map(\.id) == ["2"])
+
+		data.register(1, as: .held)
+		#expect(data.visibleEvents.map(\.id) == ["1", "2"])
 	}
 }

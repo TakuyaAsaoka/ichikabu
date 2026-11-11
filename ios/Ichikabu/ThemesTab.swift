@@ -1,7 +1,7 @@
 import IchikabuAPI
 import SwiftUI
 
-/// テーマのタブ。登録されているテーマを `data.themes` の並びのまま全部出し、押すとテーマの画面へ進む。
+/// テーマのタブ。サーバーにあるテーマを `data.themes` の並びのまま全部出し、押すとテーマの画面へ進む。
 /// 並べ替えない（人気や保有で並べると順位に見えるため。docs/reference/product.md「投資助言との境界」）
 struct ThemesTab: View {
 	@Environment(AppData.self) private var data
@@ -20,7 +20,7 @@ struct ThemesTab: View {
 		} else if !data.loaded {
 			ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
 		} else if data.themes.isEmpty {
-			// テーマの取得だけが落ちても空になる（`AppData.load`）ので、「登録が無い」とは言い切らない。
+			// テーマの取得だけが落ちても空になる（`AppData.load`）ので、「テーマが無い」とは言い切らない。
 			// 取得は起動時の1回しか走らないため、押して取り直せるようにする
 			if data.isLoading {
 				ProgressView("取得しています")
@@ -41,7 +41,7 @@ struct ThemesTab: View {
 					} label: {
 						VStack(alignment: .leading, spacing: Space.s4) {
 							Text(theme.name)
-							Text(EventLayout.themeSummary(for: theme, stocks: data.stocks, holdings: data.holdings))
+							Text(EventLayout.themeSummary(for: theme, stocks: data.stocks, registered: data.registered))
 								.font(.captionRegular)
 								.foregroundStyle(.secondary)
 						}

@@ -29,51 +29,51 @@ final class CalendarUITests: XCTestCase {
 	}
 
 	@MainActor
-	func test_持ち株が未選択なら持ち株を選ぶボタンから一覧を開ける() {
+	func test_銘柄が未登録なら銘柄を選ぶボタンから一覧を開ける() {
 		let app = launch()
 
-		let choose = app.buttons["持ち株を選ぶ"]
-		XCTAssertTrue(choose.waitForExistence(timeout: 10), "「持ち株を選ぶ」が出ない")
+		let choose = app.buttons["銘柄を選ぶ"]
+		XCTAssertTrue(choose.waitForExistence(timeout: 10), "「銘柄を選ぶ」が出ない")
 		choose.tap()
-		// 題は「持ち株を選ぶ」。下のタブの名前「持ち株」と別にして、取り違えて通らないようにする
-		XCTAssertTrue(app.navigationBars["持ち株を選ぶ"].waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
+		// 題は「銘柄を選ぶ」。下のタブの名前「銘柄」と別にして、取り違えて通らないようにする
+		XCTAssertTrue(app.navigationBars["銘柄を選ぶ"].waitForExistence(timeout: 10), "銘柄を選ぶ画面が開かない")
 	}
 
 	@MainActor
-	func test_持ち株を選ぶ画面は完了で閉じる() {
+	func test_銘柄を選ぶ画面は完了で閉じる() {
 		let app = launch()
 
-		let choose = app.buttons["持ち株を選ぶ"]
-		XCTAssertTrue(choose.waitForExistence(timeout: 10), "「持ち株を選ぶ」が出ない")
+		let choose = app.buttons["銘柄を選ぶ"]
+		XCTAssertTrue(choose.waitForExistence(timeout: 10), "「銘柄を選ぶ」が出ない")
 		choose.tap()
-		let sheet = app.navigationBars["持ち株を選ぶ"]
-		XCTAssertTrue(sheet.waitForExistence(timeout: 10), "持ち株を選ぶ画面が開かない")
+		let sheet = app.navigationBars["銘柄を選ぶ"]
+		XCTAssertTrue(sheet.waitForExistence(timeout: 10), "銘柄を選ぶ画面が開かない")
 		sheet.buttons["完了"].tap()
 		XCTAssertTrue(sheet.waitForNonExistence(timeout: 10), "「完了」で閉じない")
 	}
 
 	@MainActor
-	func test_下のタブで持ち株へ移れて取得に失敗していれば知らせと再試行が出る() {
+	func test_下のタブで銘柄へ移れて取得に失敗していれば知らせと再試行が出る() {
 		let app = launch()
 
 		// カレンダーの失敗の知らせが出てから移る。移った先にも同じ知らせがあることを見るため
 		XCTAssertTrue(app.buttons["再試行"].waitForExistence(timeout: 30), "カレンダーに「再試行」が出ない")
-		let tab = app.tabBars.buttons["持ち株"]
-		XCTAssertTrue(tab.exists, "下のタブに「持ち株」が無い")
+		let tab = app.tabBars.buttons["銘柄"]
+		XCTAssertTrue(tab.exists, "下のタブに「銘柄」が無い")
 		tab.tap()
-		XCTAssertTrue(app.navigationBars["持ち株"].waitForExistence(timeout: 10), "持ち株のタブに移れない")
-		XCTAssertTrue(app.staticTexts["イベントと銘柄を取得できませんでした"].waitForExistence(timeout: 10), "持ち株のタブに失敗の知らせが出ない")
-		XCTAssertTrue(app.buttons["再試行"].exists, "持ち株のタブに「再試行」が出ない")
-		// 持っている銘柄が無いので、「選び直す」は出さない
-		XCTAssertFalse(app.buttons["持ち株を選び直す"].exists, "持っている銘柄が無いのに「選び直す」が出ている")
+		XCTAssertTrue(app.navigationBars["銘柄"].waitForExistence(timeout: 10), "銘柄のタブに移れない")
+		XCTAssertTrue(app.staticTexts["イベントと銘柄を取得できませんでした"].waitForExistence(timeout: 10), "銘柄のタブに失敗の知らせが出ない")
+		XCTAssertTrue(app.buttons["再試行"].exists, "銘柄のタブに「再試行」が出ない")
+		// 登録した銘柄が無いので、「選び直す」は出さない
+		XCTAssertFalse(app.buttons["銘柄を選び直す"].exists, "登録した銘柄が無いのに「選び直す」が出ている")
 	}
 
-	/// 持ち株が未選択で、取得に失敗する状態で起動する。
-	/// `-holdings ()` は UserDefaults の読み出しだけを上書きする。前の実行で選んだ持ち株は端末に残るため、毎回付ける
+	/// 銘柄が未登録で、取得に失敗する状態で起動する。
+	/// `-holdings ()` と `-watching ()` は UserDefaults の読み出しだけを上書きする。前の実行で登録した銘柄は端末に残るため、毎回付ける
 	@MainActor
 	private func launch() -> XCUIApplication {
 		let app = XCUIApplication()
-		app.launchArguments += ["-holdings", "()"]
+		app.launchArguments += ["-holdings", "()", "-watching", "()"]
 		app.launchEnvironment["ICHIKABU_API_BASE_URL"] = Self.unreachable
 		app.launch()
 		return app

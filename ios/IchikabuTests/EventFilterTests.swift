@@ -3,8 +3,8 @@ import Testing
 
 @testable import Ichikabu
 
-@Suite("持ち株による絞り込み")
-struct HoldingFilterTests {
+@Suite("登録した銘柄による絞り込み")
+struct EventFilterTests {
 	/// JP の銘柄。テーマ10に属する
 	private let toyota = Stock(
 		id: 1, market: .JP, ticker: "7203", name: "トヨタ自動車", themeIds: [10])
@@ -52,7 +52,7 @@ struct HoldingFilterTests {
 	func selectedStockOnly() {
 		let events = [stockEvent(id: "held", stockId: 1), stockEvent(id: "other", stockId: 2)]
 
-		let visible = EventLayout.visible(events, holdings: [1], stocks: [toyota, nvidia])
+		let visible = EventLayout.visible(events, registered: [1], stocks: [toyota, nvidia])
 
 		#expect(visible.map(\.id) == ["held"])
 	}
@@ -66,25 +66,25 @@ struct HoldingFilterTests {
 			themeEvent(id: "theme", themeId: 10),
 		]
 
-		let visible = EventLayout.visible(events, holdings: [], stocks: [toyota, nvidia])
+		let visible = EventLayout.visible(events, registered: [], stocks: [toyota, nvidia])
 
 		#expect(visible.map(\.id) == ["global"])
 	}
 
-	@Test("持ち株の市場の市場イベントが出る。別の市場のものは出ない")
-	func marketOfHeldStock() {
+	@Test("登録した銘柄の市場の市場イベントが出る。別の市場のものは出ない")
+	func marketOfRegisteredStock() {
 		let events = [marketEvent(id: "jp", market: .JP), marketEvent(id: "us", market: .US)]
 
-		let visible = EventLayout.visible(events, holdings: [1], stocks: [toyota, nvidia])
+		let visible = EventLayout.visible(events, registered: [1], stocks: [toyota, nvidia])
 
 		#expect(visible.map(\.id) == ["jp"])
 	}
 
-	@Test("持ち株が属するテーマのイベントが出る。属さないテーマのものは出ない")
-	func themeOfHeldStock() {
+	@Test("登録した銘柄が属するテーマのイベントが出る。属さないテーマのものは出ない")
+	func themeOfRegisteredStock() {
 		let events = [themeEvent(id: "belongs", themeId: 10), themeEvent(id: "other", themeId: 11)]
 
-		let visible = EventLayout.visible(events, holdings: [1], stocks: [toyota, nvidia])
+		let visible = EventLayout.visible(events, registered: [1], stocks: [toyota, nvidia])
 
 		#expect(visible.map(\.id) == ["belongs"])
 	}
@@ -98,8 +98,8 @@ struct HoldingFilterTests {
 		]
 
 		// 取得に失敗するとイベント自体も空になるが、絞り込みだけを見ると
-		// 持ち株の市場とテーマは引けない。GLOBAL は誰にでも出る
-		let visible = EventLayout.visible(events, holdings: [1], stocks: [])
+		// 登録した銘柄の市場とテーマは引けない。GLOBAL は誰にでも出る
+		let visible = EventLayout.visible(events, registered: [1], stocks: [])
 
 		#expect(visible.map(\.id) == ["global"])
 	}

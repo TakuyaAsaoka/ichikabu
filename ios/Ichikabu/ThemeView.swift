@@ -2,11 +2,11 @@ import IchikabuAPI
 import SwiftUI
 
 /// テーマの画面。そのテーマを対象にしたこれから来るイベントと、属する銘柄を、この順に出す。
-/// 銘柄は持っていないものも全部出す。テーマから、同じイベントで動く銘柄を見つけられるようにするため。
+/// 銘柄は登録していないものも全部出す。テーマから、同じイベントで動く銘柄を見つけられるようにするため。
 ///
 /// 全員に同じ内容を、事実の言い方で出す（docs/reference/product.md「投資助言との境界」）。
 /// 並びはサーバーが返す並びのままにし、人気・保有・件数で並べ替えない。
-/// 並びに意味を持たせると、順位やおすすめに見えるため。「持ち株」の印は、持っているかの事実を示すだけ
+/// 並びに意味を持たせると、順位やおすすめに見えるため。「持ち株」「気になる」の印は、登録の事実を示すだけ
 struct ThemeView: View {
 	let theme: Theme
 	@Environment(AppData.self) private var data
@@ -53,9 +53,7 @@ struct ThemeView: View {
 		VStack(alignment: .leading, spacing: Space.s2) {
 			StockLabel(stock: stock)
 			// 色だけで示さず、文字で出す
-			if data.holdings.contains(stock.id) {
-				Text("持ち株").font(.captionRegular).foregroundStyle(.secondary)
-			}
+			RegistrationMark(registration: data.registration(of: stock.id))
 		}
 		.accessibilityElement(children: .combine)
 	}

@@ -59,14 +59,14 @@ struct APIClient {
 		return try Self.events(from: data, response: response)
 	}
 
-	/// 登録されている銘柄を全件取る。認証は要らない（Issue #86）
+	/// サーバーにある銘柄を全件取る。認証は要らない（Issue #86）
 	func stocks() async throws -> [Stock] {
 		let request = URLRequest(url: Self.baseURL.appending(path: "/api/stocks"))
 		let (data, response) = try await Self.session.data(for: request)
 		return try Self.stocks(from: data, response: response)
 	}
 
-	/// 登録されているテーマを全件取る。認証は要らない
+	/// サーバーにあるテーマを全件取る。認証は要らない
 	func themes() async throws -> [Theme] {
 		let request = URLRequest(url: Self.baseURL.appending(path: "/api/themes"))
 		let (data, response) = try await Self.session.data(for: request)
