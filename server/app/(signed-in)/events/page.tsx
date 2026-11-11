@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { db } from "../../../src/db";
 import { creatorNamesByEventId } from "../../../src/db/audit";
@@ -7,6 +6,7 @@ import { event, stock, theme } from "../../../src/db/schema";
 import { jstToday } from "../../../src/status";
 import { addEvent } from "../../actions";
 import { BulkEventForm } from "../../bulk-event-form";
+import { EditLink } from "../../edit-link";
 import { EventForm } from "../../event-form";
 import { requireSession } from "../../guard";
 import { RegisterDetails } from "../../register-details";
@@ -168,7 +168,15 @@ function EventGrid({
               // 折り返す並びにしてあるので、スマホの幅でも横にはみ出さない。
               // `gap-x-2` は PC でも効き、包みの `lg:gap-x-2` と同じ値にしてある。
               // 変えると見出しと行の列が見た目でずれる（テストでは赤くならない）
-              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+              // スマホ幅（lg 未満）だけ、行を `relative` にして編集のアイコンを行の右上に
+              // 絶対位置で置く（#225）。行が何行に折れても1行目の右端にあり、
+              // 日付・★・ラベル・対象は1行目に並んだまま。アイコンの下に文字がもぐらないよう、
+              // 行の右に 44px（押せる範囲 36px ＋ 少しの間）の余白を取る。
+              // この余白のぶん、出典と入力が長い行は1行多く折れる。項目に負の余白を付けて
+              // 余白へ食い込ませる形は採らない。行が短い幅（768〜1023px）では、
+              // 食い込んだ文字が1行目に来て、アイコンの下にもぐる
+              // DOM の順は日付 … 編集のまま。PC は最後の列に入るので絶対位置にしない
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border py-1 max-lg:relative max-lg:pr-11 lg:col-span-full lg:grid lg:grid-cols-subgrid"
             >
               {/* **日付を行の先頭から動かさない。** `page.test.ts` が
                 行のHTMLの先頭10文字を日付として読み、開始日順に並ぶことを見ている。
@@ -210,9 +218,10 @@ function EventGrid({
                   ? (creators.get(id) ?? "取り込み")
                   : "記録なし"}
               </span>
-              <Link href={`/events/${row.id}`} className="underline">
-                編集
-              </Link>
+              <EditLink
+                href={`/events/${row.id}`}
+                className="max-lg:absolute max-lg:top-1 max-lg:right-0"
+              />
             </li>
           );
         })}

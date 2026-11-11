@@ -124,6 +124,32 @@ describe("イベントの画面", () => {
     );
   });
 
+  it("今後の行にも過去の行にも、読み上げの名前が「編集」のリンクが1つずつあり、行き先はその行の編集ページ", async () => {
+    // 文字の「編集」をアイコンに替えた（#225）。行ごとに1つ、行き先が合うことを見る
+    const [past] = entriesOf(await addEvent("過去", "1999-02-20"));
+    const [future] = entriesOf(await addEvent("未来", "2999-02-20"));
+    await signInAs(EDITOR);
+
+    const html = await render(Page);
+
+    const linkOf = (rowSelector: string) =>
+      htmlOf(html, `${rowSelector} a[aria-label="編集"]`);
+    expect(linkOf("details li")).toHaveLength(1);
+    expect(
+      htmlOf(html, `details li a[href="/events/${past.resourceId}"]`),
+    ).toHaveLength(1);
+    expect(linkOf("section > div > ul > li")).toHaveLength(1);
+    expect(
+      htmlOf(
+        html,
+        `section > div > ul > li a[href="/events/${future.resourceId}"]`,
+      ),
+    ).toHaveLength(1);
+    expect(
+      htmlOf(html, "a").filter((inner) => inner.trim() === "編集"),
+    ).toEqual([]);
+  });
+
   it("一覧は今日以降から始まり、過去は閉じた開閉にたたむ", async () => {
     // 開いてまず見たいのはこれからの予定。過去を先頭から全部並べると、
     // スマホで最初に見える行が全部過去になる（#192）。

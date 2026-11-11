@@ -74,6 +74,25 @@ describe("銘柄とテーマの画面", () => {
     expect(html).toContain(`href="/themes/${themeId}"`);
   });
 
+  it("銘柄の行とテーマの行に、読み上げの名前が「編集」のリンクが1つずつあり、文字だけの「編集」は無い", async () => {
+    // 文字の「編集」をアイコンに替えた（#225）。名前が消えると読み上げで何のリンクか分からない
+    const stockId = await addStock("7203", "トヨタ自動車");
+    const themeId = await addTheme("半導体");
+
+    const html = await render(Page);
+
+    expect(htmlOf(html, 'a[aria-label="編集"]')).toHaveLength(2);
+    expect(
+      htmlOf(html, `a[aria-label="編集"][href="/stocks/${stockId}"]`),
+    ).toHaveLength(1);
+    expect(
+      htmlOf(html, `a[aria-label="編集"][href="/themes/${themeId}"]`),
+    ).toHaveLength(1);
+    expect(
+      htmlOf(html, "a").filter((inner) => inner.trim() === "編集"),
+    ).toEqual([]);
+  });
+
   it("銘柄・テーマ・テーマ所属が、それぞれ決まった順に並ぶ", async () => {
     // 3つの問い合わせの並び順をまとめて見る。作った順と並び順がずれる題材に
     // する。作った順で並べても同じになる題材だと、`orderBy` が落ちても
@@ -91,7 +110,7 @@ describe("銘柄とテーマの画面", () => {
 
     // 銘柄とテーマは一覧とテーマ所属のフォームの両方に出る。同じ問い合わせから
     // 出ているので、選択肢の並びを見れば一覧の並びも押さえられる。選択肢で見るのは、
-    // 一覧の `<li>` には「/ 3月決算」や編集リンクが混ざり、並び順と関係ない
+    // 一覧の `<li>` には「/ 3月決算」や編集のアイコンが混ざり、並び順と関係ない
     // 変更で赤くなるため
     expect(htmlOf(html, 'select[name="stockId"] option')).toEqual([
       "JP 6758 ソニーグループ",
