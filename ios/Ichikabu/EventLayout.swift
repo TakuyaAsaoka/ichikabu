@@ -27,6 +27,27 @@ enum EventLayout {
 		return String(format: "%04d-%02d-%02d", year, month, day)
 	}
 
+	/// 詳細に出す日付と時刻（`9月16日 (水) 22:30:00`。期間なら `9月16日 (水) 〜 9月18日 (金)`）。
+	/// 日付が読めないときは、その文字列をそのまま出す
+	static func whenText(startDate: String, endDate: String?, time: String?) -> String {
+		var text = dayText(startDate)
+		if let endDate, endDate != startDate {
+			text += " 〜 \(dayText(endDate))"
+		}
+		if let time { text += " \(time)" }
+		return text
+	}
+
+	/// `2026-09-16` を `9月16日 (水)` にする。読めなければそのまま返す
+	private static func dayText(_ key: String) -> String {
+		let parts = key.split(separator: "-").compactMap { Int($0) }
+		guard parts.count == 3,
+			let date = calendar.date(
+				from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+		else { return key }
+		return dayTitle(for: date)
+	}
+
 	/// グリッド上部に出す月の表題（`2026年9月`）
 	static func title(for monthStart: Date) -> String {
 		let components = calendar.dateComponents([.year, .month], from: monthStart)

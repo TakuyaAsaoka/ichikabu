@@ -313,27 +313,21 @@ private struct DaySheet: View {
 			.navigationBarTitleDisplayMode(.inline)
 		}
 		// 詳細を開いたまま裏のカレンダーで別の日を押したとき、前の日の詳細を残さず
-		// その日の一覧に戻す。日付が変わると NavigationStack ごと作り直される
+		// その日の一覧に戻す。日付が変わると NavigationStack ごと作り直される。
+		// 同じ日付をもう一度押したときは変わらないので、詳細のまま残る
 		.id(date)
 	}
 
 	private func row(for event: Event) -> some View {
-		VStack(alignment: .leading, spacing: Space.s4) {
-			// 出典の Link はこの NavigationLink の外に置く。中に入れると、
-			// 出典を押したときに行の遷移も一緒に動いてしまう
-			NavigationLink {
-				EventDetailView(
-					event: event,
-					relation: EventLayout.relationDetail(
-						of: event, holdings: holdings, stocks: stocks, themes: themes))
-			} label: {
-				summary(of: event)
-			}
-			// 出典の記載を条件とする出典を使っている（docs/reference/source-terms.md）。
-			// 日付と名称が出るこの画面に、そのまま出しておく。source が無い行には何も出さない
-			if let source = event.source {
-				EventSourceView(source: source)
-			}
+		// 行に押せるものを2つ置くと、片方を押して両方が動くことがある。行は NavigationLink 1つにし、
+		// 押せる出典のリンクは詳細にだけ置く
+		NavigationLink {
+			EventDetailView(
+				event: event,
+				relation: EventLayout.relationDetail(
+					of: event, holdings: holdings, stocks: stocks, themes: themes))
+		} label: {
+			summary(of: event)
 		}
 		.padding(.vertical, 2)
 	}
@@ -353,6 +347,12 @@ private struct DaySheet: View {
 				Text(hint).font(.captionRegular).foregroundStyle(.secondary)
 					// 市場の手がかりはそのまま読める。ほかは、何の名前かが分かるように添える
 					.accessibilityLabel(spokenHint(hint, for: event))
+			}
+			// 出典の記載を条件とする出典を使っている（docs/reference/source-terms.md）ので、
+			// 日付と名称が出るこの画面に名前を残す。押せるリンクは詳細に置く。
+			// source が無い行には何も出さない
+			if let source = event.source {
+				Text("出典: \(source.name)").font(.captionRegular).foregroundStyle(.secondary)
 			}
 		}
 	}

@@ -8,9 +8,11 @@ struct EventStars: View {
 	let importance: Int
 
 	var body: some View {
-		Text(String(repeating: "★", count: min(max(importance, 0), 3)))
+		let count = min(max(importance, 0), 3)
+		Text(String(repeating: "★", count: count))
 			.font(.captionRegular)
 			.foregroundStyle(.orange)
+			.accessibilityLabel("重要度\(count)")
 	}
 }
 
@@ -44,8 +46,8 @@ struct EventDetailView: View {
 			Section {
 				VStack(alignment: .leading, spacing: Space.s6) {
 					EventStars(importance: event.importance)
-					Text(event.title).font(.title3Regular)
-					Text(when).font(.captionRegular).foregroundStyle(.secondary)
+					Text(event.title).font(.title3Regular).accessibilityAddTraits(.isHeader)
+					Text(EventLayout.whenText(startDate: event.startDate, endDate: event.endDate, time: event.time)).font(.captionRegular).foregroundStyle(.secondary)
 				}
 			}
 			if let relation {
@@ -58,6 +60,7 @@ struct EventDetailView: View {
 								.font(.captionRegular)
 								.foregroundStyle(.secondary)
 						}
+						.accessibilityElement(children: .combine)
 					}
 				}
 			}
@@ -68,26 +71,7 @@ struct EventDetailView: View {
 				Section("出典") { EventSourceView(source: source) }
 			}
 		}
+		.listStyle(.plain)
 		.navigationBarTitleDisplayMode(.inline)
-	}
-
-	/// 日付（期間なら終わりまで）と時刻
-	private var when: String {
-		var text = dateText(event.startDate)
-		if let end = event.endDate, end != event.startDate {
-			text += " 〜 \(dateText(end))"
-		}
-		if let time = event.time { text += " \(time)" }
-		return text
-	}
-
-	/// `2026-09-16` を `9月16日 (水)` にする。読めなければそのまま出す
-	private func dateText(_ key: String) -> String {
-		let parts = key.split(separator: "-").compactMap { Int($0) }
-		guard parts.count == 3,
-			let date = EventLayout.calendar.date(
-				from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
-		else { return key }
-		return EventLayout.dayTitle(for: date)
 	}
 }

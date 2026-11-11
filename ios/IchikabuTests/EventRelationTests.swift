@@ -89,9 +89,9 @@ struct EventRelationTests {
 		#expect(hint(themeEvent(10), holdings: [2, 1]) == "レーザーテック ほか1銘柄")
 	}
 
-	@Test("持っていない銘柄は手がかりに出ない")
+	@Test("持っていない銘柄は、手がかりの「ほか○銘柄」の数に入らない")
 	func hintNotHeld() {
-		#expect(hint(themeEvent(10), holdings: [2]) == "東京エレクトロン")
+		#expect(hint(themeEvent(10), holdings: [1]) == "レーザーテック")
 	}
 
 	@Test("テーマに属する持ち株が無ければ手がかりは出さない")
@@ -137,7 +137,7 @@ struct EventRelationTests {
 		#expect(names(result) == ["レーザーテック", "東京エレクトロン"])
 	}
 
-	@Test("持っていない銘柄は詳細に出ない")
+	@Test("持っていない銘柄は、詳細の文にも持ち株の一覧にも出ない")
 	func detailNotHeld() {
 		let result = detail(themeEvent(10), holdings: [2])
 		#expect(result?.sentence == "持ち株の東京エレクトロンが「半導体」のテーマに入っています")
