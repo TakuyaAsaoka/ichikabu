@@ -27,6 +27,27 @@ enum EventLayout {
 		return String(format: "%04d-%02d-%02d", year, month, day)
 	}
 
+	/// 詳細に出す日付と時刻（`9月16日 (水) 22:30:00`。期間なら `9月16日 (水) 〜 9月18日 (金)`）。
+	/// 日付が読めないときは、その文字列をそのまま出す
+	static func whenText(startDate: String, endDate: String?, time: String?) -> String {
+		var text = dayText(startDate)
+		if let endDate, endDate != startDate {
+			text += " 〜 \(dayText(endDate))"
+		}
+		if let time { text += " \(time)" }
+		return text
+	}
+
+	/// `2026-09-16` を `9月16日 (水)` にする。読めなければそのまま返す
+	private static func dayText(_ key: String) -> String {
+		let parts = key.split(separator: "-").compactMap { Int($0) }
+		guard parts.count == 3,
+			let date = calendar.date(
+				from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+		else { return key }
+		return dayTitle(for: date)
+	}
+
 	/// グリッド上部に出す月の表題（`2026年9月`）
 	static func title(for monthStart: Date) -> String {
 		let components = calendar.dateComponents([.year, .month], from: monthStart)
@@ -107,36 +128,70 @@ enum EventLayout {
 		}
 	}
 
-	/// シートの行に出す、イベントと持ち株の関係の1行。出すものが無ければ nil。
-	///
-	/// テーマの名前が `themes` に無いことがある。CDN は経路ごとに別々に古い写しを返すので、
-	/// `Stock.themeIds` の番号が、まだ届いていないテーマ一覧に無いことがあるため。
-	/// そのときは名前を省き、持ち株だけを出す
-	static func relation(of event: Event, holdings: [Int], stocks: [Stock], themes: [Theme])
-		-> String?
-	{
+	/// 詳細に出す、関係の理由の文と、関係する持ち株
+	struct RelationDetail: Equatable {
+		let sentence: String
+		let stocks: [Stock]
+	}
+
+	/// 持ち株のうち、そのテーマに属する銘柄。`stocks` の並びのまま
+	private static func heldStocks(inTheme themeId: Int, holdings: [Int], stocks: [Stock]) -> [Stock] {
+		stocks.filter { holdings.contains($0.id) && $0.themeIds.contains(themeId) }
+	}
+
+	/// シートの行に出す、どの持ち株に関係するかの短い手がかり。出すものが無ければ nil
+	static func relationHint(of event: Event, holdings: [Int], stocks: [Stock]) -> String? {
 		switch event.target {
 		case .market(let target):
 			switch target.market {
-			case .JP: return "市場: 日本"
-			case .US: return "市場: 米国"
-			case .GLOBAL: return "市場: すべて"
+			case .JP: return "日本株の持ち株"
+			case .US: return "米国株の持ち株"
+			case .GLOBAL: return "すべての持ち株"
 			}
 		case .theme(let target):
-			var parts: [String] = []
-			if let theme = themes.first(where: { $0.id == target.themeId }) {
-				parts.append("テーマ: \(theme.name)")
+			let held = heldStocks(inTheme: target.themeId, holdings: holdings, stocks: stocks)
+			guard let first = held.first else { return nil }
+			return held.count == 1 ? first.name : "\(first.name) ほか\(held.count - 1)銘柄"
+		case .stock(let target):
+			return stocks.first(where: { $0.id == target.stockId })?.name
+		}
+	}
+
+	/// 詳細に出す、関係の理由の文と関係する持ち株。出すものが無ければ nil。
+	///
+	/// テーマの名前が `themes` に無いことがある。CDN は経路ごとに別々に古い写しを返すので、
+	/// `Stock.themeIds` の番号が、まだ届いていないテーマ一覧に無いことがあるため。
+	/// そのときは名前を省いた文にして、持ち株だけを出す
+	static func relationDetail(
+		of event: Event, holdings: [Int], stocks: [Stock], themes: [Theme]
+	) -> RelationDetail? {
+		switch event.target {
+		case .market(let target):
+			let market: String
+			switch target.market {
+			case .GLOBAL:
+				return RelationDetail(sentence: "持ち株にかかわらず、全員に関係します", stocks: [])
+			case .JP:
+				market = "日本株"
+			case .US:
+				market = "米国株"
 			}
-			let names = stocks
-				.filter { holdings.contains($0.id) && $0.themeIds.contains(target.themeId) }
-				.map(\.name)
-			if !names.isEmpty {
-				parts.append("持ち株: \(names.joined(separator: "・"))")
+			let held = stocks.filter {
+				holdings.contains($0.id) && $0.market.rawValue == target.market.rawValue
 			}
-			return parts.isEmpty ? nil : parts.joined(separator: " ／ ")
+			return RelationDetail(sentence: "\(market)を持つ人全員に関係します", stocks: held)
+		case .theme(let target):
+			let held = heldStocks(inTheme: target.themeId, holdings: holdings, stocks: stocks)
+			let themeName = themes.first(where: { $0.id == target.themeId })?.name
+			guard let first = held.first else {
+				return themeName.map { RelationDetail(sentence: "「\($0)」のテーマのイベントです", stocks: []) }
+			}
+			let subject = held.count == 1 ? "持ち株の\(first.name)が" : "持ち株のうち\(held.count)銘柄が"
+			let theme = themeName.map { "「\($0)」のテーマに" } ?? "、このイベントのテーマに"
+			return RelationDetail(sentence: "\(subject)\(theme)入っています", stocks: held)
 		case .stock(let target):
 			guard let stock = stocks.first(where: { $0.id == target.stockId }) else { return nil }
-			return "持ち株: \(stock.name)"
+			return RelationDetail(sentence: "持ち株の\(stock.name)のイベントです", stocks: [stock])
 		}
 	}
 

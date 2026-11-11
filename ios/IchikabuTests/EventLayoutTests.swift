@@ -202,4 +202,26 @@ struct EventLayoutTests {
 		let date = Date(timeIntervalSince1970: 1_785_857_400)
 		#expect(EventLayout.key(for: date) == "2026-08-05")
 	}
+
+	@Test("単日は日付と時刻をつなぐ。時刻が無ければ日付だけ")
+	func whenSingleDay() {
+		#expect(
+			EventLayout.whenText(startDate: "2026-09-16", endDate: nil, time: "22:30:00")
+				== "9月16日 (水) 22:30:00")
+		#expect(
+			EventLayout.whenText(startDate: "2026-09-16", endDate: "2026-09-16", time: nil)
+				== "9月16日 (水)")
+	}
+
+	@Test("期間は終わりの日までを出す")
+	func whenPeriod() {
+		#expect(
+			EventLayout.whenText(startDate: "2026-09-16", endDate: "2026-09-18", time: nil)
+				== "9月16日 (水) 〜 9月18日 (金)")
+	}
+
+	@Test("日付が読めないときは、その文字列をそのまま出す")
+	func whenUnreadable() {
+		#expect(EventLayout.whenText(startDate: "未定", endDate: nil, time: nil) == "未定")
+	}
 }

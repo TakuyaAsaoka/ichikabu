@@ -9,7 +9,7 @@ struct CalendarView: View {
 	@State private var events: [Event] = []
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
 	@State private var stocks: [Stock] = []
-	/// シートの行に出すテーマの名前を引くための一覧
+	/// 詳細の文に出すテーマの名前を引くための一覧
 	@State private var themes: [Theme] = []
 	/// 直近の取得に失敗したか
 	@State private var failed = false
@@ -89,10 +89,9 @@ struct CalendarView: View {
 						date: selectedDay,
 						events: EventLayout.events(
 							on: EventLayout.key(for: selectedDay), from: shown),
-						relation: {
-							EventLayout.relation(
-								of: $0, holdings: holdings, stocks: stocks, themes: themes)
-						}
+						holdings: holdings,
+						stocks: stocks,
+						themes: themes
 					)
 				}
 			}
@@ -207,7 +206,7 @@ struct CalendarView: View {
 			// 3本を同時に取る。イベントと銘柄は1本でも失敗すると代入に届かないので、
 			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない。
 			// テーマは `try?` で受けて、落ちたら空の配列にする。テーマの名前は添え書きで、
-			// 無くても `relation` が名前を省いて出せる。アプリを先に配ってサーバーが古い
+			// 無くても `relationDetail` が名前を省いて出せる。アプリを先に配ってサーバーが古い
 			// （`/api/themes` が無い）間も、カレンダーが出るようにするため
 			async let events = APIClient().events()
 			async let stocks = APIClient().stocks()
@@ -289,12 +288,14 @@ private struct MonthPage: View {
 }
 
 /// 日付タップで開くシート。その日の全件を出す。
-/// セルで `+N` に省略された分も、セルには出さない正式名称と★の実数もここに出る
+/// セルで `+N` に省略された分も、セルには出さない正式名称と★の実数もここに出る。
+/// 行を押すと、なぜ持ち株に関係するかを文で読める詳細へ進む
 private struct DaySheet: View {
 	let date: Date
 	let events: [Event]
-	/// 行ごとの「関係」の1行。nil なら行を出さない
-	let relation: (Event) -> String?
+	let holdings: [Int]
+	let stocks: [Stock]
+	let themes: [Theme]
 
 	var body: some View {
 		NavigationStack {
@@ -311,17 +312,30 @@ private struct DaySheet: View {
 			.navigationTitle(EventLayout.dayTitle(for: date))
 			.navigationBarTitleDisplayMode(.inline)
 		}
+		// 詳細を開いたまま裏のカレンダーで別の日を押したとき、前の日の詳細を残さず
+		// その日の一覧に戻す。日付が変わると NavigationStack ごと作り直される。
+		// 同じ日付をもう一度押したときは変わらないので、詳細のまま残る
+		.id(date)
 	}
 
 	private func row(for event: Event) -> some View {
+		// 行に押せるものを2つ置くと、片方を押して両方が動くことがある。行は NavigationLink 1つにし、
+		// 押せる出典のリンクは詳細にだけ置く
+		NavigationLink {
+			EventDetailView(
+				event: event,
+				relation: EventLayout.relationDetail(
+					of: event, holdings: holdings, stocks: stocks, themes: themes))
+		} label: {
+			summary(of: event)
+		}
+		.padding(.vertical, 2)
+	}
+
+	private func summary(of event: Event) -> some View {
 		VStack(alignment: .leading, spacing: Space.s4) {
 			HStack(spacing: Space.s6) {
-				// セル上は「★3か否か」の2値だが、シートでは実数を出す。
-				// 1〜3 に収めるのは、String(repeating:count:) が負の数で落ちるため。
-				// openapi.yaml は 1〜3 と書いているが、生成コードは範囲を検査しない
-				Text(String(repeating: "★", count: min(max(event.importance, 0), 3)))
-					.font(.captionRegular)
-					.foregroundStyle(.orange)
+				EventStars(importance: event.importance)
 				// 短縮ラベルは出さない。すぐ下の名称と同じことを示すため（#194）。
 				// セルとの結び付きは、開いた日付の見出しが担う
 				if let time = event.time {
@@ -329,31 +343,23 @@ private struct DaySheet: View {
 				}
 			}
 			Text(event.title)
-			if let relation = relation(event) {
-				Text(relation).font(.captionRegular).foregroundStyle(.secondary)
-					// 区切りの「 ／ 」は読み上げると記号の名前になるので、「、」に替えて読ませる
-					.accessibilityLabel(relation.replacingOccurrences(of: " ／ ", with: "、"))
+			if let hint = EventLayout.relationHint(of: event, holdings: holdings, stocks: stocks) {
+				Text(hint).font(.captionRegular).foregroundStyle(.secondary)
+					// 市場の手がかりはそのまま読める。ほかは、何の名前かが分かるように添える
+					.accessibilityLabel(spokenHint(hint, for: event))
 			}
-			if let note = event.note {
-				Text(note).font(.captionRegular).foregroundStyle(.secondary)
-			}
-			// 出典の記載を条件とする出典を使うために、利用者に見える形で出す。
+			// 出典の記載を条件とする出典を使っている（docs/reference/source-terms.md）ので、
+			// 日付と名称が出るこの画面に名前を残す。押せるリンクは詳細に置く。
 			// source が無い行には何も出さない
 			if let source = event.source {
-				// URLとして読めないときも名前だけは出す。リンクごと消すと、
-				// 出典を出していないのと同じ状態が静かにできてしまう
-				if let url = URL(string: source.url) {
-					Link(destination: url) {
-						Text("出典: \(source.name)").font(.captionRegular)
-					}
-				} else {
-					Text("出典: \(source.name)")
-						.font(.captionRegular)
-						.foregroundStyle(.secondary)
-				}
+				Text("出典: \(source.name)").font(.captionRegular).foregroundStyle(.secondary)
 			}
 		}
-		.padding(.vertical, 2)
+	}
+
+	private func spokenHint(_ hint: String, for event: Event) -> String {
+		if case .market = event.target { return hint }
+		return "関係する持ち株、\(hint)"
 	}
 }
 

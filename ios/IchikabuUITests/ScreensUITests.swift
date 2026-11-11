@@ -50,9 +50,11 @@ final class ScreensUITests: XCTestCase {
 		try visibleDay(app, matching: "^[0-9]+[^0-9].*$", what: "イベントのある日").tap()
 		waitForSheet(app)
 		snap(app, "持ち株を選択済み｜日のシート（イベントあり）")
-		closeSheet(app)
+		openEventDetail(app)
 
+		// 詳細を開いたまま、半分の高さのシートの裏のカレンダーで別の日を押すと、その日の一覧に戻る
 		try visibleDay(app, matching: "^[0-9]+$", what: "イベントの無い日").tap()
+		XCTAssertTrue(app.staticTexts["あなたの持ち株との関係"].waitForNonExistence(timeout: 10), "別の日を押しても前の日の詳細が残っている")
 		waitForSheet(app)
 		snap(app, "持ち株を選択済み｜日のシート（イベントなし）")
 	}
@@ -107,6 +109,23 @@ final class ScreensUITests: XCTestCase {
 		// シートの見出しが出たことを先に確かめる。確かめずに閉じると、見出しが最初から無い場合に「閉じた」と取り違える
 		waitForSheet(app)
 		XCTAssertTrue(stockRows(app).firstMatch.waitForExistence(timeout: 30), "銘柄の行が出ない。接続先のサーバーと開発用DBの銘柄を確かめる")
+	}
+
+	/// 開いている日のシートで、開発用DBの見本のテーマのイベントの行を押して詳細を撮る。
+	/// 見本の行が無い月は、その日の最初のイベントの行を押す。どちらの行も、詳細が開かなければ失敗させる。
+	/// 行は読み上げ名で探す（`app.cells` は使わない。stockRows の注記と同じ理由）。
+	/// 行の読み上げ名には ★ の読み上げ「重要度」が入り、日付のセルの名前（日番号で始まる）には入らない。
+	/// 詳細は開いたままにする。戻らずに、裏のカレンダーで別の日を押す確認に続ける
+	@MainActor
+	private func openEventDetail(_ app: XCUIApplication) {
+		let sample = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "（見本）自動車のテーマのイベント")).firstMatch
+		let first = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "重要度")).firstMatch
+		let row = sample.waitForExistence(timeout: 3) ? sample : first
+		XCTAssertTrue(row.waitForExistence(timeout: 10), "日のシートにイベントの行が無い")
+		row.tap()
+		// 詳細が開いたことを、関係の見出しで確かめてから撮る
+		XCTAssertTrue(app.staticTexts["あなたの持ち株との関係"].waitForExistence(timeout: 10), "イベントの詳細が開かない")
+		snap(app, "持ち株を選択済み｜イベントの詳細")
 	}
 
 	@MainActor
