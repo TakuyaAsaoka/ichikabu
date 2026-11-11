@@ -79,4 +79,15 @@ struct APIClientTests {
 		#expect(stocks[0].themeIds == [10])
 		#expect(stocks[1].themeIds.isEmpty)
 	}
+
+	@Test("サーバーが返す形の JSON をテーマに読み取れる")
+	func decodeThemes() throws {
+		let json = Data(
+			"""
+			[{"id":10,"name":"半導体"},{"id":11,"name":"AI"}]
+			""".utf8)
+		let themes = try APIClient.themes(from: json, response: response(status: 200))
+		#expect(themes.map(\.id) == [10, 11])
+		#expect(themes.map(\.name) == ["半導体", "AI"])
+	}
 }

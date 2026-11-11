@@ -12,3 +12,6 @@ public typealias Event = Components.Schemas.Event
 
 /// `GET /api/stocks` が返す銘柄
 public typealias Stock = Components.Schemas.Stock
+
+/// `GET /api/themes` が返すテーマ
+public typealias Theme = Components.Schemas.Theme

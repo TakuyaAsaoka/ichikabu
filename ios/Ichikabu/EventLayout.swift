@@ -107,6 +107,39 @@ enum EventLayout {
 		}
 	}
 
+	/// シートの行に出す、イベントと持ち株の関係の1行。出すものが無ければ nil。
+	///
+	/// テーマの名前が `themes` に無いことがある。CDN は経路ごとに別々に古い写しを返すので、
+	/// `Stock.themeIds` の番号が、まだ届いていないテーマ一覧に無いことがあるため。
+	/// そのときは名前を省き、持ち株だけを出す
+	static func relation(of event: Event, holdings: [Int], stocks: [Stock], themes: [Theme])
+		-> String?
+	{
+		switch event.target {
+		case .market(let target):
+			switch target.market {
+			case .JP: return "市場: 日本"
+			case .US: return "市場: 米国"
+			case .GLOBAL: return "市場: すべて"
+			}
+		case .theme(let target):
+			var parts: [String] = []
+			if let theme = themes.first(where: { $0.id == target.themeId }) {
+				parts.append("テーマ: \(theme.name)")
+			}
+			let names = stocks
+				.filter { holdings.contains($0.id) && $0.themeIds.contains(target.themeId) }
+				.map(\.name)
+			if !names.isEmpty {
+				parts.append("持ち株: \(names.joined(separator: "・"))")
+			}
+			return parts.isEmpty ? nil : parts.joined(separator: " ／ ")
+		case .stock(let target):
+			guard let stock = stocks.first(where: { $0.id == target.stockId }) else { return nil }
+			return "持ち株: \(stock.name)"
+		}
+	}
+
 	/// シートの見出し（`8月4日 (火)`）
 	static func dayTitle(for date: Date) -> String {
 		let components = calendar.dateComponents([.month, .day, .weekday], from: date)

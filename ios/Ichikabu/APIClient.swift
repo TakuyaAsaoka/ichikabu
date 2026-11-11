@@ -10,7 +10,7 @@ enum APIError: Error, Equatable {
 }
 
 /// サーバーとの通信。
-/// 経路が2本しかないため、契約からは型だけを生成し、通信は自分で書く（Issue #5）。
+/// 経路が3本しかないため、契約からは型だけを生成し、通信は自分で書く（Issue #5）。
 struct APIClient {
 	/// 接続先。Debug はMacの `next dev`、Release は配信先を見る。
 	///
@@ -66,12 +66,25 @@ struct APIClient {
 		return try Self.stocks(from: data, response: response)
 	}
 
+	/// 登録されているテーマを全件取る。認証は要らない
+	func themes() async throws -> [Theme] {
+		let request = URLRequest(url: Self.baseURL.appending(path: "/api/themes"))
+		let (data, response) = try await Self.session.data(for: request)
+		return try Self.themes(from: data, response: response)
+	}
+
 	// 以下は引数だけで動く。通信をせずにテストできるように分けている
 
 	/// 応答を銘柄の配列に読み取る
 	static func stocks(from data: Data, response: URLResponse) throws -> [Stock] {
 		_ = try verified(response)
 		return try JSONDecoder().decode([Stock].self, from: data)
+	}
+
+	/// 応答をテーマの配列に読み取る
+	static func themes(from data: Data, response: URLResponse) throws -> [Theme] {
+		_ = try verified(response)
+		return try JSONDecoder().decode([Theme].self, from: data)
 	}
 
 	/// 応答をイベントの配列に読み取る

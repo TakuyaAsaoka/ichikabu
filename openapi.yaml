@@ -64,6 +64,25 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Stock"
+  /api/themes:
+    get:
+      summary: テーマ一覧
+      operationId: listThemes
+      description: |
+        登録されているテーマを全件返す。絞り込みパラメータは持たない。
+
+        認証は要らない。返すのは運用者が登録したテーマだけで、
+        誰が何を持っているかは含まない。
+      responses:
+        "200":
+          description: |
+            テーマの配列。ラッパーなし。id の昇順に並ぶ。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Theme"
 components:
   schemas:
     Health:
@@ -258,4 +277,16 @@ components:
             この銘柄が属するテーマのIDの一覧。属していなければ空の配列。
             テーマイベントは、そのテーマに属する銘柄を1つでも持つ人に出すため、
             端末側の判定にこの一覧が要る。並び順は決めない。
-            テーマの名前は返さない。テーマを画面に出す要件が無いため
+            テーマの名前は `GET /api/themes` で引く。
+    Theme:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: テーマのID。`Stock.themeIds` と `ThemeTarget.themeId` と同じ値
+        name:
+          type: string
+          description: テーマ名

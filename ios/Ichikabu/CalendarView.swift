@@ -9,6 +9,8 @@ struct CalendarView: View {
 	@State private var events: [Event] = []
 	/// 絞り込みに使う銘柄。市場とテーマは持ち株のIDだけでは引けない
 	@State private var stocks: [Stock] = []
+	/// シートの行に出すテーマの名前を引くための一覧
+	@State private var themes: [Theme] = []
 	/// 直近の取得に失敗したか
 	@State private var failed = false
 	/// 取得している最中か。起動時の1回目も含むが、画面に出るのは失敗中の取り直しだけ
@@ -86,7 +88,11 @@ struct CalendarView: View {
 					DaySheet(
 						date: selectedDay,
 						events: EventLayout.events(
-							on: EventLayout.key(for: selectedDay), from: shown)
+							on: EventLayout.key(for: selectedDay), from: shown),
+						relation: {
+							EventLayout.relation(
+								of: $0, holdings: holdings, stocks: stocks, themes: themes)
+						}
 					)
 				}
 			}
@@ -198,11 +204,14 @@ struct CalendarView: View {
 		isLoading = true
 		defer { isLoading = false }
 		do {
-			// 2本を1回で受け取る。片方が失敗すると代入に届かないので、
-			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない
+			// 3本を1回で受け取る。1本でも失敗すると代入に届かないので、
+			// 銘柄一覧が無いまま絞ったふりのカレンダーを描くことがない。
+			// テーマだけ落ちても失敗にするのは、失敗の経路を1つに保つため。
+			// 「再試行」で3本とも取り直せる
 			async let events = APIClient().events()
 			async let stocks = APIClient().stocks()
-			(self.events, self.stocks) = try await (events, stocks)
+			async let themes = APIClient().themes()
+			(self.events, self.stocks, self.themes) = try await (events, stocks, themes)
 			loaded = true
 			failed = false
 		} catch {
@@ -282,6 +291,8 @@ private struct MonthPage: View {
 private struct DaySheet: View {
 	let date: Date
 	let events: [Event]
+	/// 行ごとの「関係」の1行。nil なら行を出さない
+	let relation: (Event) -> String?
 
 	var body: some View {
 		NavigationStack {
@@ -316,6 +327,9 @@ private struct DaySheet: View {
 				}
 			}
 			Text(event.title)
+			if let relation = relation(event) {
+				Text(relation).font(.captionRegular).foregroundStyle(.secondary)
+			}
 			if let note = event.note {
 				Text(note).font(.captionRegular).foregroundStyle(.secondary)
 			}
