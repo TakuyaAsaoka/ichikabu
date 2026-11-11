@@ -91,4 +91,16 @@ struct UpcomingEventsTests {
 		]
 		#expect(ids(upcoming(events)) == ["c", "a", "b"])
 	}
+
+	@Test("今日かどうかはJSTの日付で決まる。JSTの0時30分は、UTCではまだ前日でも今日")
+	func JSTの日付で決まる() {
+		var components = DateComponents(year: 2026, month: 9, day: 16, hour: 0, minute: 30)
+		components.timeZone = TimeZone(identifier: "Asia/Tokyo")
+		let early = EventLayout.calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
+		let events = [
+			event("today", stockTarget(1), start: "2026-09-16"),
+			event("yesterday", stockTarget(1), start: "2026-09-15"),
+		]
+		#expect(ids(EventLayout.upcoming(for: stock, events: events, today: early)) == ["today"])
+	}
 }

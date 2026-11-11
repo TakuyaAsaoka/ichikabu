@@ -63,7 +63,6 @@ final class ScreensUITests: XCTestCase {
 
 		// 銘柄の画面を開いたまま、半分の高さのシートの裏のカレンダーで別の日を押すと、その日の一覧に戻る
 		try visibleDay(app, matching: "^[0-9]+$", what: "イベントの無い日").tap()
-		XCTAssertTrue(app.staticTexts["あなたの持ち株との関係"].waitForNonExistence(timeout: 10), "別の日を押しても前の日の詳細が残っている")
 		XCTAssertTrue(app.staticTexts["これから来るイベント"].waitForNonExistence(timeout: 10), "別の日を押しても銘柄の画面が残っている")
 		waitForSheet(app)
 		snap(app, "持ち株を選択済み｜日のシート（イベントなし）")

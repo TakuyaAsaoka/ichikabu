@@ -41,17 +41,20 @@ struct EventDetailView: View {
 	/// 関係の文と持ち株。nil なら見出しごと出さない
 	let relation: EventLayout.RelationDetail?
 
+	/// 日付に年を付けるかの基準。`CalendarView` の `today` と同じく、作ったときに1回だけ取る
+	@State private var today = Date()
+
 	var body: some View {
 		List {
 			Section {
 				VStack(alignment: .leading, spacing: Space.s6) {
 					EventStars(importance: event.importance)
 					Text(event.title).font(.title3Regular).accessibilityAddTraits(.isHeader)
-					Text(EventLayout.whenText(startDate: event.startDate, endDate: event.endDate, time: event.time)).font(.captionRegular).foregroundStyle(.secondary)
+					Text(EventLayout.whenText(startDate: event.startDate, endDate: event.endDate, time: event.time, today: today)).font(.captionRegular).foregroundStyle(.secondary)
 				}
 			}
 			if let relation {
-				Section("あなたの持ち株との関係") {
+				Section(relation.isHeld ? "あなたの持ち株との関係" : "このイベントの対象") {
 					Text(relation.sentence)
 					ForEach(relation.stocks, id: \.id) { stock in
 						NavigationLink {

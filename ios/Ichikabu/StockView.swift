@@ -1,7 +1,8 @@
 import IchikabuAPI
 import SwiftUI
 
-/// 銘柄の画面。入っているテーマと、その銘柄に関係するこれから来るイベントを出す。
+/// 銘柄の画面。その銘柄に関係するこれから来るイベントと、入っているテーマを、この順に出す。
+/// 半分の高さのシートでもイベントが見えるよう、イベントを先に置く。
 /// イベントの詳細の銘柄の行から進む
 struct StockView: View {
 	let stock: Stock
@@ -58,7 +59,7 @@ struct StockView: View {
 		VStack(alignment: .leading, spacing: Space.s4) {
 			HStack(spacing: Space.s6) {
 				EventStars(importance: event.importance)
-				Text(EventLayout.whenText(startDate: event.startDate, endDate: event.endDate, time: event.time))
+				Text(EventLayout.whenText(startDate: event.startDate, endDate: event.endDate, time: event.time, today: today))
 					.font(.captionRegular)
 					.foregroundStyle(.secondary)
 			}
