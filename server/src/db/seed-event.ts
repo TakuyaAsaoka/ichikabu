@@ -398,6 +398,27 @@ export async function seedSampleTheme(): Promise<
 
   await db.insert(themeStock).values(target).onConflictDoNothing();
 
+  // 2つ目のテーマ。画面を撮る UI テストは、銘柄を選ぶ画面の最後の1銘柄（9434）を
+  // 選ばずに残す。このテーマには「持っている銘柄（7203）」と「持っていない銘柄（9434）」が
+  // 1つずつ並ぶので、テーマの画面で持ち株の印の有る行と無い行を、同じ画面に写せる。
+  // 1つ目と同じく、何度実行しても増えない
+  await db
+    .insert(theme)
+    .values({ name: "（見本）大型株" })
+    .onConflictDoNothing();
+  const largeCapStocks = await db
+    .select({ themeId: theme.id, stockId: stock.id })
+    .from(theme)
+    .innerJoin(
+      stock,
+      and(eq(stock.market, "JP"), inArray(stock.ticker, ["7203", "9434"])),
+    )
+    .where(eq(theme.name, "（見本）大型株"));
+  if (largeCapStocks.length !== 2) {
+    throw new Error("銘柄が見つからない: 7203, 9434");
+  }
+  await db.insert(themeStock).values(largeCapStocks).onConflictDoNothing();
+
   // テーマを対象にしたイベントを2件入れる。
   // 1件目: 画面を撮る UI テストは、当月の最初のイベントのある日（米雇用統計の
   // 2026-11-06）を開く。同じ日に置けば、市場の行とテーマの行が1枚に写る。

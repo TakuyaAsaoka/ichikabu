@@ -28,16 +28,22 @@ async function themeRows() {
 }
 
 describe("seedSampleTheme", () => {
-  it("開発用DBには、テーマ「自動車」と 7203 の所属が1件ずつ入り、2回流しても増えない", async () => {
+  it("開発用DBには、テーマ「自動車」と「（見本）大型株」が入り、所属は3件で、2回流しても増えない", async () => {
     await seedEvents();
 
     expect(await seedSampleTheme()).toEqual({ skipped: false });
     expect(await seedSampleTheme()).toEqual({ skipped: false });
 
-    expect(await themeRows()).toEqual({
-      themes: [{ name: "自動車" }],
-      belongings: [{ name: "自動車", ticker: "7203" }],
-    });
+    // 並びは問わない。大型株には 7203 と 9434 が入る
+    const byName = (a: { name: string }, b: { name: string }) =>
+      a.name.localeCompare(b.name);
+    const rows = await themeRows();
+    expect(rows.themes.sort(byName)).toEqual(
+      [{ name: "自動車" }, { name: "（見本）大型株" }].sort(byName),
+    );
+    expect(rows.belongings.map((r) => `${r.name}:${r.ticker}`).sort()).toEqual(
+      ["自動車:7203", "（見本）大型株:7203", "（見本）大型株:9434"].sort(),
+    );
   });
 
   it("開発用DBには、テーマ「自動車」を対象にした見本のイベントが2件入り、2回流しても増えない", async () => {
@@ -94,9 +100,7 @@ describe("seedSampleTheme", () => {
     vi.stubEnv("DATABASE_URL", url.href);
 
     expect(await seedSampleTheme()).toEqual({ skipped: false });
-    expect((await themeRows()).belongings).toEqual([
-      { name: "自動車", ticker: "7203" },
-    ]);
+    expect((await themeRows()).belongings).toHaveLength(3);
   });
 
   it("所属先の 7203 が無ければ、黙って成功せずに落ちる", async () => {

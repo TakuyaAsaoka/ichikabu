@@ -216,13 +216,44 @@ enum EventLayout {
 	static func upcoming(for stock: Stock, events: [Event], today: Date) -> [Event] {
 		let todayKey = key(for: today)
 		return events.filter { event in
-			guard (event.endDate ?? event.startDate) >= todayKey else { return false }
+			guard isUpcoming(event, todayKey: todayKey) else { return false }
 			switch event.target {
 			case .stock(let target): return target.stockId == stock.id
 			case .theme(let target): return stock.themeIds.contains(target.themeId)
 			case .market: return false
 			}
 		}
+	}
+
+	/// そのテーマを対象にした、これから来るイベント。「これから」の決め方は `upcoming(for:)` と同じ。
+	/// 並べ替えはしない。渡された並び（サーバーが返す日付・時刻・IDの順）を保つ
+	static func upcoming(forTheme theme: Theme, events: [Event], today: Date) -> [Event] {
+		let todayKey = key(for: today)
+		return events.filter { event in
+			guard isUpcoming(event, todayKey: todayKey) else { return false }
+			if case .theme(let target) = event.target { return target.themeId == theme.id }
+			return false
+		}
+	}
+
+	/// 終わる日（期間でなければ始まる日）が今日以降か。日付キーはゼロ埋めなので文字列の大小で比べられる
+	private static func isUpcoming(_ event: Event, todayKey: String) -> Bool {
+		(event.endDate ?? event.startDate) >= todayKey
+	}
+
+	/// そのテーマに属する銘柄。持っているかどうかは問わない。
+	/// 並びは `stocks` のまま。人気や保有で並べ替えない（docs/reference/product.md「投資助言との境界」）
+	static func stocks(in theme: Theme, from stocks: [Stock]) -> [Stock] {
+		stocks.filter { $0.themeIds.contains(theme.id) }
+	}
+
+	/// テーマのタブの行に出す補足（`3銘柄`・`3銘柄・持ち株あり`・`銘柄なし`）。
+	/// 持ち株の数は出さない。「◯件中△件を保有」の言い方は、人気や順位の印象を生むため
+	static func themeSummary(for theme: Theme, stocks: [Stock], holdings: [Int]) -> String {
+		let members = Self.stocks(in: theme, from: stocks)
+		guard !members.isEmpty else { return "銘柄なし" }
+		let count = "\(members.count)銘柄"
+		return members.contains { holdings.contains($0.id) } ? "\(count)・持ち株あり" : count
 	}
 
 	/// 持ち株のタブの行に出す、次に来るイベント（`9月20日 (日) 決算`）。無ければ nil。
